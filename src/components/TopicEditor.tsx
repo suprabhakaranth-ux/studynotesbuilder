@@ -145,7 +145,16 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const deleteBlock = (id: string) => {
+    const blockToDelete = blocks.find(b => b.id === id);
+    
+    // Remove the block
     setBlocks(blocks.filter((block) => block.id !== id));
+    
+    // If the deleted block had headings, remove those heading nodes from the summary
+    if (blockToDelete?.headings && blockToDelete.headings.length > 0) {
+      const headingsToRemove = new Set(blockToDelete.headings);
+      setHeadingNodes(headingNodes.filter(node => !headingsToRemove.has(node.title)));
+    }
   };
 
   const handleSave = () => {
@@ -258,8 +267,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           </div>
         </TabsContent>
 
-        <TabsContent value="summary" className="flex-1 m-0 overflow-y-auto">
-          <div className="max-w-4xl mx-auto space-y-6 p-4">
+        <TabsContent value="summary" className="flex-1 m-0 p-4 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-2xl font-bold flex items-center gap-3">
