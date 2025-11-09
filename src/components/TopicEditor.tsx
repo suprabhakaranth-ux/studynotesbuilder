@@ -202,11 +202,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="full" className="flex-1 overflow-hidden m-0 flex flex-col">
-          <div className="sticky top-0 z-10 bg-card shadow-md">
+        <TabsContent value="full" className="flex-1 m-0 flex flex-col overflow-hidden">
+          <div className="sticky top-0 z-20 bg-card shadow-md border-b border-border">
             <FormattingToolbar onMarkHeading={markTextAsHeading} />
           </div>
-          <div className="flex-1 overflow-auto px-4">
+          <div className="flex-1 overflow-y-auto px-4">
             <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
               <div className="p-12 min-h-[297mm] space-y-4 bg-card">
                 {blocks.map((block) => (
@@ -222,35 +222,38 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           </div>
         </TabsContent>
 
-        <TabsContent value="summary" className="flex-1 overflow-auto m-0 p-6">
-          <div className="max-w-4xl mx-auto space-y-8">
-            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-6 shadow-lg border-2 border-primary/20">
-              <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                <div className="p-2 bg-primary rounded-lg">
-                  <FileText className="w-6 h-6 text-primary-foreground" />
-                </div>
-                Summary
-              </h3>
-              
-              {headingNodes.length > 0 && (
-                <div className="mb-6">
-                  <p className="text-sm text-muted-foreground mb-3">Headings from content (click to edit or add subheadings):</p>
-                  {headingNodes.map((node, idx) => (
-                    <HeadingNodeComponent
-                      key={node.id}
-                      node={node}
-                      onUpdate={(updatedNode) => {
-                        const newNodes = [...headingNodes];
-                        newNodes[idx] = updatedNode;
-                        setHeadingNodes(newNodes);
-                      }}
-                      onDelete={() => {
-                        setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
-                      }}
-                    />
-                  ))}
-                </div>
-              )}
+        <TabsContent value="summary" className="flex-1 m-0 flex flex-col overflow-hidden">
+          <div className="flex-1 overflow-y-auto p-4">
+            <div className="max-w-4xl mx-auto space-y-6">
+              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
+                <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
+                  <div className="p-2 bg-primary rounded-lg">
+                    <FileText className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  Summary
+                </h3>
+                
+                {headingNodes.length > 0 && (
+                  <div className="mb-4">
+                    <p className="text-sm text-muted-foreground mb-2">Headings from content (click to edit or add subheadings):</p>
+                    {headingNodes.map((node, idx) => (
+                      <HeadingNodeComponent
+                        key={node.id}
+                        node={node}
+                        level={0}
+                        index={idx + 1}
+                        onUpdate={(updatedNode) => {
+                          const newNodes = [...headingNodes];
+                          newNodes[idx] = updatedNode;
+                          setHeadingNodes(newNodes);
+                        }}
+                        onDelete={() => {
+                          setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
+                        }}
+                      />
+                    ))}
+                  </div>
+                )}
 
               <RichTextEditor
                 value={summaryContent}
@@ -273,13 +276,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               )}
             </div>
 
-            <div className="bg-gradient-to-br from-secondary/10 to-accent/10 rounded-xl p-6 shadow-lg border-2 border-secondary/20">
-              <h3 className="text-2xl font-bold mb-4 flex items-center gap-3">
-                <div className="p-2 bg-secondary rounded-lg">
-                  <Lightbulb className="w-6 h-6 text-secondary-foreground" />
-                </div>
-                Mnemonics
-              </h3>
+              <div className="bg-gradient-to-br from-secondary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-secondary/20">
+                <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
+                  <div className="p-2 bg-secondary rounded-lg">
+                    <Lightbulb className="w-6 h-6 text-secondary-foreground" />
+                  </div>
+                  Mnemonics
+                </h3>
               <RichTextEditor
                 value={mnemonicContent}
                 onChange={setMnemonicContent}
@@ -299,6 +302,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                   ))}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </TabsContent>

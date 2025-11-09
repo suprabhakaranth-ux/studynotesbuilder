@@ -1,12 +1,6 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { RichTextEditor } from "./RichTextEditor";
 import { Input } from "@/components/ui/input";
 
@@ -22,16 +16,19 @@ interface HeadingNodeComponentProps {
   onUpdate: (node: HeadingNode) => void;
   onDelete: () => void;
   level?: number;
+  index?: number;
 }
 
 export const HeadingNodeComponent = ({ 
   node, 
   onUpdate, 
   onDelete,
-  level = 0 
+  level = 0,
+  index = 0
 }: HeadingNodeComponentProps) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(node.title);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   const handleTitleSave = () => {
     if (editedTitle.trim()) {
@@ -66,19 +63,33 @@ export const HeadingNodeComponent = ({
     });
   };
 
-  const indentClass = level === 0 ? "" : "ml-6";
-  const borderColor = level === 0 ? "border-primary/20" : "border-secondary/20";
+  const indentClass = level === 0 ? "" : "ml-4";
+  const isMainHeading = level === 0;
+  const displayNumber = index;
 
   return (
-    <div className={indentClass}>
-      <Accordion type="single" collapsible className="w-full">
-        <AccordionItem 
-          value={node.id} 
-          className={`border ${borderColor} rounded-lg mb-2 px-4 bg-card/50`}
-        >
-          <AccordionTrigger className="text-left font-semibold hover:no-underline group">
-            <div className="flex items-center gap-2 flex-1">
-              {isEditingTitle ? (
+    <div className={`${indentClass} mb-2`}>
+      <div className="border border-border rounded-lg bg-card/50 overflow-hidden">
+        <div className="flex items-center gap-2 p-2 hover:bg-muted/50 group">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            {isExpanded ? (
+              <ChevronDown className="w-4 h-4" />
+            ) : (
+              <ChevronRight className="w-4 h-4" />
+            )}
+          </Button>
+
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            {isEditingTitle ? (
+              <div className="flex items-center gap-2 flex-1">
+                <span className="font-semibold text-sm whitespace-nowrap">
+                  {displayNumber}.
+                </span>
                 <Input
                   value={editedTitle}
                   onChange={(e) => setEditedTitle(e.target.value)}
@@ -90,78 +101,83 @@ export const HeadingNodeComponent = ({
                       setIsEditingTitle(false);
                     }
                   }}
-                  className="h-7 text-sm"
+                  className="h-7 text-sm flex-1"
                   autoFocus
                   onClick={(e) => e.stopPropagation()}
                 />
-              ) : (
-                <>
-                  <span className={level === 0 ? "text-primary" : "text-secondary"}>
-                    {node.title}
-                  </span>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsEditingTitle(true);
-                    }}
-                  >
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete();
-                    }}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </>
-              )}
-            </div>
-          </AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-3">
-              <RichTextEditor
-                value={node.notes}
-                onChange={(v) => onUpdate({ ...node, notes: v })}
-                placeholder="Add notes or breakdown for this heading..."
-                minHeight="100px"
-                className="p-3 border border-border rounded-md bg-background/50"
-              />
-              
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={handleAddSubheading}
-                className="w-full"
-              >
-                <Plus className="w-3 h-3 mr-2" />
-                Add Subheading
-              </Button>
+              </div>
+            ) : (
+              <>
+                <span className={`font-semibold text-sm ${isMainHeading ? 'text-primary' : 'text-foreground'}`}>
+                  {displayNumber}.
+                </span>
+                <span className={`text-sm truncate ${isMainHeading ? 'font-semibold text-primary' : 'text-foreground'}`}>
+                  {node.title}
+                </span>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 ml-auto flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingTitle(true);
+                  }}
+                >
+                  <Pencil className="w-3 h-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive flex-shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete();
+                  }}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
 
-              {node.children.length > 0 && (
-                <div className="mt-2 space-y-2">
-                  {node.children.map((child, idx) => (
-                    <HeadingNodeComponent
-                      key={child.id}
-                      node={child}
-                      onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
-                      onDelete={() => deleteChild(idx)}
-                      level={level + 1}
-                    />
-                  ))}
-                </div>
-              )}
-            </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+        {isExpanded && (
+          <div className="px-2 pb-2 space-y-2">
+            <RichTextEditor
+              value={node.notes}
+              onChange={(v) => onUpdate({ ...node, notes: v })}
+              placeholder="Add notes or breakdown for this heading..."
+              minHeight="80px"
+              className="p-2 border border-border rounded-md bg-background/50 text-sm"
+            />
+            
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleAddSubheading}
+              className="w-full h-7 text-xs"
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add Subheading
+            </Button>
+
+            {node.children.length > 0 && (
+              <div className="space-y-1 mt-2">
+                {node.children.map((child, idx) => (
+                  <HeadingNodeComponent
+                    key={child.id}
+                    node={child}
+                    index={idx + 1}
+                    onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
+                    onDelete={() => deleteChild(idx)}
+                    level={level + 1}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
