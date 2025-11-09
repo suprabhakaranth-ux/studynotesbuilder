@@ -223,7 +223,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </TabsContent>
 
         <TabsContent value="summary" className="flex-1 m-0 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4">
+          <div className="flex-1 overflow-y-auto p-4 pt-2">
             <div className="max-w-4xl mx-auto space-y-6">
               <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
                 <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
@@ -235,7 +235,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 
                 {headingNodes.length > 0 && (
                   <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">Headings from content (click to edit or add subheadings):</p>
+                    <p className="text-sm text-muted-foreground mb-2">Headings (click to edit, use buttons to organize):</p>
                     {headingNodes.map((node, idx) => (
                       <HeadingNodeComponent
                         key={node.id}
@@ -250,6 +250,24 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                         onDelete={() => {
                           setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
                         }}
+                        onPromote={() => {
+                          if (idx > 0) {
+                            const newNodes = [...headingNodes];
+                            const node = newNodes.splice(idx, 1)[0];
+                            newNodes.splice(idx - 1, 0, node);
+                            setHeadingNodes(newNodes);
+                          }
+                        }}
+                        onDemote={() => {
+                          if (idx > 0) {
+                            const newNodes = [...headingNodes];
+                            const node = newNodes.splice(idx, 1)[0];
+                            newNodes[idx - 1].children.push(node);
+                            setHeadingNodes(newNodes);
+                          }
+                        }}
+                        canDemote={idx > 0}
+                        canPromote={false}
                       />
                     ))}
                   </div>

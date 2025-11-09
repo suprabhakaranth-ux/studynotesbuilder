@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Pencil, Trash2, Plus, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "./RichTextEditor";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,10 @@ interface HeadingNodeComponentProps {
   node: HeadingNode;
   onUpdate: (node: HeadingNode) => void;
   onDelete: () => void;
+  onPromote?: () => void;
+  onDemote?: () => void;
+  canPromote?: boolean;
+  canDemote?: boolean;
   level?: number;
   index?: number;
 }
@@ -23,6 +27,10 @@ export const HeadingNodeComponent = ({
   node, 
   onUpdate, 
   onDelete,
+  onPromote,
+  onDemote,
+  canPromote = false,
+  canDemote = false,
   level = 0,
   index = 0
 }: HeadingNodeComponentProps) => {
@@ -63,14 +71,17 @@ export const HeadingNodeComponent = ({
     });
   };
 
-  const indentClass = level === 0 ? "" : "ml-4";
+  const indentClass = level === 0 ? "" : "ml-6";
   const isMainHeading = level === 0;
   const displayNumber = index;
+  const numberColor = isMainHeading ? "text-primary" : "text-secondary";
+  const titleColor = isMainHeading ? "text-primary" : "text-secondary";
+  const bgColor = isMainHeading ? "bg-card/50" : "bg-secondary/5";
 
   return (
     <div className={`${indentClass} mb-2`}>
-      <div className="border border-border rounded-lg bg-card/50 overflow-hidden">
-        <div className="flex items-center gap-2 p-2 hover:bg-muted/50 group">
+      <div className={`border border-border rounded-lg ${bgColor} overflow-hidden`}>
+        <div className="flex items-center gap-1 p-2 hover:bg-muted/50 group">
           <Button
             size="sm"
             variant="ghost"
@@ -84,10 +95,10 @@ export const HeadingNodeComponent = ({
             )}
           </Button>
 
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-1 flex-1 min-w-0">
             {isEditingTitle ? (
               <div className="flex items-center gap-2 flex-1">
-                <span className="font-semibold text-sm whitespace-nowrap">
+                <span className={`font-semibold text-sm whitespace-nowrap ${numberColor}`}>
                   {displayNumber}.
                 </span>
                 <Input
@@ -108,34 +119,64 @@ export const HeadingNodeComponent = ({
               </div>
             ) : (
               <>
-                <span className={`font-semibold text-sm ${isMainHeading ? 'text-primary' : 'text-foreground'}`}>
+                <span className={`font-semibold text-sm ${numberColor}`}>
                   {displayNumber}.
                 </span>
-                <span className={`text-sm truncate ${isMainHeading ? 'font-semibold text-primary' : 'text-foreground'}`}>
+                <span className={`text-sm truncate font-semibold ${titleColor}`}>
                   {node.title}
                 </span>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 ml-auto flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsEditingTitle(true);
-                  }}
-                >
-                  <Pencil className="w-3 h-3" />
-                </Button>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 text-destructive flex-shrink-0"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onDelete();
-                  }}
-                >
-                  <Trash2 className="w-3 h-3" />
-                </Button>
+                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
+                  {canPromote && onPromote && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onPromote();
+                      }}
+                      title="Convert to main heading"
+                    >
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                  )}
+                  {canDemote && onDemote && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDemote();
+                      }}
+                      title="Convert to subheading"
+                    >
+                      <ArrowDown className="w-3 h-3" />
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsEditingTitle(true);
+                    }}
+                  >
+                    <Pencil className="w-3 h-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="h-6 w-6 p-0 text-destructive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                  >
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </div>
               </>
             )}
           </div>
@@ -170,6 +211,15 @@ export const HeadingNodeComponent = ({
                     index={idx + 1}
                     onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
                     onDelete={() => deleteChild(idx)}
+                    onPromote={() => {
+                      // Promote child to be a sibling (parent level)
+                      const newChildren = [...node.children];
+                      const promotedChild = newChildren.splice(idx, 1)[0];
+                      onUpdate({ ...node, children: newChildren });
+                      // This would need to be handled at parent level
+                    }}
+                    canPromote={true}
+                    canDemote={false}
                     level={level + 1}
                   />
                 ))}
