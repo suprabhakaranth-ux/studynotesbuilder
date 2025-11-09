@@ -362,11 +362,97 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     }
   };
 
-  const handleSave = () => {
-    toast({
-      title: "Saved successfully! ✨",
-      description: "Your notes have been saved.",
-    });
+  const saveAll = async () => {
+    if (!user) return;
+
+    // Save blocks (delete then insert to preserve order)
+    const { error: deleteBlocksError } = await supabase
+      .from("blocks")
+      .delete()
+      .eq("topic_id", topicId)
+      .eq("user_id", user.id);
+    if (deleteBlocksError) throw deleteBlocksError;
+
+    if (blocks.length > 0) {
+      const { error: insertBlocksError } = await supabase.from("blocks").insert(
+        blocks.map((b, idx) => ({
+          id: b.id,
+          topic_id: topicId,
+          user_id: user.id,
+          type: b.type,
+          content: b.content,
+          headings: b.headings || [],
+          block_order: idx,
+        }))
+      );
+      if (insertBlocksError) throw insertBlocksError;
+    }
+
+    // Save summary and mnemonic in parallel
+    const [summaryRes, mnemonicRes] = await Promise.all([
+      supabase.from("summaries").upsert({
+        topic_id: topicId,
+        user_id: user.id,
+        content: summaryContent,
+      }),
+      supabase.from("mnemonics").upsert({
+        topic_id: topicId,
+        user_id: user.id,
+        content: mnemonicContent,
+      }),
+    ]);
+    if (summaryRes.error) throw summaryRes.error;
+    if (mnemonicRes.error) throw mnemonicRes.error;
+
+    // Save heading nodes (flat list for now)
+    const { error: deleteHNError } = await supabase
+      .from("heading_nodes")
+      .delete()
+      .eq("topic_id", topicId)
+      .eq("user_id", user.id);
+    if (deleteHNError) throw deleteHNError;
+
+    if (headingNodes.length > 0) {
+      const { error: insertHNError } = await supabase.from("heading_nodes").insert(
+        headingNodes.map((h, idx) => ({
+          id: h.id,
+          topic_id: topicId,
+          user_id: user.id,
+          title: h.title,
+          notes: h.notes,
+          parent_id: null,
+          node_order: idx,
+        }))
+      );
+      if (insertHNError) throw insertHNError;
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      await saveAll();
+      toast({
+        title: "Saved successfully! ✨",
+        description: "Your notes have been saved.",
+      });
+    } catch (error: any) {
+      console.error("Save failed:", error);
+      toast({
+        title: "Save failed",
+        description: error?.message || "An unexpected error occurred while saving.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleBack = async () => {
+    try {
+      await saveAll();
+    } catch (e) {
+      console.error("Background save on back failed:", e);
+    } finally {
+      onBack();
+    }
   };
 
   const markTextAsHeading = (text: string) => {
@@ -398,7 +484,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       <div className="border-b-2 border-border p-4 flex items-center justify-between bg-card/80 backdrop-blur shadow-sm">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={onBack} className="hover:bg-primary/10">
+          <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-primary/10">
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <BookOpen className="w-5 h-5 text-primary" />
