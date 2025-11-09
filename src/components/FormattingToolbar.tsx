@@ -60,11 +60,38 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     const range = sel.getRangeAt(0);
     if (range.collapsed) return;
     
-    const span = document.createElement('span');
-    span.style.fontSize = size;
-    range.surroundContents(span);
-    
-    setTimeout(syncActiveEditor, 0);
+    try {
+      const span = document.createElement('span');
+      span.style.fontSize = size;
+      
+      // Extract the selected content
+      const contents = range.extractContents();
+      
+      // Wrap it in the span
+      span.appendChild(contents);
+      
+      // Insert the wrapped content back
+      range.insertNode(span);
+      
+      // Clear selection
+      sel.removeAllRanges();
+      
+      setTimeout(syncActiveEditor, 0);
+    } catch (e) {
+      // Fallback to execCommand if range manipulation fails
+      console.warn('Font size application failed, using fallback');
+      document.execCommand('fontSize', false, '7');
+      const fontElements = document.querySelectorAll('font[size="7"]');
+      fontElements.forEach(el => {
+        const span = document.createElement('span');
+        span.style.fontSize = size;
+        while (el.firstChild) {
+          span.appendChild(el.firstChild);
+        }
+        el.parentNode?.replaceChild(span, el);
+      });
+      setTimeout(syncActiveEditor, 0);
+    }
   };
   return (
     <div className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">
