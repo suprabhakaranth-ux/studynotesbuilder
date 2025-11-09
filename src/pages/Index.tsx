@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
@@ -40,6 +40,44 @@ const Index = () => {
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+
+  // Load subjects and topics from localStorage on mount
+  useEffect(() => {
+    const savedSubjects = localStorage.getItem("psychology_subjects");
+    const savedTopics = localStorage.getItem("psychology_topics");
+    const savedActiveSubject = localStorage.getItem("psychology_active_subject");
+    
+    if (savedSubjects) {
+      setSubjects(JSON.parse(savedSubjects));
+    }
+    if (savedTopics) {
+      setTopics(JSON.parse(savedTopics));
+    }
+    if (savedActiveSubject) {
+      setActiveSubject(savedActiveSubject);
+    }
+  }, []);
+
+  // Save subjects to localStorage whenever they change
+  useEffect(() => {
+    if (subjects.length > 0) {
+      localStorage.setItem("psychology_subjects", JSON.stringify(subjects));
+    }
+  }, [subjects]);
+
+  // Save topics to localStorage whenever they change
+  useEffect(() => {
+    if (topics.length > 0) {
+      localStorage.setItem("psychology_topics", JSON.stringify(topics));
+    }
+  }, [topics]);
+
+  // Save active subject to localStorage whenever it changes
+  useEffect(() => {
+    if (activeSubject) {
+      localStorage.setItem("psychology_active_subject", activeSubject);
+    }
+  }, [activeSubject]);
 
   const handleNewSubject = () => {
     if (!newSubjectName.trim()) return;

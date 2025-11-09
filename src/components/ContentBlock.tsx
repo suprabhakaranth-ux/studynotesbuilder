@@ -1,7 +1,8 @@
-import { X } from "lucide-react";
+import { X, Heading } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useState, useRef } from "react";
 
 export type BlockType = "title" | "text" | "summary" | "mnemonic" | "image";
 
@@ -10,12 +11,34 @@ interface ContentBlockProps {
     id: string;
     type: BlockType;
     content: string;
+    headings?: string[];
   };
-  onUpdate: (id: string, content: string) => void;
+  onUpdate: (id: string, content: string, headings?: string[]) => void;
   onDelete: (id: string) => void;
 }
 
 export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) => {
+  const [selectedText, setSelectedText] = useState("");
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleTextSelection = () => {
+    if (textareaRef.current) {
+      const start = textareaRef.current.selectionStart;
+      const end = textareaRef.current.selectionEnd;
+      const selected = textareaRef.current.value.substring(start, end);
+      setSelectedText(selected.trim());
+    }
+  };
+
+  const markAsHeading = () => {
+    if (selectedText) {
+      const currentHeadings = block.headings || [];
+      const updatedHeadings = [...currentHeadings, selectedText];
+      onUpdate(block.id, block.content, updatedHeadings);
+      setSelectedText("");
+    }
+  };
+
   const getBlockTitle = () => {
     switch (block.type) {
       case "title":
@@ -105,12 +128,38 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           )}
         </div>
       ) : (
-        <Textarea
-          value={block.content}
-          onChange={(e) => onUpdate(block.id, e.target.value)}
-          placeholder={getPlaceholder()}
-          className="min-h-[150px] resize-y border-0 p-0 focus-visible:ring-0 bg-transparent text-lg leading-relaxed"
-        />
+        <div className="space-y-2">
+          <Textarea
+            ref={textareaRef}
+            value={block.content}
+            onChange={(e) => onUpdate(block.id, e.target.value)}
+            onSelect={handleTextSelection}
+            placeholder={getPlaceholder()}
+            className="min-h-[150px] resize-y border-0 p-0 focus-visible:ring-0 bg-transparent text-lg leading-relaxed"
+          />
+          {selectedText && block.type === "text" && (
+            <Button
+              size="sm"
+              onClick={markAsHeading}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Heading className="w-4 h-4 mr-2" />
+              Mark "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" as Heading
+            </Button>
+          )}
+          {block.headings && block.headings.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1">Headings marked:</p>
+              <div className="flex flex-wrap gap-1">
+                {block.headings.map((heading, idx) => (
+                  <span key={idx} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                    {heading.substring(0, 30)}{heading.length > 30 ? '...' : ''}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
       )}
     </div>
   );

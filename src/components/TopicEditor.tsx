@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,12 +11,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 
 interface Block {
   id: string;
   type: BlockType;
   content: string;
+  headings?: string[];
 }
 
 interface TopicEditorProps {
@@ -33,6 +40,36 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   const [summaryContent, setSummaryContent] = useState("");
   const [mnemonicContent, setMnemonicContent] = useState("");
 
+  // Load data from localStorage on mount
+  useEffect(() => {
+    const savedBlocks = localStorage.getItem(`topic_blocks_${topicId}`);
+    const savedSummary = localStorage.getItem(`topic_summary_${topicId}`);
+    const savedMnemonic = localStorage.getItem(`topic_mnemonic_${topicId}`);
+    
+    if (savedBlocks) {
+      setBlocks(JSON.parse(savedBlocks));
+    }
+    if (savedSummary) {
+      setSummaryContent(savedSummary);
+    }
+    if (savedMnemonic) {
+      setMnemonicContent(savedMnemonic);
+    }
+  }, [topicId]);
+
+  // Save to localStorage whenever content changes
+  useEffect(() => {
+    localStorage.setItem(`topic_blocks_${topicId}`, JSON.stringify(blocks));
+  }, [blocks, topicId]);
+
+  useEffect(() => {
+    localStorage.setItem(`topic_summary_${topicId}`, summaryContent);
+  }, [summaryContent, topicId]);
+
+  useEffect(() => {
+    localStorage.setItem(`topic_mnemonic_${topicId}`, mnemonicContent);
+  }, [mnemonicContent, topicId]);
+
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
       id: Date.now().toString(),
@@ -42,8 +79,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     setBlocks([...blocks, newBlock]);
   };
 
-  const updateBlock = (id: string, content: string) => {
-    setBlocks(blocks.map((block) => (block.id === id ? { ...block, content } : block)));
+  const updateBlock = (id: string, content: string, headings?: string[]) => {
+    setBlocks(blocks.map((block) => 
+      block.id === id ? { ...block, content, headings: headings || block.headings } : block
+    ));
   };
 
   const deleteBlock = (id: string) => {
@@ -55,12 +94,16 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const handleSave = () => {
-    // TODO: Implement actual save to localStorage or backend
     toast({
       title: "Saved successfully! ✨",
       description: "Your notes have been saved.",
     });
   };
+
+  // Extract all headings from blocks for summary accordion
+  const allHeadings = blocks
+    .filter(b => b.headings && b.headings.length > 0)
+    .flatMap(b => b.headings || []);
 
   const summaryBlocks = blocks.filter((b) => b.type === "summary");
   const mnemonicBlocks = blocks.filter((b) => b.type === "mnemonic");
@@ -148,10 +191,32 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 </div>
                 Summary
               </h3>
+              
+              {allHeadings.length > 0 && (
+                <div className="mb-6">
+                  <p className="text-sm text-muted-foreground mb-3">Auto-populated headings from content:</p>
+                  <Accordion type="single" collapsible className="w-full">
+                    {allHeadings.map((heading, idx) => (
+                      <AccordionItem key={idx} value={`heading-${idx}`} className="border border-primary/20 rounded-lg mb-2 px-4 bg-card/50">
+                        <AccordionTrigger className="text-left font-semibold text-primary hover:no-underline">
+                          {heading}
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <Textarea
+                            placeholder="Add notes or breakdown for this heading..."
+                            className="min-h-[100px] bg-background/50 border border-border"
+                          />
+                        </AccordionContent>
+                      </AccordionItem>
+                    ))}
+                  </Accordion>
+                </div>
+              )}
+
               <Textarea
                 value={summaryContent}
                 onChange={(e) => setSummaryContent(e.target.value)}
-                placeholder="Write your summary here... Key points, important concepts, main ideas..."
+                placeholder="Write additional summary notes here... Key points, important concepts, main ideas..."
                 className="min-h-[200px] text-lg bg-card/50 border-2 border-primary/20 focus:border-primary"
               />
               {summaryBlocks.length > 0 && (
