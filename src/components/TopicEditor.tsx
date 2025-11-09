@@ -13,6 +13,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useToast } from "@/hooks/use-toast";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 
 interface Block {
   id: string;
@@ -43,6 +58,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -142,6 +164,19 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     }
   };
 
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+
+    if (over && active.id !== over.id) {
+      setHeadingNodes((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id);
+        const newIndex = items.findIndex((item) => item.id === over.id);
+
+        return arrayMove(items, oldIndex, newIndex);
+      });
+    }
+  };
+
   const summaryBlocks = blocks.filter((b) => b.type === "summary");
   const mnemonicBlocks = blocks.filter((b) => b.type === "mnemonic");
 
@@ -223,69 +258,79 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           </div>
         </TabsContent>
 
-        <TabsContent value="summary" className="flex-1 m-0 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto px-4 pt-0">
-            <div className="max-w-4xl mx-auto space-y-6 pt-4">
-              <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-2xl font-bold flex items-center gap-3">
-                    <div className="p-2 bg-primary rounded-lg">
-                      <FileText className="w-6 h-6 text-primary-foreground" />
-                    </div>
-                    Summary
-                  </h3>
-                  {headingNodes.length > 0 && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setAreAllCollapsed(!areAllCollapsed)}
-                      className="text-xs"
-                    >
-                      {areAllCollapsed ? "Expand All" : "Collapse All"}
-                    </Button>
-                  )}
-                </div>
-                
-                {headingNodes.length > 0 && (
-                  <div className="mb-4">
-                    <p className="text-sm text-muted-foreground mb-2">Headings (click to edit, use buttons to organize):</p>
-                    {headingNodes.map((node, idx) => (
-                      <HeadingNodeComponent
-                        key={node.id}
-                        node={node}
-                        level={0}
-                        index={idx + 1}
-                        forceCollapsed={areAllCollapsed}
-                        onUpdate={(updatedNode) => {
-                          const newNodes = [...headingNodes];
-                          newNodes[idx] = updatedNode;
-                          setHeadingNodes(newNodes);
-                        }}
-                        onDelete={() => {
-                          setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
-                        }}
-                        onPromote={() => {
-                          if (idx > 0) {
-                            const newNodes = [...headingNodes];
-                            const node = newNodes.splice(idx, 1)[0];
-                            newNodes.splice(idx - 1, 0, node);
-                            setHeadingNodes(newNodes);
-                          }
-                        }}
-                        onDemote={() => {
-                          if (idx > 0) {
-                            const newNodes = [...headingNodes];
-                            const node = newNodes.splice(idx, 1)[0];
-                            newNodes[idx - 1].children.push(node);
-                            setHeadingNodes(newNodes);
-                          }
-                        }}
-                        canDemote={idx > 0}
-                        canPromote={false}
-                      />
-                    ))}
+        <TabsContent value="summary" className="flex-1 m-0 overflow-y-auto">
+          <div className="max-w-4xl mx-auto space-y-6 p-4">
+            <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-2xl font-bold flex items-center gap-3">
+                  <div className="p-2 bg-primary rounded-lg">
+                    <FileText className="w-6 h-6 text-primary-foreground" />
                   </div>
+                  Summary
+                </h3>
+                {headingNodes.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setAreAllCollapsed(!areAllCollapsed)}
+                    className="text-xs"
+                  >
+                    {areAllCollapsed ? "Expand All" : "Collapse All"}
+                  </Button>
                 )}
+              </div>
+              
+              {headingNodes.length > 0 && (
+                <div className="mb-4">
+                  <p className="text-sm text-muted-foreground mb-2">Headings (drag to reorder, click to edit):</p>
+                  <DndContext
+                    sensors={sensors}
+                    collisionDetection={closestCenter}
+                    onDragEnd={handleDragEnd}
+                  >
+                    <SortableContext
+                      items={headingNodes.map(node => node.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {headingNodes.map((node, idx) => (
+                        <HeadingNodeComponent
+                          key={node.id}
+                          node={node}
+                          level={0}
+                          index={idx + 1}
+                          forceCollapsed={areAllCollapsed}
+                          onUpdate={(updatedNode) => {
+                            const newNodes = [...headingNodes];
+                            newNodes[idx] = updatedNode;
+                            setHeadingNodes(newNodes);
+                          }}
+                          onDelete={() => {
+                            setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
+                          }}
+                          onPromote={() => {
+                            if (idx > 0) {
+                              const newNodes = [...headingNodes];
+                              const node = newNodes.splice(idx, 1)[0];
+                              newNodes.splice(idx - 1, 0, node);
+                              setHeadingNodes(newNodes);
+                            }
+                          }}
+                          onDemote={() => {
+                            if (idx > 0) {
+                              const newNodes = [...headingNodes];
+                              const node = newNodes.splice(idx, 1)[0];
+                              newNodes[idx - 1].children.push(node);
+                              setHeadingNodes(newNodes);
+                            }
+                          }}
+                          canDemote={idx > 0}
+                          canPromote={false}
+                        />
+                      ))}
+                    </SortableContext>
+                  </DndContext>
+                </div>
+              )}
 
               <RichTextEditor
                 value={summaryContent}
@@ -308,13 +353,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               )}
             </div>
 
-              <div className="bg-gradient-to-br from-secondary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-secondary/20">
-                <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
-                  <div className="p-2 bg-secondary rounded-lg">
-                    <Lightbulb className="w-6 h-6 text-secondary-foreground" />
-                  </div>
-                  Mnemonics
-                </h3>
+            <div className="bg-gradient-to-br from-secondary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-secondary/20">
+              <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
+                <div className="p-2 bg-secondary rounded-lg">
+                  <Lightbulb className="w-6 h-6 text-secondary-foreground" />
+                </div>
+                Mnemonics
+              </h3>
               <RichTextEditor
                 value={mnemonicContent}
                 onChange={setMnemonicContent}
@@ -334,7 +379,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                   ))}
                 </div>
               )}
-              </div>
             </div>
           </div>
         </TabsContent>

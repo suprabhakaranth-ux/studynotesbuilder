@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { Pencil, Trash2, Plus, ChevronDown, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import { Pencil, Trash2, Plus, ChevronDown, ChevronRight, ArrowUp, ArrowDown, GripVertical } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "./RichTextEditor";
 import { Input } from "@/components/ui/input";
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 
 interface HeadingNode {
   id: string;
@@ -41,6 +43,21 @@ export const HeadingNodeComponent = ({
   const [isExpanded, setIsExpanded] = useState(true);
   
   const showContent = isExpanded && !forceCollapsed;
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: node.id, disabled: level > 0 });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
 
   const handleTitleSave = () => {
     if (editedTitle.trim()) {
@@ -83,9 +100,18 @@ export const HeadingNodeComponent = ({
   const bgColor = isMainHeading ? "bg-card/50" : "bg-muted/30";
 
   return (
-    <div className={`${indentClass} mb-2`}>
+    <div ref={setNodeRef} style={style} className={`${indentClass} mb-2`}>
       <div className={`border border-border rounded-lg ${bgColor} overflow-hidden`}>
         <div className="flex items-center gap-1 p-2 hover:bg-muted/50 group">
+          {level === 0 && (
+            <div
+              {...attributes}
+              {...listeners}
+              className="cursor-grab active:cursor-grabbing touch-none"
+            >
+              <GripVertical className="w-4 h-4 text-muted-foreground" />
+            </div>
+          )}
           <Button
             size="sm"
             variant="ghost"
