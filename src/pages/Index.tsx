@@ -58,10 +58,22 @@ const Index = () => {
     if (!user) return;
 
     const loadData = async () => {
-      // Load subjects (we'll use localStorage for now as subjects table doesn't exist yet)
-      const savedSubjects = localStorage.getItem("psychology_subjects");
-      if (savedSubjects) {
-        setSubjects(JSON.parse(savedSubjects));
+      // Load subjects from database
+      const { data: subjectsData, error: subjectsError } = await supabase
+        .from("subjects")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (subjectsError) {
+        console.error("Error loading subjects:", subjectsError);
+      } else if (subjectsData) {
+        const mappedSubjects = subjectsData.map(s => ({
+          id: s.id,
+          name: s.name,
+          color: s.color,
+        }));
+        setSubjects(mappedSubjects);
       }
 
       // Load topics from database
@@ -74,10 +86,9 @@ const Index = () => {
       if (error) {
         console.error("Error loading topics:", error);
       } else if (topicsData) {
-        // Map database topics to our interface
         const mappedTopics = topicsData.map(t => ({
           id: t.id,
-          subjectId: "default", // We'll use a default subject for now
+          subjectId: t.subject_id || "default",
           title: t.title,
         }));
         setTopics(mappedTopics);
@@ -87,20 +98,35 @@ const Index = () => {
     loadData();
   }, [user]);
 
-  // Save subjects to localStorage (temporary until we add subjects table)
-  useEffect(() => {
-    if (subjects.length > 0) {
-      localStorage.setItem("psychology_subjects", JSON.stringify(subjects));
-    }
-  }, [subjects]);
 
-  const handleNewSubject = () => {
-    if (!newSubjectName.trim()) return;
+  const handleNewSubject = async () => {
+    if (!newSubjectName.trim() || !user) return;
+
+    const color = colors[Math.floor(Math.random() * colors.length)];
+
+    const { data, error } = await supabase
+      .from("subjects")
+      .insert({
+        name: newSubjectName,
+        color: color,
+        user_id: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create subject",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const newSubject: Subject = {
-      id: Date.now().toString(),
-      name: newSubjectName,
-      color: colors[Math.floor(Math.random() * colors.length)],
+      id: data.id,
+      name: data.name,
+      color: data.color,
     };
 
     setSubjects([...subjects, newSubject]);
@@ -121,6 +147,7 @@ const Index = () => {
       .from("topics")
       .insert({
         title: newTopicTitle,
+        subject_id: activeSubject,
         user_id: user.id,
       })
       .select()
