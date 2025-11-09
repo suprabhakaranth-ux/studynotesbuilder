@@ -46,17 +46,33 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
     }
   };
 
+  const getBlockIcon = () => {
+    switch (block.type) {
+      case "summary":
+        return "📝";
+      case "mnemonic":
+        return "💡";
+      case "title":
+        return "📌";
+      case "image":
+        return "🖼️";
+      default:
+        return "✏️";
+    }
+  };
+
   return (
-    <div className="border border-border rounded-lg p-4 bg-card group relative">
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase">
+    <div className="border-2 border-border rounded-xl p-5 bg-gradient-to-br from-card to-card/50 group relative shadow-sm hover:shadow-md transition-all">
+      <div className="flex items-center justify-between mb-3">
+        <span className="text-sm font-semibold text-primary flex items-center gap-2">
+          <span className="text-lg">{getBlockIcon()}</span>
           {getBlockTitle()}
         </span>
         <Button
           size="sm"
           variant="ghost"
           onClick={() => onDelete(block.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity"
+          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
         >
           <X className="w-4 h-4" />
         </Button>
@@ -67,20 +83,21 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           value={block.content}
           onChange={(e) => onUpdate(block.id, e.target.value)}
           placeholder={getPlaceholder()}
-          className="text-2xl font-bold border-0 p-0 focus-visible:ring-0"
+          className="text-3xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
         />
       ) : block.type === "image" ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           <Input
             value={block.content}
             onChange={(e) => onUpdate(block.id, e.target.value)}
             placeholder={getPlaceholder()}
+            className="bg-muted/30"
           />
           {block.content && (
             <img
               src={block.content}
               alt="Content"
-              className="max-w-full h-auto rounded-md"
+              className="max-w-full h-auto rounded-lg shadow-md"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
@@ -92,7 +109,7 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           value={block.content}
           onChange={(e) => onUpdate(block.id, e.target.value)}
           placeholder={getPlaceholder()}
-          className="min-h-[100px] resize-none border-0 p-0 focus-visible:ring-0"
+          className="min-h-[150px] resize-y border-0 p-0 focus-visible:ring-0 bg-transparent text-lg leading-relaxed"
         />
       )}
     </div>
