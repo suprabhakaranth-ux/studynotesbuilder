@@ -21,6 +21,7 @@ interface HeadingNodeComponentProps {
   canDemote?: boolean;
   level?: number;
   index?: number;
+  forceCollapsed?: boolean;
 }
 
 export const HeadingNodeComponent = ({ 
@@ -32,11 +33,14 @@ export const HeadingNodeComponent = ({
   canPromote = false,
   canDemote = false,
   level = 0,
-  index = 0
+  index = 0,
+  forceCollapsed = false
 }: HeadingNodeComponentProps) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(node.title);
   const [isExpanded, setIsExpanded] = useState(true);
+  
+  const showContent = isExpanded && !forceCollapsed;
 
   const handleTitleSave = () => {
     if (editedTitle.trim()) {
@@ -74,9 +78,9 @@ export const HeadingNodeComponent = ({
   const indentClass = level === 0 ? "" : "ml-6";
   const isMainHeading = level === 0;
   const displayNumber = index;
-  const numberColor = isMainHeading ? "text-primary" : "text-secondary";
-  const titleColor = isMainHeading ? "text-primary" : "text-secondary";
-  const bgColor = isMainHeading ? "bg-card/50" : "bg-secondary/5";
+  const numberColor = isMainHeading ? "text-primary" : "text-foreground/80";
+  const titleColor = isMainHeading ? "text-primary" : "text-foreground/90";
+  const bgColor = isMainHeading ? "bg-card/50" : "bg-muted/30";
 
   return (
     <div className={`${indentClass} mb-2`}>
@@ -88,7 +92,7 @@ export const HeadingNodeComponent = ({
             className="h-6 w-6 p-0"
             onClick={() => setIsExpanded(!isExpanded)}
           >
-            {isExpanded ? (
+            {showContent ? (
               <ChevronDown className="w-4 h-4" />
             ) : (
               <ChevronRight className="w-4 h-4" />
@@ -182,7 +186,7 @@ export const HeadingNodeComponent = ({
           </div>
         </div>
 
-        {isExpanded && (
+        {showContent && (
           <div className="px-2 pb-2 space-y-2">
             <RichTextEditor
               value={node.notes}
@@ -209,6 +213,7 @@ export const HeadingNodeComponent = ({
                     key={child.id}
                     node={child}
                     index={idx + 1}
+                    forceCollapsed={forceCollapsed}
                     onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
                     onDelete={() => deleteChild(idx)}
                     onPromote={() => {

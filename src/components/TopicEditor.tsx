@@ -42,6 +42,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   const [summaryContent, setSummaryContent] = useState("");
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
+  const [areAllCollapsed, setAreAllCollapsed] = useState(false);
 
   // Load data from localStorage on mount
   useEffect(() => {
@@ -223,15 +224,27 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </TabsContent>
 
         <TabsContent value="summary" className="flex-1 m-0 flex flex-col overflow-hidden">
-          <div className="flex-1 overflow-y-auto p-4 pt-2">
-            <div className="max-w-4xl mx-auto space-y-6">
+          <div className="flex-1 overflow-y-auto px-4 pt-0">
+            <div className="max-w-4xl mx-auto space-y-6 pt-4">
               <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
-                <h3 className="text-2xl font-bold mb-3 flex items-center gap-3">
-                  <div className="p-2 bg-primary rounded-lg">
-                    <FileText className="w-6 h-6 text-primary-foreground" />
-                  </div>
-                  Summary
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-2xl font-bold flex items-center gap-3">
+                    <div className="p-2 bg-primary rounded-lg">
+                      <FileText className="w-6 h-6 text-primary-foreground" />
+                    </div>
+                    Summary
+                  </h3>
+                  {headingNodes.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAreAllCollapsed(!areAllCollapsed)}
+                      className="text-xs"
+                    >
+                      {areAllCollapsed ? "Expand All" : "Collapse All"}
+                    </Button>
+                  )}
+                </div>
                 
                 {headingNodes.length > 0 && (
                   <div className="mb-4">
@@ -242,6 +255,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                         node={node}
                         level={0}
                         index={idx + 1}
+                        forceCollapsed={areAllCollapsed}
                         onUpdate={(updatedNode) => {
                           const newNodes = [...headingNodes];
                           newNodes[idx] = updatedNode;
