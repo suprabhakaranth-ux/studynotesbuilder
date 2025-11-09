@@ -54,8 +54,8 @@ interface TopicEditorProps {
 export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const [blocks, setBlocks] = useState<Block[]>([
-    { id: "1", type: "text", content: "" },
+  const [blocks, setBlocks] = useState<Block[]>(() => [
+    { id: crypto.randomUUID(), type: "text", content: "" },
   ]);
   const [summaryContent, setSummaryContent] = useState("");
   const [mnemonicContent, setMnemonicContent] = useState("");
@@ -182,7 +182,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       
       if (newHeadings.length > 0) {
         const newNodes: HeadingNode[] = newHeadings.map(h => ({
-          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          id: crypto.randomUUID(),
           title: h,
           notes: "",
           children: []
@@ -196,7 +196,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      id: crypto.randomUUID(),
       type,
       content: "",
     };
@@ -243,8 +243,20 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       if (deleteBlocksError) throw deleteBlocksError;
 
       if (blocks.length > 0) {
+        // Sanitize block IDs - regenerate any short/invalid IDs
+        const sanitizedBlocks = blocks.map(b => ({
+          ...b,
+          id: b.id.length < 20 ? crypto.randomUUID() : b.id,
+        }));
+        
+        // Update state if any IDs were regenerated
+        const hadInvalidIds = blocks.some((b, i) => b.id !== sanitizedBlocks[i].id);
+        if (hadInvalidIds) {
+          setBlocks(sanitizedBlocks);
+        }
+
         const { error: insertBlocksError } = await supabase.from("blocks").insert(
-          blocks.map((b, idx) => ({
+          sanitizedBlocks.map((b, idx) => ({
             id: b.id,
             topic_id: topicId,
             user_id: user.id,
