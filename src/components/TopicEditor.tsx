@@ -247,22 +247,20 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="full" className="flex-1 m-0 flex flex-col overflow-hidden">
-          <div className="sticky top-0 z-20 bg-card shadow-md border-b border-border">
+        <TabsContent value="full" className="flex-1 m-0 overflow-y-auto px-4">
+          <div className="sticky top-0 z-20 bg-card shadow-md border-b border-border -mx-4 px-4 mb-4">
             <FormattingToolbar onMarkHeading={markTextAsHeading} />
           </div>
-          <div className="flex-1 overflow-y-auto px-4">
-            <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
-              <div className="p-12 min-h-[297mm] space-y-4 bg-card">
-                {blocks.map((block) => (
-                  <ContentBlock
-                    key={block.id}
-                    block={block}
-                    onUpdate={updateBlock}
-                    onDelete={deleteBlock}
-                  />
-                ))}
-              </div>
+          <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
+            <div className="p-12 min-h-[297mm] space-y-4 bg-card">
+              {blocks.map((block) => (
+                <ContentBlock
+                  key={block.id}
+                  block={block}
+                  onUpdate={updateBlock}
+                  onDelete={deleteBlock}
+                />
+              ))}
             </div>
           </div>
         </TabsContent>
