@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentBlock, BlockType } from "./ContentBlock";
@@ -51,6 +53,7 @@ interface TopicEditorProps {
 
 export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const [blocks, setBlocks] = useState<Block[]>([
     { id: "1", type: "text", content: "" },
   ]);
@@ -58,6 +61,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -66,68 +70,199 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     })
   );
 
-  // Load data from localStorage on mount
+  // Load data from database on mount
   useEffect(() => {
-    const savedBlocks = localStorage.getItem(`topic_blocks_${topicId}`);
-    const savedSummary = localStorage.getItem(`topic_summary_${topicId}`);
-    const savedMnemonic = localStorage.getItem(`topic_mnemonic_${topicId}`);
-    const savedHeadingNodes = localStorage.getItem(`topic_heading_nodes_${topicId}`);
-    
-    if (savedBlocks) {
-      setBlocks(JSON.parse(savedBlocks));
-    }
-    if (savedSummary) {
-      setSummaryContent(savedSummary);
-    }
-    if (savedMnemonic) {
-      setMnemonicContent(savedMnemonic);
-    }
-    if (savedHeadingNodes) {
-      try {
-        setHeadingNodes(JSON.parse(savedHeadingNodes));
-      } catch {
-        setHeadingNodes([]);
+    if (!user) return;
+
+    const loadData = async () => {
+      setLoading(true);
+      
+      // Load blocks
+      const { data: blocksData } = await supabase
+        .from("blocks")
+        .select("*")
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id)
+        .order("block_order", { ascending: true });
+      
+      if (blocksData && blocksData.length > 0) {
+        setBlocks(blocksData.map(b => ({
+          id: b.id,
+          type: b.type as BlockType,
+          content: b.content || "",
+          headings: b.headings ? JSON.parse(JSON.stringify(b.headings)) : []
+        })));
       }
-    }
-  }, [topicId]);
 
-  // Save to localStorage whenever content changes
-  useEffect(() => {
-    localStorage.setItem(`topic_blocks_${topicId}`, JSON.stringify(blocks));
-  }, [blocks, topicId]);
+      // Load summary
+      const { data: summaryData } = await supabase
+        .from("summaries")
+        .select("*")
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (summaryData) {
+        setSummaryContent(summaryData.content || "");
+      }
 
-  useEffect(() => {
-    localStorage.setItem(`topic_summary_${topicId}`, summaryContent);
-  }, [summaryContent, topicId]);
+      // Load mnemonic
+      const { data: mnemonicData } = await supabase
+        .from("mnemonics")
+        .select("*")
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      
+      if (mnemonicData) {
+        setMnemonicContent(mnemonicData.content || "");
+      }
 
-  useEffect(() => {
-    localStorage.setItem(`topic_mnemonic_${topicId}`, mnemonicContent);
-  }, [mnemonicContent, topicId]);
+      // Load heading nodes
+      const { data: headingNodesData } = await supabase
+        .from("heading_nodes")
+        .select("*")
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id)
+        .order("node_order", { ascending: true });
+      
+      if (headingNodesData) {
+        setHeadingNodes(headingNodesData.map(h => ({
+          id: h.id,
+          title: h.title,
+          notes: h.notes || "",
+          children: [] // We'll handle nested children later
+        })));
+      }
 
+      setLoading(false);
+    };
+
+    loadData();
+  }, [topicId, user]);
+
+  // Auto-save blocks to database
   useEffect(() => {
-    localStorage.setItem(`topic_heading_nodes_${topicId}`, JSON.stringify(headingNodes));
-  }, [headingNodes, topicId]);
+    if (!user || loading) return;
+
+    const saveBlocks = async () => {
+      // Delete existing blocks
+      await supabase
+        .from("blocks")
+        .delete()
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id);
+
+      // Insert new blocks
+      if (blocks.length > 0) {
+        await supabase.from("blocks").insert(
+          blocks.map((b, idx) => ({
+            id: b.id,
+            topic_id: topicId,
+            user_id: user.id,
+            type: b.type,
+            content: b.content,
+            headings: b.headings || [],
+            block_order: idx
+          }))
+        );
+      }
+    };
+
+    const timeoutId = setTimeout(saveBlocks, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [blocks, topicId, user, loading]);
+
+  // Auto-save summary
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const saveSummary = async () => {
+      await supabase.from("summaries").upsert({
+        topic_id: topicId,
+        user_id: user.id,
+        content: summaryContent
+      });
+    };
+
+    const timeoutId = setTimeout(saveSummary, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [summaryContent, topicId, user, loading]);
+
+  // Auto-save mnemonic
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const saveMnemonic = async () => {
+      await supabase.from("mnemonics").upsert({
+        topic_id: topicId,
+        user_id: user.id,
+        content: mnemonicContent
+      });
+    };
+
+    const timeoutId = setTimeout(saveMnemonic, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [mnemonicContent, topicId, user, loading]);
+
+  // Auto-save heading nodes
+  useEffect(() => {
+    if (!user || loading) return;
+
+    const saveHeadingNodes = async () => {
+      // Delete existing nodes
+      await supabase
+        .from("heading_nodes")
+        .delete()
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id);
+
+      // Insert new nodes
+      if (headingNodes.length > 0) {
+        await supabase.from("heading_nodes").insert(
+          headingNodes.map((h, idx) => ({
+            id: h.id,
+            topic_id: topicId,
+            user_id: user.id,
+            title: h.title,
+            notes: h.notes,
+            parent_id: null,
+            node_order: idx
+          }))
+        );
+      }
+    };
+
+    const timeoutId = setTimeout(saveHeadingNodes, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [headingNodes, topicId, user, loading]);
 
   // Auto-populate headings from blocks
   useEffect(() => {
+    if (loading) return;
+    
     const allHeadings = blocks
       .filter(b => b.headings && b.headings.length > 0)
       .flatMap(b => b.headings || []);
     
     // Only add new headings, don't remove existing ones
-    const existingTitles = new Set(headingNodes.map(h => h.title));
-    const newHeadings = allHeadings.filter(h => !existingTitles.has(h));
-    
-    if (newHeadings.length > 0) {
-      const newNodes: HeadingNode[] = newHeadings.map(h => ({
-        id: Date.now().toString() + Math.random(),
-        title: h,
-        notes: "",
-        children: []
-      }));
-      setHeadingNodes([...headingNodes, ...newNodes]);
-    }
-  }, [blocks]);
+    setHeadingNodes(prev => {
+      const existingTitles = new Set(prev.map(h => h.title));
+      const newHeadings = allHeadings.filter(h => !existingTitles.has(h));
+      
+      if (newHeadings.length > 0) {
+        const newNodes: HeadingNode[] = newHeadings.map(h => ({
+          id: Date.now().toString() + Math.random(),
+          title: h,
+          notes: "",
+          children: []
+        }));
+        return [...prev, ...newNodes];
+      }
+      
+      return prev;
+    });
+  }, [blocks, loading]);
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {

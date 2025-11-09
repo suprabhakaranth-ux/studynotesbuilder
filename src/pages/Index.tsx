@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus } from "lucide-react";
+import { Plus, LogOut } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
 import { TopicEditor } from "@/components/TopicEditor";
@@ -14,6 +14,9 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 
 interface Subject {
   id: string;
@@ -30,6 +33,8 @@ interface Topic {
 
 const Index = () => {
   const { toast } = useToast();
+  const { user, loading, signOut } = useAuth();
+  const navigate = useNavigate();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
@@ -41,43 +46,53 @@ const Index = () => {
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-  // Load subjects and topics from localStorage on mount
+  // Redirect to auth if not logged in
   useEffect(() => {
-    const savedSubjects = localStorage.getItem("psychology_subjects");
-    const savedTopics = localStorage.getItem("psychology_topics");
-    const savedActiveSubject = localStorage.getItem("psychology_active_subject");
-    
-    if (savedSubjects) {
-      setSubjects(JSON.parse(savedSubjects));
+    if (!loading && !user) {
+      navigate("/auth");
     }
-    if (savedTopics) {
-      setTopics(JSON.parse(savedTopics));
-    }
-    if (savedActiveSubject) {
-      setActiveSubject(savedActiveSubject);
-    }
-  }, []);
+  }, [user, loading, navigate]);
 
-  // Save subjects to localStorage whenever they change
+  // Load data from database
+  useEffect(() => {
+    if (!user) return;
+
+    const loadData = async () => {
+      // Load subjects (we'll use localStorage for now as subjects table doesn't exist yet)
+      const savedSubjects = localStorage.getItem("psychology_subjects");
+      if (savedSubjects) {
+        setSubjects(JSON.parse(savedSubjects));
+      }
+
+      // Load topics from database
+      const { data: topicsData, error } = await supabase
+        .from("topics")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading topics:", error);
+      } else if (topicsData) {
+        // Map database topics to our interface
+        const mappedTopics = topicsData.map(t => ({
+          id: t.id,
+          subjectId: "default", // We'll use a default subject for now
+          title: t.title,
+        }));
+        setTopics(mappedTopics);
+      }
+    };
+
+    loadData();
+  }, [user]);
+
+  // Save subjects to localStorage (temporary until we add subjects table)
   useEffect(() => {
     if (subjects.length > 0) {
       localStorage.setItem("psychology_subjects", JSON.stringify(subjects));
     }
   }, [subjects]);
-
-  // Save topics to localStorage whenever they change
-  useEffect(() => {
-    if (topics.length > 0) {
-      localStorage.setItem("psychology_topics", JSON.stringify(topics));
-    }
-  }, [topics]);
-
-  // Save active subject to localStorage whenever it changes
-  useEffect(() => {
-    if (activeSubject) {
-      localStorage.setItem("psychology_active_subject", activeSubject);
-    }
-  }, [activeSubject]);
 
   const handleNewSubject = () => {
     if (!newSubjectName.trim()) return;
@@ -99,13 +114,31 @@ const Index = () => {
     });
   };
 
-  const handleNewTopic = () => {
-    if (!newTopicTitle.trim() || !activeSubject) return;
+  const handleNewTopic = async () => {
+    if (!newTopicTitle.trim() || !activeSubject || !user) return;
+
+    const { data, error } = await supabase
+      .from("topics")
+      .insert({
+        title: newTopicTitle,
+        user_id: user.id,
+      })
+      .select()
+      .single();
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create topic",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const newTopic: Topic = {
-      id: Date.now().toString(),
+      id: data.id,
       subjectId: activeSubject,
-      title: newTopicTitle,
+      title: data.title,
     };
 
     setTopics([...topics, newTopic]);
@@ -121,6 +154,14 @@ const Index = () => {
   const activeTopics = topics.filter((t) => t.subjectId === activeSubject);
   const activeSubjectData = subjects.find((s) => s.id === activeSubject);
   const editingTopicData = topics.find((t) => t.id === editingTopic);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   if (editingTopic && editingTopicData) {
     return (
@@ -153,10 +194,16 @@ const Index = () => {
                   {activeTopics.length} {activeTopics.length === 1 ? "topic" : "topics"}
                 </p>
               </div>
-              <Button onClick={() => setTopicDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                New Topic
-              </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={signOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+                <Button onClick={() => setTopicDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Topic
+                </Button>
+              </div>
             </div>
 
             {activeTopics.length === 0 ? (
