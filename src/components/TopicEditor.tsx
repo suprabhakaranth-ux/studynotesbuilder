@@ -62,6 +62,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -143,7 +144,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   // Auto-save blocks to database
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || isSaving) return;
 
     const saveBlocks = async () => {
       console.log("Saving blocks...", blocks.length);
@@ -198,7 +199,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   // Auto-save summary
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || isSaving) return;
 
     const saveSummary = async () => {
       console.log("Saving summary...");
@@ -226,7 +227,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   // Auto-save mnemonic
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || isSaving) return;
 
     const saveMnemonic = async () => {
       console.log("Saving mnemonic...");
@@ -254,7 +255,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   // Auto-save heading nodes
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || isSaving) return;
 
     const saveHeadingNodes = async () => {
       console.log("Saving heading nodes...", headingNodes.length);
@@ -322,7 +323,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       
       if (newHeadings.length > 0) {
         const newNodes: HeadingNode[] = newHeadings.map(h => ({
-          id: Date.now().toString() + Math.random(),
+          id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           title: h,
           notes: "",
           children: []
@@ -336,7 +337,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       type,
       content: "",
     };
@@ -363,68 +364,73 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const saveAll = async () => {
-    if (!user) return;
+    if (!user || isSaving) return;
+    
+    setIsSaving(true);
+    try {
+      // Save blocks (delete then insert to preserve order)
+      const { error: deleteBlocksError } = await supabase
+        .from("blocks")
+        .delete()
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id);
+      if (deleteBlocksError) throw deleteBlocksError;
 
-    // Save blocks (delete then insert to preserve order)
-    const { error: deleteBlocksError } = await supabase
-      .from("blocks")
-      .delete()
-      .eq("topic_id", topicId)
-      .eq("user_id", user.id);
-    if (deleteBlocksError) throw deleteBlocksError;
+      if (blocks.length > 0) {
+        const { error: insertBlocksError } = await supabase.from("blocks").insert(
+          blocks.map((b, idx) => ({
+            id: b.id,
+            topic_id: topicId,
+            user_id: user.id,
+            type: b.type,
+            content: b.content,
+            headings: b.headings || [],
+            block_order: idx,
+          }))
+        );
+        if (insertBlocksError) throw insertBlocksError;
+      }
 
-    if (blocks.length > 0) {
-      const { error: insertBlocksError } = await supabase.from("blocks").insert(
-        blocks.map((b, idx) => ({
-          id: b.id,
+      // Save summary and mnemonic in parallel
+      const [summaryRes, mnemonicRes] = await Promise.all([
+        supabase.from("summaries").upsert({
           topic_id: topicId,
           user_id: user.id,
-          type: b.type,
-          content: b.content,
-          headings: b.headings || [],
-          block_order: idx,
-        }))
-      );
-      if (insertBlocksError) throw insertBlocksError;
-    }
-
-    // Save summary and mnemonic in parallel
-    const [summaryRes, mnemonicRes] = await Promise.all([
-      supabase.from("summaries").upsert({
-        topic_id: topicId,
-        user_id: user.id,
-        content: summaryContent,
-      }),
-      supabase.from("mnemonics").upsert({
-        topic_id: topicId,
-        user_id: user.id,
-        content: mnemonicContent,
-      }),
-    ]);
-    if (summaryRes.error) throw summaryRes.error;
-    if (mnemonicRes.error) throw mnemonicRes.error;
-
-    // Save heading nodes (flat list for now)
-    const { error: deleteHNError } = await supabase
-      .from("heading_nodes")
-      .delete()
-      .eq("topic_id", topicId)
-      .eq("user_id", user.id);
-    if (deleteHNError) throw deleteHNError;
-
-    if (headingNodes.length > 0) {
-      const { error: insertHNError } = await supabase.from("heading_nodes").insert(
-        headingNodes.map((h, idx) => ({
-          id: h.id,
+          content: summaryContent,
+        }),
+        supabase.from("mnemonics").upsert({
           topic_id: topicId,
           user_id: user.id,
-          title: h.title,
-          notes: h.notes,
-          parent_id: null,
-          node_order: idx,
-        }))
-      );
-      if (insertHNError) throw insertHNError;
+          content: mnemonicContent,
+        }),
+      ]);
+      if (summaryRes.error) throw summaryRes.error;
+      if (mnemonicRes.error) throw mnemonicRes.error;
+
+      // Save heading nodes (flat list for now)
+      const { error: deleteHNError } = await supabase
+        .from("heading_nodes")
+        .delete()
+        .eq("topic_id", topicId)
+        .eq("user_id", user.id);
+      if (deleteHNError) throw deleteHNError;
+
+      if (headingNodes.length > 0) {
+        const { error: insertHNError } = await supabase.from("heading_nodes").insert(
+          headingNodes.map((h, idx) => ({
+            id: h.id,
+            topic_id: topicId,
+            user_id: user.id,
+            title: h.title,
+            notes: h.notes,
+            parent_id: null,
+            node_order: idx,
+          }))
+        );
+        if (insertHNError) throw insertHNError;
+      }
+    } finally {
+      setIsSaving(false);
     }
   };
 
