@@ -477,6 +477,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               <RichTextEditor
                 value={summaryContent}
                 onChange={setSummaryContent}
+                onMarkHeading={markTextAsHeading}
                 placeholder="Write additional summary notes here... Key points, important concepts, main ideas..."
                 minHeight="200px"
                 className="text-lg p-4 bg-card/50 border-2 border-primary/20 rounded-md"

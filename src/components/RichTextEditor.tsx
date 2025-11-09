@@ -1,5 +1,12 @@
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import { Heading } from "lucide-react";
 
 interface RichTextEditorProps {
   value: string;
@@ -7,6 +14,7 @@ interface RichTextEditorProps {
   placeholder?: string;
   className?: string;
   minHeight?: string;
+  onMarkHeading?: (text: string) => void;
 }
 
 export const RichTextEditor = ({ 
@@ -14,7 +22,8 @@ export const RichTextEditor = ({
   onChange, 
   placeholder = "Start typing...",
   className,
-  minHeight = "150px"
+  minHeight = "150px",
+  onMarkHeading
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
 
@@ -110,7 +119,17 @@ export const RichTextEditor = ({
     handleInput();
   };
 
-  return (
+  const handleMarkHeading = () => {
+    const selection = window.getSelection();
+    if (selection && onMarkHeading) {
+      const text = selection.toString().trim();
+      if (text) {
+        onMarkHeading(text);
+      }
+    }
+  };
+
+  const editorContent = (
     <div
       ref={editorRef}
       contentEditable
@@ -126,4 +145,22 @@ export const RichTextEditor = ({
       suppressContentEditableWarning
     />
   );
+
+  if (onMarkHeading) {
+    return (
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          {editorContent}
+        </ContextMenuTrigger>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={handleMarkHeading} className="cursor-pointer">
+            <Heading className="w-4 h-4 mr-2" />
+            Mark as Heading
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    );
+  }
+
+  return editorContent;
 };

@@ -28,10 +28,11 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
     }
   };
 
-  const markAsHeading = () => {
-    if (selectedText) {
+  const markAsHeading = (text?: string) => {
+    const headingText = text || selectedText;
+    if (headingText) {
       const currentHeadings = block.headings || [];
-      const updatedHeadings = [...currentHeadings, selectedText];
+      const updatedHeadings = [...currentHeadings, headingText];
       onUpdate(block.id, block.content, updatedHeadings);
       setSelectedText("");
     }
@@ -130,13 +131,14 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           <RichTextEditor
             value={block.content}
             onChange={(value) => onUpdate(block.id, value)}
+            onMarkHeading={block.type === "text" ? markAsHeading : undefined}
             placeholder={getPlaceholder()}
             className="min-h-[150px]"
           />
           {selectedText && block.type === "text" && (
             <Button
               size="sm"
-              onClick={markAsHeading}
+              onClick={() => markAsHeading()}
               className="bg-primary hover:bg-primary/90"
             >
               <Heading className="w-4 h-4 mr-2" />
