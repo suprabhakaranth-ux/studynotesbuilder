@@ -25,19 +25,40 @@ const colorOptions = [
 ];
 
 export const FormattingToolbar = ({ }: FormattingToolbarProps) => {
+  const syncActiveEditor = () => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const anchor = sel.anchorNode as Node | null;
+    const element = (anchor instanceof Element ? anchor : anchor?.parentElement) as Element | null;
+    const editable = element?.closest('[contenteditable="true"]') as HTMLElement | null;
+    if (editable) {
+      // Trigger input so RichTextEditor persists content to state/localStorage
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  };
+
   const applyFormat = (command: string, value?: string) => {
     document.execCommand(command, false, value);
+    // Ensure changes are saved immediately
+    setTimeout(syncActiveEditor, 0);
   };
 
   const applyFontSize = (size: string) => {
+    document.execCommand("styleWithCSS", false, "true");
     document.execCommand("fontSize", false, "7");
-    const fontElements = document.getElementsByTagName("font");
-    for (let i = 0; i < fontElements.length; i++) {
-      if (fontElements[i].size === "7") {
-        fontElements[i].removeAttribute("size");
-        fontElements[i].style.fontSize = size;
-      }
+    const sel = document.getSelection();
+    const anchor = sel?.anchorNode as Node | null;
+    const element = (anchor instanceof Element ? anchor : anchor?.parentElement) as Element | null;
+    const editable = element?.closest('[contenteditable="true"]') as HTMLElement | null;
+    if (editable) {
+      const fontElements = editable.querySelectorAll('font[size="7"]');
+      fontElements.forEach((el) => {
+        el.removeAttribute("size");
+        (el as HTMLElement).style.fontSize = size;
+      });
     }
+    // Persist changes
+    setTimeout(syncActiveEditor, 0);
   };
   return (
     <div className="flex flex-wrap items-center gap-2 p-3 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">

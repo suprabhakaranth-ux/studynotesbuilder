@@ -39,12 +39,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   ]);
   const [summaryContent, setSummaryContent] = useState("");
   const [mnemonicContent, setMnemonicContent] = useState("");
+  const [headingNotes, setHeadingNotes] = useState<Record<string, string>>({});
 
   // Load data from localStorage on mount
   useEffect(() => {
     const savedBlocks = localStorage.getItem(`topic_blocks_${topicId}`);
     const savedSummary = localStorage.getItem(`topic_summary_${topicId}`);
     const savedMnemonic = localStorage.getItem(`topic_mnemonic_${topicId}`);
+    const savedHeadingNotes = localStorage.getItem(`topic_heading_notes_${topicId}`);
     
     if (savedBlocks) {
       setBlocks(JSON.parse(savedBlocks));
@@ -54,6 +56,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     }
     if (savedMnemonic) {
       setMnemonicContent(savedMnemonic);
+    }
+    if (savedHeadingNotes) {
+      try {
+        setHeadingNotes(JSON.parse(savedHeadingNotes));
+      } catch {
+        setHeadingNotes({});
+      }
     }
   }, [topicId]);
 
@@ -69,6 +78,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   useEffect(() => {
     localStorage.setItem(`topic_mnemonic_${topicId}`, mnemonicContent);
   }, [mnemonicContent, topicId]);
+
+  useEffect(() => {
+    localStorage.setItem(`topic_heading_notes_${topicId}`, JSON.stringify(headingNotes));
+  }, [headingNotes, topicId]);
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
@@ -199,8 +212,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                         </AccordionTrigger>
                         <AccordionContent>
                           <RichTextEditor
-                            value=""
-                            onChange={() => {}}
+                            value={headingNotes[heading] || ""}
+                            onChange={(v) => setHeadingNotes((prev) => ({ ...prev, [heading]: v }))}
                             placeholder="Add notes or breakdown for this heading..."
                             minHeight="100px"
                             className="p-3 border border-border rounded-md bg-background/50"
