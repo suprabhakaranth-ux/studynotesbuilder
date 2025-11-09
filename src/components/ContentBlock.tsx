@@ -1,8 +1,8 @@
 import { X, Heading } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useState, useRef } from "react";
+import { RichTextEditor } from "@/components/RichTextEditor";
+import { useState } from "react";
 
 export type BlockType = "title" | "text" | "summary" | "mnemonic" | "image";
 
@@ -19,14 +19,12 @@ interface ContentBlockProps {
 
 export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) => {
   const [selectedText, setSelectedText] = useState("");
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const handleTextSelection = () => {
-    if (textareaRef.current) {
-      const start = textareaRef.current.selectionStart;
-      const end = textareaRef.current.selectionEnd;
-      const selected = textareaRef.current.value.substring(start, end);
-      setSelectedText(selected.trim());
+    const selection = window.getSelection();
+    if (selection) {
+      const selected = selection.toString().trim();
+      setSelectedText(selected);
     }
   };
 
@@ -128,14 +126,12 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           )}
         </div>
       ) : (
-        <div className="space-y-2">
-          <Textarea
-            ref={textareaRef}
+        <div className="space-y-2" onMouseUp={handleTextSelection}>
+          <RichTextEditor
             value={block.content}
-            onChange={(e) => onUpdate(block.id, e.target.value)}
-            onSelect={handleTextSelection}
+            onChange={(value) => onUpdate(block.id, value)}
             placeholder={getPlaceholder()}
-            className="min-h-[150px] resize-y border-0 p-0 focus-visible:ring-0 bg-transparent text-lg leading-relaxed"
+            className="min-h-[150px]"
           />
           {selectedText && block.type === "text" && (
             <Button

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentBlock, BlockType } from "./ContentBlock";
 import { FormattingToolbar } from "./FormattingToolbar";
-import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "./RichTextEditor";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -89,10 +89,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     setBlocks(blocks.filter((block) => block.id !== id));
   };
 
-  const handleFormatChange = (format: string, value?: string) => {
-    console.log("Format change:", format, value);
-  };
-
   const handleSave = () => {
     toast({
       title: "Saved successfully! ✨",
@@ -166,10 +162,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="full" className="flex-1 overflow-auto m-0">
-          <div className="max-w-[210mm] mx-auto shadow-2xl bg-card">
-            <FormattingToolbar onFormatChange={handleFormatChange} />
-            <div className="p-8 min-h-[297mm] space-y-4 bg-card">
+        <TabsContent value="full" className="flex-1 overflow-auto m-0 px-4">
+          <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
+            <FormattingToolbar />
+            <div className="p-12 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block) => (
                 <ContentBlock
                   key={block.id}
@@ -196,15 +192,18 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 <div className="mb-6">
                   <p className="text-sm text-muted-foreground mb-3">Auto-populated headings from content:</p>
                   <Accordion type="single" collapsible className="w-full">
-                    {allHeadings.map((heading, idx) => (
+                     {allHeadings.map((heading, idx) => (
                       <AccordionItem key={idx} value={`heading-${idx}`} className="border border-primary/20 rounded-lg mb-2 px-4 bg-card/50">
                         <AccordionTrigger className="text-left font-semibold text-primary hover:no-underline">
                           {heading}
                         </AccordionTrigger>
                         <AccordionContent>
-                          <Textarea
+                          <RichTextEditor
+                            value=""
+                            onChange={() => {}}
                             placeholder="Add notes or breakdown for this heading..."
-                            className="min-h-[100px] bg-background/50 border border-border"
+                            minHeight="100px"
+                            className="p-3 border border-border rounded-md bg-background/50"
                           />
                         </AccordionContent>
                       </AccordionItem>
@@ -213,11 +212,12 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 </div>
               )}
 
-              <Textarea
+              <RichTextEditor
                 value={summaryContent}
-                onChange={(e) => setSummaryContent(e.target.value)}
+                onChange={setSummaryContent}
                 placeholder="Write additional summary notes here... Key points, important concepts, main ideas..."
-                className="min-h-[200px] text-lg bg-card/50 border-2 border-primary/20 focus:border-primary"
+                minHeight="200px"
+                className="text-lg p-4 bg-card/50 border-2 border-primary/20 rounded-md"
               />
               {summaryBlocks.length > 0 && (
                 <div className="mt-4 space-y-3">
@@ -240,11 +240,12 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 </div>
                 Mnemonics
               </h3>
-              <Textarea
+              <RichTextEditor
                 value={mnemonicContent}
-                onChange={(e) => setMnemonicContent(e.target.value)}
+                onChange={setMnemonicContent}
                 placeholder="Create memorable mnemonics here... Acronyms, rhymes, associations..."
-                className="min-h-[200px] text-lg bg-card/50 border-2 border-secondary/20 focus:border-secondary"
+                minHeight="200px"
+                className="text-lg p-4 bg-card/50 border-2 border-secondary/20 rounded-md"
               />
               {mnemonicBlocks.length > 0 && (
                 <div className="mt-4 space-y-3">

@@ -1,4 +1,4 @@
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, Strikethrough, Highlighter } from "lucide-react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/select";
 
 interface FormattingToolbarProps {
-  onFormatChange: (format: string, value?: string) => void;
+  // No props needed - works directly with document selection
 }
 
 const colorOptions = [
@@ -21,37 +21,53 @@ const colorOptions = [
   { name: "Orange", value: "#F97316" },
   { name: "Pink", value: "#EC4899" },
   { name: "Yellow", value: "#EAB308" },
+  { name: "Teal", value: "#14B8A6" },
 ];
 
-export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) => {
+export const FormattingToolbar = ({ }: FormattingToolbarProps) => {
+  const applyFormat = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
+  };
+
+  const applyFontSize = (size: string) => {
+    document.execCommand("fontSize", false, "7");
+    const fontElements = document.getElementsByTagName("font");
+    for (let i = 0; i < fontElements.length; i++) {
+      if (fontElements[i].size === "7") {
+        fontElements[i].removeAttribute("size");
+        fontElements[i].style.fontSize = size;
+      }
+    }
+  };
   return (
     <div className="flex flex-wrap items-center gap-2 p-3 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">
-      <Select defaultValue="inter" onValueChange={(value) => onFormatChange("font", value)}>
+      <Select onValueChange={(value) => applyFormat("fontName", value)}>
         <SelectTrigger className="w-[140px] h-9 bg-card">
-          <SelectValue />
+          <SelectValue placeholder="Font" />
         </SelectTrigger>
         <SelectContent className="bg-card">
-          <SelectItem value="inter">Inter</SelectItem>
-          <SelectItem value="serif">Serif</SelectItem>
-          <SelectItem value="mono">Monospace</SelectItem>
+          <SelectItem value="Arial">Arial</SelectItem>
+          <SelectItem value="Georgia">Georgia</SelectItem>
+          <SelectItem value="Times New Roman">Times New Roman</SelectItem>
+          <SelectItem value="Courier New">Courier New</SelectItem>
+          <SelectItem value="Verdana">Verdana</SelectItem>
         </SelectContent>
       </Select>
 
       <div className="w-px h-6 bg-border" />
 
-      <Select defaultValue="18" onValueChange={(value) => onFormatChange("size", value)}>
+      <Select onValueChange={applyFontSize}>
         <SelectTrigger className="w-[90px] h-9 bg-card">
-          <SelectValue />
+          <SelectValue placeholder="Size" />
         </SelectTrigger>
         <SelectContent className="bg-card">
-          <SelectItem value="14">14px</SelectItem>
-          <SelectItem value="16">16px</SelectItem>
-          <SelectItem value="18">18px</SelectItem>
-          <SelectItem value="20">20px</SelectItem>
-          <SelectItem value="22">22px</SelectItem>
-          <SelectItem value="24">24px</SelectItem>
-          <SelectItem value="28">28px</SelectItem>
-          <SelectItem value="32">32px</SelectItem>
+          <SelectItem value="16px">16px</SelectItem>
+          <SelectItem value="18px">18px</SelectItem>
+          <SelectItem value="20px">20px</SelectItem>
+          <SelectItem value="22px">22px</SelectItem>
+          <SelectItem value="24px">24px</SelectItem>
+          <SelectItem value="28px">28px</SelectItem>
+          <SelectItem value="32px">32px</SelectItem>
         </SelectContent>
       </Select>
 
@@ -60,7 +76,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("bold")}
+        onClick={() => applyFormat("bold")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Bold"
       >
@@ -70,7 +86,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("italic")}
+        onClick={() => applyFormat("italic")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Italic"
       >
@@ -80,7 +96,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("underline")}
+        onClick={() => applyFormat("underline")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Underline"
       >
@@ -90,7 +106,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("strikethrough")}
+        onClick={() => applyFormat("strikeThrough")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Strikethrough"
       >
@@ -100,7 +116,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("highlight")}
+        onClick={() => applyFormat("hiliteColor", "yellow")}
         className="h-9 w-9 p-0 hover:bg-accent/50"
         title="Highlight"
       >
@@ -112,7 +128,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("alignLeft")}
+        onClick={() => applyFormat("justifyLeft")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Align Left"
       >
@@ -122,16 +138,26 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => onFormatChange("alignCenter")}
+        onClick={() => applyFormat("justifyCenter")}
         className="h-9 w-9 p-0 hover:bg-primary/10"
         title="Align Center"
       >
         <AlignCenter className="w-4 h-4" />
       </Button>
 
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => applyFormat("justifyRight")}
+        className="h-9 w-9 p-0 hover:bg-primary/10"
+        title="Align Right"
+      >
+        <AlignRight className="w-4 h-4" />
+      </Button>
+
       <div className="w-px h-6 bg-border" />
 
-      <Select onValueChange={(value) => onFormatChange("color", value)}>
+      <Select onValueChange={(value) => applyFormat("foreColor", value)}>
         <SelectTrigger className="w-[120px] h-9 bg-card">
           <SelectValue placeholder="Text Color" />
         </SelectTrigger>
@@ -153,7 +179,7 @@ export const FormattingToolbar = ({ onFormatChange }: FormattingToolbarProps) =>
       <input
         type="color"
         className="w-9 h-9 rounded cursor-pointer border border-border"
-        onChange={(e) => onFormatChange("color", e.target.value)}
+        onChange={(e) => applyFormat("foreColor", e.target.value)}
         title="Custom color"
       />
     </div>
