@@ -146,16 +146,28 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     if (!user || loading) return;
 
     const saveBlocks = async () => {
+      console.log("Saving blocks...", blocks.length);
+      
       // Delete existing blocks
-      await supabase
+      const { error: deleteError } = await supabase
         .from("blocks")
         .delete()
         .eq("topic_id", topicId)
         .eq("user_id", user.id);
 
+      if (deleteError) {
+        console.error("Error deleting blocks:", deleteError);
+        toast({
+          title: "Error saving blocks",
+          description: deleteError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Insert new blocks
       if (blocks.length > 0) {
-        await supabase.from("blocks").insert(
+        const { error: insertError } = await supabase.from("blocks").insert(
           blocks.map((b, idx) => ({
             id: b.id,
             topic_id: topicId,
@@ -166,60 +178,107 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
             block_order: idx
           }))
         );
+
+        if (insertError) {
+          console.error("Error inserting blocks:", insertError);
+          toast({
+            title: "Error saving blocks",
+            description: insertError.message,
+            variant: "destructive"
+          });
+        } else {
+          console.log("Blocks saved successfully");
+        }
       }
     };
 
     const timeoutId = setTimeout(saveBlocks, 1000);
     return () => clearTimeout(timeoutId);
-  }, [blocks, topicId, user, loading]);
+  }, [blocks, topicId, user, loading, toast]);
 
   // Auto-save summary
   useEffect(() => {
     if (!user || loading) return;
 
     const saveSummary = async () => {
-      await supabase.from("summaries").upsert({
+      console.log("Saving summary...");
+      const { error } = await supabase.from("summaries").upsert({
         topic_id: topicId,
         user_id: user.id,
         content: summaryContent
       });
+
+      if (error) {
+        console.error("Error saving summary:", error);
+        toast({
+          title: "Error saving summary",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.log("Summary saved successfully");
+      }
     };
 
     const timeoutId = setTimeout(saveSummary, 1000);
     return () => clearTimeout(timeoutId);
-  }, [summaryContent, topicId, user, loading]);
+  }, [summaryContent, topicId, user, loading, toast]);
 
   // Auto-save mnemonic
   useEffect(() => {
     if (!user || loading) return;
 
     const saveMnemonic = async () => {
-      await supabase.from("mnemonics").upsert({
+      console.log("Saving mnemonic...");
+      const { error } = await supabase.from("mnemonics").upsert({
         topic_id: topicId,
         user_id: user.id,
         content: mnemonicContent
       });
+
+      if (error) {
+        console.error("Error saving mnemonic:", error);
+        toast({
+          title: "Error saving mnemonic",
+          description: error.message,
+          variant: "destructive"
+        });
+      } else {
+        console.log("Mnemonic saved successfully");
+      }
     };
 
     const timeoutId = setTimeout(saveMnemonic, 1000);
     return () => clearTimeout(timeoutId);
-  }, [mnemonicContent, topicId, user, loading]);
+  }, [mnemonicContent, topicId, user, loading, toast]);
 
   // Auto-save heading nodes
   useEffect(() => {
     if (!user || loading) return;
 
     const saveHeadingNodes = async () => {
+      console.log("Saving heading nodes...", headingNodes.length);
+      
       // Delete existing nodes
-      await supabase
+      const { error: deleteError } = await supabase
         .from("heading_nodes")
         .delete()
         .eq("topic_id", topicId)
         .eq("user_id", user.id);
 
+      if (deleteError) {
+        console.error("Error deleting heading nodes:", deleteError);
+        toast({
+          title: "Error saving heading nodes",
+          description: deleteError.message,
+          variant: "destructive"
+        });
+        return;
+      }
+
       // Insert new nodes
       if (headingNodes.length > 0) {
-        await supabase.from("heading_nodes").insert(
+        const { error: insertError } = await supabase.from("heading_nodes").insert(
           headingNodes.map((h, idx) => ({
             id: h.id,
             topic_id: topicId,
@@ -230,12 +289,23 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
             node_order: idx
           }))
         );
+
+        if (insertError) {
+          console.error("Error inserting heading nodes:", insertError);
+          toast({
+            title: "Error saving heading nodes",
+            description: insertError.message,
+            variant: "destructive"
+          });
+        } else {
+          console.log("Heading nodes saved successfully");
+        }
       }
     };
 
     const timeoutId = setTimeout(saveHeadingNodes, 1000);
     return () => clearTimeout(timeoutId);
-  }, [headingNodes, topicId, user, loading]);
+  }, [headingNodes, topicId, user, loading, toast]);
 
   // Auto-populate headings from blocks
   useEffect(() => {
