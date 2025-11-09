@@ -5,18 +5,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentBlock, BlockType } from "./ContentBlock";
 import { FormattingToolbar } from "./FormattingToolbar";
 import { RichTextEditor } from "./RichTextEditor";
+import { HeadingNodeComponent } from "./HeadingNode";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 import { useToast } from "@/hooks/use-toast";
 
 interface Block {
@@ -24,6 +19,13 @@ interface Block {
   type: BlockType;
   content: string;
   headings?: string[];
+}
+
+interface HeadingNode {
+  id: string;
+  title: string;
+  notes: string;
+  children: HeadingNode[];
 }
 
 interface TopicEditorProps {
@@ -39,14 +41,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   ]);
   const [summaryContent, setSummaryContent] = useState("");
   const [mnemonicContent, setMnemonicContent] = useState("");
-  const [headingNotes, setHeadingNotes] = useState<Record<string, string>>({});
+  const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
 
   // Load data from localStorage on mount
   useEffect(() => {
     const savedBlocks = localStorage.getItem(`topic_blocks_${topicId}`);
     const savedSummary = localStorage.getItem(`topic_summary_${topicId}`);
     const savedMnemonic = localStorage.getItem(`topic_mnemonic_${topicId}`);
-    const savedHeadingNotes = localStorage.getItem(`topic_heading_notes_${topicId}`);
+    const savedHeadingNodes = localStorage.getItem(`topic_heading_nodes_${topicId}`);
     
     if (savedBlocks) {
       setBlocks(JSON.parse(savedBlocks));
@@ -57,11 +59,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     if (savedMnemonic) {
       setMnemonicContent(savedMnemonic);
     }
-    if (savedHeadingNotes) {
+    if (savedHeadingNodes) {
       try {
-        setHeadingNotes(JSON.parse(savedHeadingNotes));
+        setHeadingNodes(JSON.parse(savedHeadingNodes));
       } catch {
-        setHeadingNotes({});
+        setHeadingNodes([]);
       }
     }
   }, [topicId]);
@@ -80,8 +82,29 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   }, [mnemonicContent, topicId]);
 
   useEffect(() => {
-    localStorage.setItem(`topic_heading_notes_${topicId}`, JSON.stringify(headingNotes));
-  }, [headingNotes, topicId]);
+    localStorage.setItem(`topic_heading_nodes_${topicId}`, JSON.stringify(headingNodes));
+  }, [headingNodes, topicId]);
+
+  // Auto-populate headings from blocks
+  useEffect(() => {
+    const allHeadings = blocks
+      .filter(b => b.headings && b.headings.length > 0)
+      .flatMap(b => b.headings || []);
+    
+    // Only add new headings, don't remove existing ones
+    const existingTitles = new Set(headingNodes.map(h => h.title));
+    const newHeadings = allHeadings.filter(h => !existingTitles.has(h));
+    
+    if (newHeadings.length > 0) {
+      const newNodes: HeadingNode[] = newHeadings.map(h => ({
+        id: Date.now().toString() + Math.random(),
+        title: h,
+        notes: "",
+        children: []
+      }));
+      setHeadingNodes([...headingNodes, ...newNodes]);
+    }
+  }, [blocks]);
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
@@ -109,10 +132,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     });
   };
 
-  // Extract all headings from blocks for summary accordion
-  const allHeadings = blocks
-    .filter(b => b.headings && b.headings.length > 0)
-    .flatMap(b => b.headings || []);
+  const markTextAsHeading = (text: string) => {
+    // Find the active block being edited
+    const activeBlock = blocks.find(b => b.type === "text");
+    if (activeBlock) {
+      const currentHeadings = activeBlock.headings || [];
+      updateBlock(activeBlock.id, activeBlock.content, [...currentHeadings, text]);
+    }
+  };
 
   const summaryBlocks = blocks.filter((b) => b.type === "summary");
   const mnemonicBlocks = blocks.filter((b) => b.type === "mnemonic");
@@ -175,18 +202,22 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="full" className="flex-1 overflow-auto m-0 px-4">
-          <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
-            <FormattingToolbar />
-            <div className="p-12 min-h-[297mm] space-y-4 bg-card">
-              {blocks.map((block) => (
-                <ContentBlock
-                  key={block.id}
-                  block={block}
-                  onUpdate={updateBlock}
-                  onDelete={deleteBlock}
-                />
-              ))}
+        <TabsContent value="full" className="flex-1 overflow-hidden m-0 flex flex-col">
+          <div className="sticky top-0 z-10 bg-card shadow-md">
+            <FormattingToolbar onMarkHeading={markTextAsHeading} />
+          </div>
+          <div className="flex-1 overflow-auto px-4">
+            <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
+              <div className="p-12 min-h-[297mm] space-y-4 bg-card">
+                {blocks.map((block) => (
+                  <ContentBlock
+                    key={block.id}
+                    block={block}
+                    onUpdate={updateBlock}
+                    onDelete={deleteBlock}
+                  />
+                ))}
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -201,27 +232,23 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 Summary
               </h3>
               
-              {allHeadings.length > 0 && (
+              {headingNodes.length > 0 && (
                 <div className="mb-6">
-                  <p className="text-sm text-muted-foreground mb-3">Auto-populated headings from content:</p>
-                  <Accordion type="single" collapsible className="w-full">
-                     {allHeadings.map((heading, idx) => (
-                      <AccordionItem key={idx} value={`heading-${idx}`} className="border border-primary/20 rounded-lg mb-2 px-4 bg-card/50">
-                        <AccordionTrigger className="text-left font-semibold text-primary hover:no-underline">
-                          {heading}
-                        </AccordionTrigger>
-                        <AccordionContent>
-                          <RichTextEditor
-                            value={headingNotes[heading] || ""}
-                            onChange={(v) => setHeadingNotes((prev) => ({ ...prev, [heading]: v }))}
-                            placeholder="Add notes or breakdown for this heading..."
-                            minHeight="100px"
-                            className="p-3 border border-border rounded-md bg-background/50"
-                          />
-                        </AccordionContent>
-                      </AccordionItem>
-                    ))}
-                  </Accordion>
+                  <p className="text-sm text-muted-foreground mb-3">Headings from content (click to edit or add subheadings):</p>
+                  {headingNodes.map((node, idx) => (
+                    <HeadingNodeComponent
+                      key={node.id}
+                      node={node}
+                      onUpdate={(updatedNode) => {
+                        const newNodes = [...headingNodes];
+                        newNodes[idx] = updatedNode;
+                        setHeadingNodes(newNodes);
+                      }}
+                      onDelete={() => {
+                        setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
+                      }}
+                    />
+                  ))}
                 </div>
               )}
 

@@ -35,31 +35,79 @@ export const RichTextEditor = ({
     const html = e.clipboardData.getData("text/html");
     const text = e.clipboardData.getData("text/plain");
     
-    // If HTML is available, use it (paste special with formatting)
-    const content = html || text;
-    
-    // Insert at cursor position
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0) {
-      const range = selection.getRangeAt(0);
-      range.deleteContents();
+    if (html) {
+      // Create a temporary div to parse HTML
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
       
-      const div = document.createElement("div");
-      div.innerHTML = content;
-      const frag = document.createDocumentFragment();
-      let node;
-      while ((node = div.firstChild)) {
-        frag.appendChild(node);
+      // Remove any font-weight: bold from inline styles to prevent everything becoming bold
+      const allElements = temp.querySelectorAll("*");
+      allElements.forEach((el) => {
+        const element = el as HTMLElement;
+        if (element.style.fontWeight) {
+          element.style.removeProperty("font-weight");
+        }
+        // Remove bold tags that might cause issues
+        if (element.tagName === "B" || element.tagName === "STRONG") {
+          const parent = element.parentNode;
+          while (element.firstChild) {
+            parent?.insertBefore(element.firstChild, element);
+          }
+          parent?.removeChild(element);
+        }
+      });
+      
+      // Preserve line breaks and spacing
+      const content = temp.innerHTML
+        .replace(/<br\s*\/?>/gi, '<br>')
+        .replace(/<\/p>/gi, '</p><br>')
+        .replace(/<p>/gi, '<p>');
+      
+      // Insert at cursor
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        const fragment = document.createDocumentFragment();
+        const div = document.createElement("div");
+        div.innerHTML = content;
+        
+        while (div.firstChild) {
+          fragment.appendChild(div.firstChild);
+        }
+        
+        range.insertNode(fragment);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
       }
-      range.insertNode(frag);
-      
-      // Move cursor to end of inserted content
-      range.collapse(false);
-      selection.removeAllRanges();
-      selection.addRange(range);
-      
-      handleInput();
+    } else {
+      // Plain text fallback
+      const selection = window.getSelection();
+      if (selection && selection.rangeCount > 0) {
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        
+        // Preserve line breaks in plain text
+        const lines = text.split('\n');
+        const fragment = document.createDocumentFragment();
+        
+        lines.forEach((line, index) => {
+          fragment.appendChild(document.createTextNode(line));
+          if (index < lines.length - 1) {
+            fragment.appendChild(document.createElement('br'));
+          }
+        });
+        
+        range.insertNode(fragment);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
     }
+    
+    handleInput();
   };
 
   return (
