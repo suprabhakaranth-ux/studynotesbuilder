@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import studyIllustration from "@/assets/study-illustration.png";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -105,21 +106,40 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-2">
-          <div className="flex items-center justify-center gap-2 mb-2">
-            <BookOpen className="w-8 h-8 text-primary" />
-            <h1 className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Psychology Notes
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 py-12">
+      <div className="w-full max-w-4xl space-y-8">
+        {/* Header Section */}
+        <div className="text-center space-y-4">
+          <div className="flex items-center justify-center gap-3 mb-4">
+            <BookOpen className="w-12 h-12 text-primary" />
+            <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              Study Notes
             </h1>
           </div>
-          <CardTitle className="text-center">Welcome</CardTitle>
-          <CardDescription className="text-center">
-            Sign in to your account or create a new one
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Your smart companion for organizing study materials, creating summaries, and building memory aids. 
+            Master your subjects with structured notes and intelligent learning tools.
+          </p>
+        </div>
+
+        {/* Illustration */}
+        <div className="flex justify-center">
+          <img 
+            src={studyIllustration} 
+            alt="Students studying together" 
+            className="w-full max-w-2xl h-auto rounded-lg"
+          />
+        </div>
+
+        {/* Auth Card */}
+        <Card className="w-full max-w-md mx-auto shadow-lg">
+          <CardHeader className="space-y-2">
+            <CardTitle className="text-center text-2xl">Welcome</CardTitle>
+            <CardDescription className="text-center">
+              Sign in to your account or create a new one
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
           <Tabs defaultValue="signin" className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
@@ -195,6 +215,7 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 };
