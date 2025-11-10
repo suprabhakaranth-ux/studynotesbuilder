@@ -108,27 +108,25 @@ const Auth = () => {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 py-12">
       <div className="w-full max-w-4xl space-y-8">
-        {/* Header Section */}
-        <div className="text-center space-y-4">
-          <div className="flex items-center justify-center gap-3 mb-4">
-            <BookOpen className="w-12 h-12 text-primary" />
-            <h1 className="text-5xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Study Notes
-            </h1>
-          </div>
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Your smart companion for organizing study materials, creating summaries, and building memory aids. 
-            Master your subjects with structured notes and intelligent learning tools.
-          </p>
-        </div>
-
-        {/* Illustration */}
-        <div className="flex justify-center">
+        {/* Hero Section with Overlay */}
+        <div className="relative w-full max-w-2xl mx-auto rounded-lg overflow-hidden">
           <img 
             src={studyIllustration} 
             alt="Students studying together" 
-            className="w-full max-w-2xl h-auto rounded-lg"
+            className="w-full h-auto"
           />
+          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-transparent flex flex-col items-center justify-center text-center px-6 py-8">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <BookOpen className="w-12 h-12 text-gray-900 drop-shadow-lg" />
+              <h1 className="text-5xl font-bold text-gray-900 drop-shadow-lg">
+                Study Notes
+              </h1>
+            </div>
+            <p className="text-lg text-gray-900 max-w-2xl mx-auto drop-shadow-md font-medium">
+              Your smart companion for organizing study materials, creating summaries, and building memory aids. 
+              Master your subjects with structured notes and intelligent learning tools.
+            </p>
+          </div>
         </div>
 
         {/* Auth Card */}
