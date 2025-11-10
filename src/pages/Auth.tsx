@@ -113,9 +113,9 @@ const Auth = () => {
           <img 
             src={studyIllustration} 
             alt="Students studying together" 
-            className="w-full h-auto"
+            className="w-full h-auto opacity-30"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-transparent flex flex-col items-center justify-center text-center px-6 py-8">
+          <div className="absolute inset-0 flex flex-col items-center justify-center text-center px-6 py-8">
             <div className="flex items-center justify-center gap-3 mb-4">
               <BookOpen className="w-12 h-12 text-gray-900 drop-shadow-lg" />
               <h1 className="text-5xl font-bold text-gray-900 drop-shadow-lg">
