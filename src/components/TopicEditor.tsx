@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
+import jsPDF from "jspdf";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -355,6 +356,114 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     }
   };
 
+  const exportToPDF = async () => {
+    try {
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 15;
+      let yPosition = margin;
+
+      // Add title
+      pdf.setFontSize(20);
+      pdf.setFont("helvetica", "bold");
+      pdf.text(topicTitle, margin, yPosition);
+      yPosition += 15;
+
+      // Helper to check if we need a new page
+      const checkNewPage = (neededHeight: number) => {
+        if (yPosition + neededHeight > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
+          return true;
+        }
+        return false;
+      };
+
+      // Add content blocks
+      pdf.setFontSize(12);
+      pdf.setFont("helvetica", "normal");
+      
+      for (const block of blocks) {
+        // Create temporary div to extract text from HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = block.content;
+        const text = tempDiv.textContent || tempDiv.innerText || '';
+        
+        if (text.trim()) {
+          const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
+          const blockHeight = lines.length * 7;
+          
+          checkNewPage(blockHeight + 5);
+          pdf.text(lines, margin, yPosition);
+          yPosition += blockHeight + 5;
+        }
+      }
+
+      // Add summary if exists
+      if (summaryContent.trim()) {
+        checkNewPage(20);
+        pdf.setFontSize(16);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Summary", margin, yPosition);
+        yPosition += 10;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = summaryContent;
+        const text = tempDiv.textContent || tempDiv.innerText || '';
+        
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "normal");
+        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
+        
+        for (const line of lines) {
+          checkNewPage(7);
+          pdf.text(line, margin, yPosition);
+          yPosition += 7;
+        }
+        yPosition += 5;
+      }
+
+      // Add mnemonic if exists
+      if (mnemonicContent.trim()) {
+        checkNewPage(20);
+        pdf.setFontSize(16);
+        pdf.setFont("helvetica", "bold");
+        pdf.text("Mnemonic", margin, yPosition);
+        yPosition += 10;
+
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = mnemonicContent;
+        const text = tempDiv.textContent || tempDiv.innerText || '';
+        
+        pdf.setFontSize(12);
+        pdf.setFont("helvetica", "normal");
+        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
+        
+        for (const line of lines) {
+          checkNewPage(7);
+          pdf.text(line, margin, yPosition);
+          yPosition += 7;
+        }
+      }
+
+      // Save the PDF
+      pdf.save(`${topicTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
+      
+      toast({
+        title: "Success",
+        description: "PDF exported successfully",
+      });
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast({
+        title: "Error",
+        description: "Failed to export PDF",
+        variant: "destructive",
+      });
+    }
+  };
+
   const markTextAsHeading = (text: string) => {
     // Find the active block being edited
     const activeBlock = blocks.find(b => b.type === "text");
@@ -424,6 +533,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          <Button size="sm" variant="outline" onClick={exportToPDF}>
+            <Download className="w-4 h-4 mr-2" />
+            Export PDF
+          </Button>
           
           <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
             <Save className="w-4 h-4 mr-2" />

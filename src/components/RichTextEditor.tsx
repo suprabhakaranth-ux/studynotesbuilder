@@ -1,12 +1,6 @@
 import { useRef, useEffect } from "react";
 import { cn } from "@/lib/utils";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/components/ui/context-menu";
-import { Heading } from "lucide-react";
+import { FloatingToolbar } from "./FloatingToolbar";
 
 interface RichTextEditorProps {
   value: string;
@@ -119,48 +113,23 @@ export const RichTextEditor = ({
     handleInput();
   };
 
-  const handleMarkHeading = () => {
-    const selection = window.getSelection();
-    if (selection && onMarkHeading) {
-      const text = selection.toString().trim();
-      if (text) {
-        onMarkHeading(text);
-      }
-    }
-  };
-
-  const editorContent = (
-    <div
-      ref={editorRef}
-      contentEditable
-      onInput={handleInput}
-      onPaste={handlePaste}
-      className={cn(
-        "w-full rounded-md border-0 p-0 focus-visible:outline-none bg-transparent text-lg leading-relaxed",
-        "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
-        className
-      )}
-      style={{ minHeight }}
-      data-placeholder={placeholder}
-      suppressContentEditableWarning
-    />
+  return (
+    <>
+      <div
+        ref={editorRef}
+        contentEditable
+        onInput={handleInput}
+        onPaste={handlePaste}
+        className={cn(
+          "w-full rounded-md border-0 p-0 focus-visible:outline-none bg-transparent text-lg leading-relaxed",
+          "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
+          className
+        )}
+        style={{ minHeight }}
+        data-placeholder={placeholder}
+        suppressContentEditableWarning
+      />
+      <FloatingToolbar onMarkHeading={onMarkHeading} />
+    </>
   );
-
-  if (onMarkHeading) {
-    return (
-      <ContextMenu>
-        <ContextMenuTrigger asChild>
-          {editorContent}
-        </ContextMenuTrigger>
-        <ContextMenuContent className="w-48">
-          <ContextMenuItem onClick={handleMarkHeading} className="cursor-pointer">
-            <Heading className="w-4 h-4 mr-2" />
-            Mark as Heading
-          </ContextMenuItem>
-        </ContextMenuContent>
-      </ContextMenu>
-    );
-  }
-
-  return editorContent;
 };
