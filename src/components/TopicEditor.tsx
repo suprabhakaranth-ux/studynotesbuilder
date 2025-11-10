@@ -123,22 +123,44 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         setMnemonicContent(mnemonicData.content || "");
       }
 
-      // Load heading nodes
-      const { data: headingNodesData } = await supabase
-        .from("heading_nodes")
-        .select("*")
-        .eq("topic_id", topicId)
-        .eq("user_id", user.id)
-        .order("node_order", { ascending: true });
-      
-      if (headingNodesData) {
-        setHeadingNodes(headingNodesData.map(h => ({
-          id: h.id,
-          title: h.title,
-          notes: h.notes || "",
-          children: [] // We'll handle nested children later
-        })));
+  // Load heading nodes and rebuild tree structure
+  const { data: headingNodesData } = await supabase
+    .from("heading_nodes")
+    .select("*")
+    .eq("topic_id", topicId)
+    .eq("user_id", user.id)
+    .order("node_order", { ascending: true });
+  
+  if (headingNodesData) {
+    // Build a map of all nodes by ID
+    const nodeMap = new Map<string, HeadingNode>();
+    headingNodesData.forEach(h => {
+      nodeMap.set(h.id, {
+        id: h.id,
+        title: h.title,
+        notes: h.notes || "",
+        children: []
+      });
+    });
+
+    // Build the tree structure
+    const rootNodes: HeadingNode[] = [];
+    headingNodesData.forEach(h => {
+      const node = nodeMap.get(h.id)!;
+      if (h.parent_id) {
+        // This is a child node, add it to parent's children
+        const parent = nodeMap.get(h.parent_id);
+        if (parent) {
+          parent.children.push(node);
+        }
+      } else {
+        // This is a root node
+        rootNodes.push(node);
       }
+    });
+
+    setHeadingNodes(rootNodes);
+  }
 
       setLoading(false);
     };
@@ -292,28 +314,59 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       if (summaryRes.error) throw summaryRes.error;
       if (mnemonicRes.error) throw mnemonicRes.error;
 
-      // Save heading nodes (flat list for now)
-      const { error: deleteHNError } = await supabase
-        .from("heading_nodes")
-        .delete()
-        .eq("topic_id", topicId)
-        .eq("user_id", user.id);
-      if (deleteHNError) throw deleteHNError;
+  // Save heading nodes (flatten tree structure)
+  const { error: deleteHNError } = await supabase
+    .from("heading_nodes")
+    .delete()
+    .eq("topic_id", topicId)
+    .eq("user_id", user.id);
+  if (deleteHNError) throw deleteHNError;
 
-      if (headingNodes.length > 0) {
-        const { error: insertHNError } = await supabase.from("heading_nodes").insert(
-          headingNodes.map((h, idx) => ({
-            id: h.id,
-            topic_id: topicId,
-            user_id: user.id,
-            title: h.title,
-            notes: h.notes,
-            parent_id: null,
-            node_order: idx,
-          }))
-        );
-        if (insertHNError) throw insertHNError;
-      }
+  if (headingNodes.length > 0) {
+    // Flatten the tree structure for database storage
+    const flattenNodes = (nodes: HeadingNode[], parentId: string | null = null): Array<{
+      id: string;
+      topic_id: string;
+      user_id: string;
+      title: string;
+      notes: string;
+      parent_id: string | null;
+      node_order: number;
+    }> => {
+      const result: Array<{
+        id: string;
+        topic_id: string;
+        user_id: string;
+        title: string;
+        notes: string;
+        parent_id: string | null;
+        node_order: number;
+      }> = [];
+      
+      nodes.forEach((node, idx) => {
+        result.push({
+          id: node.id,
+          topic_id: topicId,
+          user_id: user.id,
+          title: node.title,
+          notes: node.notes,
+          parent_id: parentId,
+          node_order: idx,
+        });
+        
+        // Recursively flatten children
+        if (node.children && node.children.length > 0) {
+          result.push(...flattenNodes(node.children, node.id));
+        }
+      });
+      
+      return result;
+    };
+
+    const flatNodes = flattenNodes(headingNodes);
+    const { error: insertHNError } = await supabase.from("heading_nodes").insert(flatNodes);
+    if (insertHNError) throw insertHNError;
+  }
     } finally {
       setIsSaving(false);
       savingRef.current = false;
