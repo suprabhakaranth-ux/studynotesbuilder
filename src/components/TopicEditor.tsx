@@ -612,10 +612,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </div>
       </div>
 
-      {/* Global Sticky Toolbar - visible in both tabs */}
-      <div className="sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
+      {/* Global Fixed Toolbar - visible in both tabs */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
         <FormattingToolbar onMarkHeading={markTextAsHeading} />
       </div>
+
+      {/* Spacer to prevent content from hiding under fixed toolbar */}
+      <div className="h-[52px]" />
 
       <Tabs defaultValue="full" className="flex-1 flex flex-col">
         <TabsList className="mx-4 mt-4 w-fit">
