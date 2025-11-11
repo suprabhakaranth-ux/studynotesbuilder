@@ -612,8 +612,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </div>
       </div>
 
-      {/* Global Fixed Toolbar - visible in both tabs */}
-      <div className="fixed top-0 left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
+      {/* Global Fixed Toolbar - positioned below header */}
+      <div className="fixed top-[72px] left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
         <FormattingToolbar onMarkHeading={markTextAsHeading} />
       </div>
 
