@@ -94,7 +94,10 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     }
   };
   return (
-    <div className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5">
+    <div 
+      className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
+      onMouseDown={(e) => e.preventDefault()}
+    >
       <Select onValueChange={(value) => applyFormat("fontName", value)}>
         <SelectTrigger className="w-[110px] h-8 bg-card text-xs">
           <SelectValue placeholder="Font" />

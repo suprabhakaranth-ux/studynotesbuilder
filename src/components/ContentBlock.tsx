@@ -128,13 +128,15 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
         </div>
       ) : (
         <div className="space-y-2" onMouseUp={handleTextSelection}>
-          <RichTextEditor
-            value={block.content}
-            onChange={(value) => onUpdate(block.id, value)}
-            onMarkHeading={block.type === "text" ? markAsHeading : undefined}
-            placeholder={getPlaceholder()}
-            className="min-h-[150px]"
-          />
+          <div data-block-id={block.id}>
+            <RichTextEditor
+              value={block.content}
+              onChange={(value) => onUpdate(block.id, value)}
+              onMarkHeading={block.type === "text" ? markAsHeading : undefined}
+              placeholder={getPlaceholder()}
+              className="min-h-[150px]"
+            />
+          </div>
           {selectedText && block.type === "text" && (
             <Button
               size="sm"

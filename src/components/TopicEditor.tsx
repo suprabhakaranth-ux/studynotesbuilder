@@ -518,12 +518,25 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const markTextAsHeading = (text: string) => {
-    // Find the active block being edited
-    const activeBlock = blocks.find(b => b.type === "text");
-    if (activeBlock) {
-      const currentHeadings = activeBlock.headings || [];
-      updateBlock(activeBlock.id, activeBlock.content, [...currentHeadings, text]);
+    // Find which block the selection belongs to by traversing the DOM
+    const selection = window.getSelection();
+    if (!selection || !selection.anchorNode) return;
+    
+    // Traverse up to find the element with data-block-id
+    let element = selection.anchorNode.parentElement;
+    while (element && !element.hasAttribute('data-block-id')) {
+      element = element.parentElement;
     }
+    
+    if (!element) return; // No block found
+    
+    const blockId = element.getAttribute('data-block-id');
+    const targetBlock = blocks.find(b => b.id === blockId);
+    
+    if (!targetBlock || targetBlock.type !== "text") return;
+    
+    const currentHeadings = targetBlock.headings || [];
+    updateBlock(targetBlock.id, targetBlock.content, [...currentHeadings, text]);
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -599,6 +612,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </div>
       </div>
 
+      {/* Global Sticky Toolbar - visible in both tabs */}
+      <div className="sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
+        <FormattingToolbar onMarkHeading={markTextAsHeading} />
+      </div>
+
       <Tabs defaultValue="full" className="flex-1 flex flex-col">
         <TabsList className="mx-4 mt-4 w-fit">
           <TabsTrigger value="full">Full Content</TabsTrigger>
@@ -606,9 +624,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </TabsList>
 
         <TabsContent value="full" className="flex-1 m-0 overflow-y-auto px-4">
-          <div className="sticky top-0 z-20 bg-card shadow-md border-b border-border -mx-4 px-4 mb-4">
-            <FormattingToolbar onMarkHeading={markTextAsHeading} />
-          </div>
           <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
             <div className="p-12 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block) => (
