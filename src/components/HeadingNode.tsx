@@ -19,6 +19,7 @@ interface HeadingNodeComponentProps {
   onDelete: () => void;
   onPromote?: () => void;
   onDemote?: () => void;
+  onPromoteChild?: (child: HeadingNode) => void;
   canPromote?: boolean;
   canDemote?: boolean;
   level?: number;
@@ -32,6 +33,7 @@ export const HeadingNodeComponent = ({
   onDelete,
   onPromote,
   onDemote,
+  onPromoteChild,
   canPromote = false,
   canDemote = false,
   level = 0,
@@ -243,12 +245,17 @@ export const HeadingNodeComponent = ({
                     onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
                     onDelete={() => deleteChild(idx)}
                     onPromote={() => {
-                      // Promote child to be a sibling (parent level)
+                      // Promote child to be a sibling (parent level) or to root
                       const newChildren = [...node.children];
                       const promotedChild = newChildren.splice(idx, 1)[0];
                       onUpdate({ ...node, children: newChildren });
-                      // This would need to be handled at parent level
+                      
+                      // If we're at level 0, promote to root; otherwise just update parent
+                      if (level === 0 && onPromoteChild) {
+                        onPromoteChild(promotedChild);
+                      }
                     }}
+                    onPromoteChild={onPromoteChild}
                     canPromote={true}
                     canDemote={false}
                     level={level + 1}

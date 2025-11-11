@@ -706,6 +706,27 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                               setHeadingNodes(newNodes);
                             }
                           }}
+                          onPromoteChild={(childToPromote) => {
+                            // Promote a nested child to root level
+                            // Remove from parent and add to root
+                            const newNodes = [...headingNodes];
+                            const removeChildFromParent = (nodes: HeadingNode[]): boolean => {
+                              for (let i = 0; i < nodes.length; i++) {
+                                const childIdx = nodes[i].children.findIndex(c => c.id === childToPromote.id);
+                                if (childIdx !== -1) {
+                                  nodes[i].children.splice(childIdx, 1);
+                                  return true;
+                                }
+                                if (removeChildFromParent(nodes[i].children)) {
+                                  return true;
+                                }
+                              }
+                              return false;
+                            };
+                            removeChildFromParent(newNodes);
+                            newNodes.push(childToPromote);
+                            setHeadingNodes(newNodes);
+                          }}
                           canDemote={idx > 0}
                           canPromote={false}
                         />
