@@ -71,11 +71,8 @@ export const HeadingNodeComponent: React.FC<HeadingNodeProps> = ({
     onUpdate({ ...node, children: updatedChildren });
   };
 
-  // ✅ FIX 1: Changed logic so subheadings remain visible when collapsed
-  const showContent = isExpanded || !forceCollapsed;
-
   return (
-    <div className={`rounded-lg border border-border bg-card p-3 shadow-sm mb-3 ${level > 0 ? "ml-4" : ""}`}>
+    <div className={`border-l-2 pl-4 mb-3 ${level > 0 ? "ml-6" : ""} transition-all duration-300`}>
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-1">
           <button
@@ -109,27 +106,29 @@ export const HeadingNodeComponent: React.FC<HeadingNodeProps> = ({
         </div>
       </div>
 
-      {/* ✅ FIX 2: Hide only notes & add button when collapsed, not subheadings */}
-      {showContent && (
+      {/* Show notes, add button, and children logic */}
+      {(isExpanded || !forceCollapsed) && (
         <div className="px-2 pb-2 space-y-2">
+          {/* Notes hide when collapsed */}
           {!forceCollapsed && (
-            <>
-              <RichTextEditor
-                value={node.notes}
-                onChange={(v) => onUpdate({ ...node, notes: v })}
-                placeholder="Add notes or breakdown for this heading..."
-                minHeight="80px"
-                className="p-2 border border-border rounded-md bg-background/50 text-sm"
-              />
-
-              <Button size="sm" variant="outline" onClick={handleAddSubheading} className="w-full h-7 text-xs">
-                <Plus className="w-3 h-3 mr-1" />
-                Add Subheading
-              </Button>
-            </>
+            <RichTextEditor
+              value={node.notes}
+              onChange={(v) => onUpdate({ ...node, notes: v })}
+              placeholder="Add notes or breakdown for this heading..."
+              minHeight="80px"
+              className="p-2 border border-border rounded-md bg-background/50 text-sm"
+            />
           )}
 
-          {/* Subheadings always visible */}
+          {/* Add Subheading button hides when collapsed */}
+          {!forceCollapsed && (
+            <Button size="sm" variant="outline" onClick={handleAddSubheading} className="w-full h-7 text-xs">
+              <Plus className="w-3 h-3 mr-1" />
+              Add Subheading
+            </Button>
+          )}
+
+          {/* Subheadings remain visible even when collapsed */}
           {node.children.length > 0 && (
             <div className="space-y-1 mt-2">
               {node.children.map((child, idx) => (
