@@ -200,7 +200,19 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     
     // Only add new headings, don't remove existing ones
     setHeadingNodes(prev => {
-      const existingTitles = new Set(prev.map(h => h.title));
+      // Recursively collect all titles from the entire heading tree
+      const getAllTitles = (nodes: HeadingNode[]): string[] => {
+        const titles: string[] = [];
+        for (const node of nodes) {
+          titles.push(node.title);
+          if (node.children.length > 0) {
+            titles.push(...getAllTitles(node.children));
+          }
+        }
+        return titles;
+      };
+      
+      const existingTitles = new Set(getAllTitles(prev));
       const newHeadings = allHeadings.filter(h => !existingTitles.has(h));
       
       if (newHeadings.length > 0) {
