@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
