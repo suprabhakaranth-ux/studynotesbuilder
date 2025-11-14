@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -640,7 +641,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
         <TabsContent value="full" className="flex-1 m-0 overflow-y-auto px-4">
           <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
-            <div className="p-12 min-h-[297mm] space-y-4 bg-card">
+            <div id="pdf-export-content" className="p-12 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block) => (
                 <ContentBlock
                   key={block.id}
