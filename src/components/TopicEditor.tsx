@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
 import jsPDF from "jspdf";
+import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -423,107 +424,73 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   const exportToPDF = async () => {
     try {
+      // Find the Full Content container to export
+      const contentContainer = document.getElementById('pdf-export-content');
+      
+      if (!contentContainer) {
+        toast({
+          title: "Export failed",
+          description: "Could not find content to export. Please make sure you're on the 'Full Content' tab.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Generating PDF...",
+        description: "This may take a moment for large documents",
+      });
+
+      // Use html2canvas to capture the rendered content with all formatting
+      const canvas = await html2canvas(contentContainer as HTMLElement, {
+        scale: 2, // Higher quality
+        useCORS: true, // Handle external images
+        logging: false,
+        backgroundColor: '#ffffff',
+        windowWidth: contentContainer.scrollWidth,
+        windowHeight: contentContainer.scrollHeight,
+      });
+
+      // Convert canvas to image
+      const imgData = canvas.toDataURL('image/png');
+      
+      // Create PDF
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pageWidth = pdf.internal.pageSize.getWidth();
       const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      let yPosition = margin;
-
-      // Add title
-      pdf.setFontSize(20);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(topicTitle, margin, yPosition);
-      yPosition += 15;
-
-      // Helper to check if we need a new page
-      const checkNewPage = (neededHeight: number) => {
-        if (yPosition + neededHeight > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-          return true;
-        }
-        return false;
-      };
-
-      // Add content blocks
-      pdf.setFontSize(12);
-      pdf.setFont("helvetica", "normal");
       
-      for (const block of blocks) {
-        // Create temporary div to extract text from HTML
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = block.content;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        if (text.trim()) {
-          const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-          const blockHeight = lines.length * 7;
-          
-          checkNewPage(blockHeight + 5);
-          pdf.text(lines, margin, yPosition);
-          yPosition += blockHeight + 5;
-        }
+      // Calculate dimensions to fit content
+      const imgWidth = pageWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      
+      // Handle multi-page content
+      let heightLeft = imgHeight;
+      let position = 0;
+      
+      // Add first page
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+      
+      // Add additional pages if content is longer
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
       }
-
-      // Add summary if exists
-      if (summaryContent.trim()) {
-        checkNewPage(20);
-        pdf.setFontSize(16);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Summary", margin, yPosition);
-        yPosition += 10;
-
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = summaryContent;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-        
-        for (const line of lines) {
-          checkNewPage(7);
-          pdf.text(line, margin, yPosition);
-          yPosition += 7;
-        }
-        yPosition += 5;
-      }
-
-      // Add mnemonic if exists
-      if (mnemonicContent.trim()) {
-        checkNewPage(20);
-        pdf.setFontSize(16);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Mnemonic", margin, yPosition);
-        yPosition += 10;
-
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = mnemonicContent;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-        
-        for (const line of lines) {
-          checkNewPage(7);
-          pdf.text(line, margin, yPosition);
-          yPosition += 7;
-        }
-      }
-
-      // Save the PDF
+      
+      // Download PDF
       pdf.save(`${topicTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
       
       toast({
-        title: "Success",
-        description: "PDF exported successfully",
+        title: "Exported successfully! 📄",
+        description: "Your notes have been exported to PDF with all formatting preserved.",
       });
     } catch (error) {
-      console.error("Error exporting PDF:", error);
+      console.error("Export failed:", error);
       toast({
-        title: "Error",
-        description: "Failed to export PDF",
+        title: "Export failed",
+        description: "Could not export to PDF. Please try again.",
         variant: "destructive",
       });
     }
