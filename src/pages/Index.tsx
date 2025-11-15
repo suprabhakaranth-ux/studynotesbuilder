@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
-import { Plus, LogOut } from "lucide-react";
+import { Plus, LogOut, Trash2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
 import { TopicEditor } from "@/components/TopicEditor";
+import { RecycleBin } from "@/components/RecycleBin";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -43,6 +45,9 @@ const Index = () => {
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
+  const [recycleBinOpen, setRecycleBinOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: "subject" | "topic" } | null>(null);
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -178,6 +183,207 @@ const Index = () => {
     });
   };
 
+  const handleDeleteSubject = (subjectId: string, subjectName: string) => {
+    setItemToDelete({ id: subjectId, name: subjectName, type: "subject" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleDeleteTopic = (topicId: string, topicTitle: string) => {
+    setItemToDelete({ id: topicId, name: topicTitle, type: "topic" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!itemToDelete || !user) return;
+
+    try {
+      if (itemToDelete.type === "subject") {
+        // Fetch subject data
+        const { data: subjectData, error: subjectError } = await supabase
+          .from("subjects")
+          .select("*")
+          .eq("id", itemToDelete.id)
+          .single();
+
+        if (subjectError) throw subjectError;
+
+        // Fetch all topics for this subject
+        const { data: topicsData, error: topicsError } = await supabase
+          .from("topics")
+          .select("*")
+          .eq("subject_id", itemToDelete.id);
+
+        if (topicsError) throw topicsError;
+
+        // Store in deleted_items
+        const { error: insertError } = await supabase
+          .from("deleted_items")
+          .insert({
+            user_id: user.id,
+            item_type: "subject",
+            item_id: itemToDelete.id,
+            item_name: itemToDelete.name,
+            subject_data: subjectData,
+            topic_data: topicsData || [],
+          });
+
+        if (insertError) throw insertError;
+
+        // Delete all topics for this subject
+        if (topicsData && topicsData.length > 0) {
+          const topicIds = topicsData.map((t) => t.id);
+
+          // Delete related data for all topics
+          await supabase.from("blocks").delete().in("topic_id", topicIds);
+          await supabase.from("heading_nodes").delete().in("topic_id", topicIds);
+          await supabase.from("summaries").delete().in("topic_id", topicIds);
+          await supabase.from("mnemonics").delete().in("topic_id", topicIds);
+
+          // Delete topics
+          await supabase.from("topics").delete().in("id", topicIds);
+        }
+
+        // Delete subject
+        const { error: deleteError } = await supabase
+          .from("subjects")
+          .delete()
+          .eq("id", itemToDelete.id);
+
+        if (deleteError) throw deleteError;
+
+        // Update local state
+        setSubjects(subjects.filter((s) => s.id !== itemToDelete.id));
+        setTopics(topics.filter((t) => t.subjectId !== itemToDelete.id));
+        if (activeSubject === itemToDelete.id) {
+          setActiveSubject(null);
+        }
+
+        toast({
+          title: "Moved to Recycle Bin",
+          description: `${itemToDelete.name} and its topics can be restored from the Recycle Bin.`,
+        });
+      } else if (itemToDelete.type === "topic") {
+        // Fetch topic data
+        const { data: topicData, error: topicError } = await supabase
+          .from("topics")
+          .select("*")
+          .eq("id", itemToDelete.id)
+          .single();
+
+        if (topicError) throw topicError;
+
+        // Fetch all related data
+        const { data: blocksData } = await supabase
+          .from("blocks")
+          .select("*")
+          .eq("topic_id", itemToDelete.id);
+
+        const { data: headingsData } = await supabase
+          .from("heading_nodes")
+          .select("*")
+          .eq("topic_id", itemToDelete.id);
+
+        const { data: summariesData } = await supabase
+          .from("summaries")
+          .select("*")
+          .eq("topic_id", itemToDelete.id);
+
+        const { data: mnemonicsData } = await supabase
+          .from("mnemonics")
+          .select("*")
+          .eq("topic_id", itemToDelete.id);
+
+        // Store in deleted_items
+        const { error: insertError } = await supabase
+          .from("deleted_items")
+          .insert({
+            user_id: user.id,
+            item_type: "topic",
+            item_id: itemToDelete.id,
+            item_name: itemToDelete.name,
+            topic_data: topicData,
+            blocks_data: blocksData || [],
+            heading_nodes_data: headingsData || [],
+            summaries_data: summariesData || [],
+            mnemonics_data: mnemonicsData || [],
+          });
+
+        if (insertError) throw insertError;
+
+        // Delete all related data
+        await supabase.from("blocks").delete().eq("topic_id", itemToDelete.id);
+        await supabase.from("heading_nodes").delete().eq("topic_id", itemToDelete.id);
+        await supabase.from("summaries").delete().eq("topic_id", itemToDelete.id);
+        await supabase.from("mnemonics").delete().eq("topic_id", itemToDelete.id);
+
+        // Delete topic
+        const { error: deleteError } = await supabase
+          .from("topics")
+          .delete()
+          .eq("id", itemToDelete.id);
+
+        if (deleteError) throw deleteError;
+
+        // Update local state
+        setTopics(topics.filter((t) => t.id !== itemToDelete.id));
+
+        toast({
+          title: "Moved to Recycle Bin",
+          description: `${itemToDelete.name} can be restored from the Recycle Bin.`,
+        });
+      }
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to delete item",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteConfirmOpen(false);
+      setItemToDelete(null);
+    }
+  };
+
+  const handleRestoreData = () => {
+    // Reload all data after restore
+    if (user) {
+      const loadData = async () => {
+        const { data: subjectsData } = await supabase
+          .from("subjects")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (subjectsData) {
+          const mappedSubjects = subjectsData.map((s) => ({
+            id: s.id,
+            name: s.name,
+            color: s.color,
+          }));
+          setSubjects(mappedSubjects);
+        }
+
+        const { data: topicsData } = await supabase
+          .from("topics")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false });
+
+        if (topicsData) {
+          const mappedTopics = topicsData.map((t) => ({
+            id: t.id,
+            subjectId: t.subject_id || "default",
+            title: t.title,
+          }));
+          setTopics(mappedTopics);
+        }
+      };
+
+      loadData();
+    }
+  };
+
   const activeTopics = topics.filter((t) => t.subjectId === activeSubject);
   const activeSubjectData = subjects.find((s) => s.id === activeSubject);
   const editingTopicData = topics.find((t) => t.id === editingTopic);
@@ -187,6 +393,16 @@ const Index = () => {
       <div className="flex items-center justify-center h-screen">
         <p className="text-muted-foreground">Loading...</p>
       </div>
+    );
+  }
+
+  if (recycleBinOpen && user) {
+    return (
+      <RecycleBin
+        onClose={() => setRecycleBinOpen(false)}
+        onRestore={handleRestoreData}
+        userId={user.id}
+      />
     );
   }
 
@@ -207,6 +423,7 @@ const Index = () => {
         activeSubject={activeSubject}
         onSubjectSelect={setActiveSubject}
         onNewSubject={() => setDialogOpen(true)}
+        onDeleteSubject={handleDeleteSubject}
       />
 
       <div className="flex-1 overflow-auto">
@@ -222,6 +439,10 @@ const Index = () => {
                 </p>
               </div>
               <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setRecycleBinOpen(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Recycle Bin
+                </Button>
                 <Button variant="outline" onClick={signOut}>
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
@@ -248,6 +469,7 @@ const Index = () => {
                     key={topic.id}
                     topic={topic}
                     onClick={() => setEditingTopic(topic.id)}
+                    onDelete={handleDeleteTopic}
                   />
                 ))}
               </div>
@@ -316,6 +538,14 @@ const Index = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <DeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        onConfirm={confirmDelete}
+        itemName={itemToDelete?.name || ""}
+        isPermanent={false}
+      />
     </div>
   );
 };
