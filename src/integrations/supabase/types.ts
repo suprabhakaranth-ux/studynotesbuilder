@@ -55,6 +55,51 @@ export type Database = {
           },
         ]
       }
+      deleted_items: {
+        Row: {
+          blocks_data: Json | null
+          deleted_at: string
+          heading_nodes_data: Json | null
+          id: string
+          item_id: string
+          item_name: string
+          item_type: string
+          mnemonics_data: Json | null
+          subject_data: Json | null
+          summaries_data: Json | null
+          topic_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          blocks_data?: Json | null
+          deleted_at?: string
+          heading_nodes_data?: Json | null
+          id?: string
+          item_id: string
+          item_name: string
+          item_type: string
+          mnemonics_data?: Json | null
+          subject_data?: Json | null
+          summaries_data?: Json | null
+          topic_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          blocks_data?: Json | null
+          deleted_at?: string
+          heading_nodes_data?: Json | null
+          id?: string
+          item_id?: string
+          item_name?: string
+          item_type?: string
+          mnemonics_data?: Json | null
+          subject_data?: Json | null
+          summaries_data?: Json | null
+          topic_data?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       heading_nodes: {
         Row: {
           created_at: string | null
