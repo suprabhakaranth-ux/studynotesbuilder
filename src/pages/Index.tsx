@@ -792,6 +792,7 @@ const Index = () => {
                     topic={topic}
                     onClick={() => setEditingTopic(topic.id)}
                     onDelete={handleDeleteTopic}
+                    onMove={handleMoveTopic}
                   />
                 ))}
               </div>
