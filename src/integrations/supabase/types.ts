@@ -55,9 +55,48 @@ export type Database = {
           },
         ]
       }
+      chapters: {
+        Row: {
+          chapter_order: number
+          created_at: string
+          id: string
+          name: string
+          subject_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_order?: number
+          created_at?: string
+          id?: string
+          name: string
+          subject_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          chapter_order?: number
+          created_at?: string
+          id?: string
+          name?: string
+          subject_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_chapter_subject"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       deleted_items: {
         Row: {
           blocks_data: Json | null
+          chapters_data: Json | null
           deleted_at: string
           heading_nodes_data: Json | null
           id: string
@@ -72,6 +111,7 @@ export type Database = {
         }
         Insert: {
           blocks_data?: Json | null
+          chapters_data?: Json | null
           deleted_at?: string
           heading_nodes_data?: Json | null
           id?: string
@@ -86,6 +126,7 @@ export type Database = {
         }
         Update: {
           blocks_data?: Json | null
+          chapters_data?: Json | null
           deleted_at?: string
           heading_nodes_data?: Json | null
           id?: string
@@ -247,6 +288,7 @@ export type Database = {
       }
       topics: {
         Row: {
+          chapter_id: string | null
           created_at: string | null
           id: string
           subject_id: string | null
@@ -255,6 +297,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          chapter_id?: string | null
           created_at?: string | null
           id?: string
           subject_id?: string | null
@@ -263,6 +306,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          chapter_id?: string | null
           created_at?: string | null
           id?: string
           subject_id?: string | null
@@ -271,6 +315,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fk_topic_chapter"
+            columns: ["chapter_id"]
+            isOneToOne: false
+            referencedRelation: "chapters"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "topics_subject_id_fkey"
             columns: ["subject_id"]
