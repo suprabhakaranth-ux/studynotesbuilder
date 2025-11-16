@@ -28,10 +28,12 @@ interface SidebarProps {
   chapters: Chapter[];
   topics: Topic[];
   activeSubject: string | null;
+  activeChapter: string | null;
   activeTopic: string | null;
   expandedSubjects: Set<string>;
   expandedChapters: Set<string>;
   onSubjectSelect: (id: string) => void;
+  onChapterSelect: (id: string) => void;
   onTopicSelect: (id: string) => void;
   onNewSubject: () => void;
   onDeleteSubject: (id: string, name: string) => void;
@@ -49,10 +51,12 @@ export const Sidebar = ({
   chapters,
   topics,
   activeSubject,
+  activeChapter,
   activeTopic,
   expandedSubjects,
   expandedChapters,
   onSubjectSelect,
+  onChapterSelect,
   onTopicSelect,
   onNewSubject,
   onDeleteSubject,
@@ -171,7 +175,9 @@ export const Sidebar = ({
                             chapter={chapter}
                             topics={chapterTopics}
                             isExpanded={expandedChapters.has(chapter.id)}
+                            isActive={activeChapter === chapter.id}
                             onToggle={() => onToggleChapter(chapter.id)}
+                            onChapterClick={onChapterSelect}
                             onEditChapter={onEditChapter}
                             onDeleteChapter={onDeleteChapter}
                             onMoveChapter={onMoveChapter}

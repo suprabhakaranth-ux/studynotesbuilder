@@ -20,7 +20,9 @@ interface ChapterSectionProps {
   chapter: Chapter;
   topics: Topic[];
   isExpanded: boolean;
+  isActive: boolean;
   onToggle: () => void;
+  onChapterClick: (id: string) => void;
   onEditChapter: (id: string, name: string) => void;
   onDeleteChapter: (id: string, name: string) => void;
   onMoveChapter: (id: string, name: string) => void;
@@ -34,7 +36,9 @@ export const ChapterSection = ({
   chapter,
   topics,
   isExpanded,
+  isActive,
   onToggle,
+  onChapterClick,
   onEditChapter,
   onDeleteChapter,
   onMoveChapter,
@@ -45,7 +49,12 @@ export const ChapterSection = ({
 }: ChapterSectionProps) => {
   return (
     <div className="mb-2">
-      <div className="group relative px-2 py-1.5 rounded-md hover:bg-sidebar-accent/50 transition-all">
+      <div className={cn(
+        "group relative px-2 py-1.5 rounded-md transition-all",
+        isActive 
+          ? "bg-primary/10 text-foreground font-medium"
+          : "hover:bg-sidebar-accent/50"
+      )}>
         <div className="flex items-center gap-1">
           <button
             onClick={onToggle}
@@ -58,7 +67,7 @@ export const ChapterSection = ({
             )}
           </button>
           <button
-            onClick={onToggle}
+            onClick={() => onChapterClick(chapter.id)}
             className="flex-1 text-left text-sm font-medium text-foreground truncate"
           >
             {chapter.name}
