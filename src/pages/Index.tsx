@@ -5,6 +5,9 @@ import { TopicCard } from "@/components/TopicCard";
 import { TopicEditor } from "@/components/TopicEditor";
 import { RecycleBin } from "@/components/RecycleBin";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
+import { ChapterDialog } from "@/components/ChapterDialog";
+import { MoveTopicDialog } from "@/components/MoveTopicDialog";
+import { MoveChapterDialog } from "@/components/MoveChapterDialog";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -26,11 +29,19 @@ interface Subject {
   color: string;
 }
 
+interface Chapter {
+  id: string;
+  subject_id: string;
+  name: string;
+  chapter_order: number;
+}
+
 interface Topic {
   id: string;
   subjectId: string;
   title: string;
   summary?: string;
+  chapterId?: string | null;
 }
 
 const Index = () => {
@@ -38,16 +49,35 @@ const Index = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
+  const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
+  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [topicDialogOpen, setTopicDialogOpen] = useState(false);
   const [recycleBinOpen, setRecycleBinOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
-  const [itemToDelete, setItemToDelete] = useState<{ id: string; name: string; type: "subject" | "topic" } | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<{ 
+    id: string; 
+    name: string; 
+    type: "subject" | "topic" | "chapter";
+  } | null>(null);
+  
+  // Chapter dialogs
+  const [chapterDialogOpen, setChapterDialogOpen] = useState(false);
+  const [editingChapter, setEditingChapter] = useState<{ id: string; name: string } | null>(null);
+  const [chapterSubjectId, setChapterSubjectId] = useState<string>("");
+  
+  // Move dialogs
+  const [moveTopicDialogOpen, setMoveTopicDialogOpen] = useState(false);
+  const [topicToMove, setTopicToMove] = useState<{ id: string; title: string } | null>(null);
+  const [moveChapterDialogOpen, setMoveChapterDialogOpen] = useState(false);
+  const [chapterToMove, setChapterToMove] = useState<{ id: string; name: string } | null>(null);
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -81,6 +111,19 @@ const Index = () => {
         setSubjects(mappedSubjects);
       }
 
+      // Load chapters from database
+      const { data: chaptersData, error: chaptersError } = await supabase
+        .from("chapters")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("chapter_order", { ascending: true });
+
+      if (chaptersError) {
+        console.error("Error loading chapters:", chaptersError);
+      } else if (chaptersData) {
+        setChapters(chaptersData);
+      }
+
       // Load topics from database
       const { data: topicsData, error } = await supabase
         .from("topics")
@@ -95,6 +138,7 @@ const Index = () => {
           id: t.id,
           subjectId: t.subject_id || "default",
           title: t.title,
+          chapterId: t.chapter_id,
         }));
         setTopics(mappedTopics);
       }
@@ -171,6 +215,7 @@ const Index = () => {
       id: data.id,
       subjectId: activeSubject,
       title: data.title,
+      chapterId: data.chapter_id,
     };
 
     setTopics([...topics, newTopic]);
@@ -180,6 +225,210 @@ const Index = () => {
     toast({
       title: "Topic created",
       description: `${newTopic.title} has been added.`,
+    });
+  };
+
+  // Chapter operations
+  const handleNewChapter = (subjectId: string) => {
+    setChapterSubjectId(subjectId);
+    setEditingChapter(null);
+    setChapterDialogOpen(true);
+  };
+
+  const handleEditChapter = (chapterId: string, chapterName: string) => {
+    const chapter = chapters.find(ch => ch.id === chapterId);
+    if (chapter) {
+      setChapterSubjectId(chapter.subject_id);
+      setEditingChapter({ id: chapterId, name: chapterName });
+      setChapterDialogOpen(true);
+    }
+  };
+
+  const handleSaveChapter = async (name: string, chapterId?: string) => {
+    if (!user) return;
+
+    try {
+      if (chapterId) {
+        // Update existing chapter
+        const { error } = await supabase
+          .from("chapters")
+          .update({ name })
+          .eq("id", chapterId);
+
+        if (error) throw error;
+
+        setChapters(chapters.map(ch => 
+          ch.id === chapterId ? { ...ch, name } : ch
+        ));
+
+        toast({
+          title: "Chapter updated",
+          description: `${name} has been updated.`,
+        });
+      } else {
+        // Create new chapter
+        const { data, error } = await supabase
+          .from("chapters")
+          .insert({
+            subject_id: chapterSubjectId,
+            name,
+            user_id: user.id,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setChapters([...chapters, data]);
+
+        // Auto-expand the subject
+        setExpandedSubjects(prev => new Set(prev).add(chapterSubjectId));
+
+        toast({
+          title: "Chapter created",
+          description: `${name} has been added.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error saving chapter:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save chapter",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteChapter = (chapterId: string, chapterName: string) => {
+    setItemToDelete({ id: chapterId, name: chapterName, type: "chapter" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleMoveChapter = (chapterId: string, chapterName: string) => {
+    const chapter = chapters.find(ch => ch.id === chapterId);
+    if (chapter) {
+      const topicsInChapter = topics.filter(t => t.chapterId === chapterId);
+      setChapterToMove({ id: chapterId, name: chapterName });
+      setMoveChapterDialogOpen(true);
+    }
+  };
+
+  const handleMoveChapterConfirm = async (chapterId: string, newSubjectId: string) => {
+    if (!user) return;
+
+    try {
+      // Update chapter's subject
+      const { error: chapterError } = await supabase
+        .from("chapters")
+        .update({ subject_id: newSubjectId })
+        .eq("id", chapterId);
+
+      if (chapterError) throw chapterError;
+
+      // Update all topics in that chapter
+      const { error: topicsError } = await supabase
+        .from("topics")
+        .update({ subject_id: newSubjectId })
+        .eq("chapter_id", chapterId);
+
+      if (topicsError) {
+        // Rollback chapter update
+        await supabase
+          .from("chapters")
+          .update({ subject_id: chapters.find(ch => ch.id === chapterId)?.subject_id })
+          .eq("id", chapterId);
+        throw topicsError;
+      }
+
+      // Update local state
+      setChapters(chapters.map(ch =>
+        ch.id === chapterId ? { ...ch, subject_id: newSubjectId } : ch
+      ));
+      setTopics(topics.map(t =>
+        t.chapterId === chapterId ? { ...t, subjectId: newSubjectId } : t
+      ));
+
+      toast({
+        title: "Chapter moved",
+        description: "Chapter and its topics have been moved successfully.",
+      });
+    } catch (error) {
+      console.error("Error moving chapter:", error);
+      toast({
+        title: "Failed to move chapter",
+        description: "An error occurred while moving the chapter",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleMoveTopic = (topicId: string, topicTitle: string) => {
+    setTopicToMove({ id: topicId, title: topicTitle });
+    setMoveTopicDialogOpen(true);
+  };
+
+  const handleMoveTopicConfirm = async (
+    topicId: string,
+    chapterId: string | null,
+    newSubjectId?: string
+  ) => {
+    if (!user) return;
+
+    try {
+      const updateData: any = { chapter_id: chapterId };
+      if (newSubjectId) {
+        updateData.subject_id = newSubjectId;
+      }
+
+      const { error } = await supabase
+        .from("topics")
+        .update(updateData)
+        .eq("id", topicId);
+
+      if (error) throw error;
+
+      // Update local state
+      setTopics(topics.map(t =>
+        t.id === topicId
+          ? { ...t, chapterId, ...(newSubjectId && { subjectId: newSubjectId }) }
+          : t
+      ));
+
+      toast({
+        title: "Topic moved",
+        description: "Topic has been moved successfully.",
+      });
+    } catch (error) {
+      console.error("Error moving topic:", error);
+      toast({
+        title: "Failed to move topic",
+        description: "An error occurred while moving the topic",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleSubject = (subjectId: string) => {
+    setExpandedSubjects(prev => {
+      const next = new Set(prev);
+      if (next.has(subjectId)) {
+        next.delete(subjectId);
+      } else {
+        next.add(subjectId);
+      }
+      return next;
+    });
+  };
+
+  const handleToggleChapter = (chapterId: string) => {
+    setExpandedChapters(prev => {
+      const next = new Set(prev);
+      if (next.has(chapterId)) {
+        next.delete(chapterId);
+      } else {
+        next.add(chapterId);
+      }
+      return next;
     });
   };
 
@@ -331,6 +580,65 @@ const Index = () => {
           title: "Moved to Recycle Bin",
           description: `${itemToDelete.name} can be restored from the Recycle Bin.`,
         });
+      } else if (itemToDelete.type === "chapter") {
+        // Fetch chapter data
+        const { data: chapterData, error: chapterError } = await supabase
+          .from("chapters")
+          .select("*")
+          .eq("id", itemToDelete.id)
+          .single();
+
+        if (chapterError) throw chapterError;
+
+        // Fetch all topics in this chapter
+        const { data: chapterTopicsData, error: topicsError } = await supabase
+          .from("topics")
+          .select("*")
+          .eq("chapter_id", itemToDelete.id);
+
+        if (topicsError) throw topicsError;
+
+        // Store in deleted_items
+        const { error: insertError } = await supabase
+          .from("deleted_items")
+          .insert({
+            user_id: user.id,
+            item_type: "chapter",
+            item_id: itemToDelete.id,
+            item_name: itemToDelete.name,
+            chapters_data: chapterData,
+            topic_data: chapterTopicsData || [],
+          });
+
+        if (insertError) throw insertError;
+
+        // Move topics back to subject level (set chapter_id to null)
+        const { error: updateError } = await supabase
+          .from("topics")
+          .update({ chapter_id: null })
+          .eq("chapter_id", itemToDelete.id);
+
+        if (updateError) throw updateError;
+
+        // Delete chapter
+        const { error: deleteError } = await supabase
+          .from("chapters")
+          .delete()
+          .eq("id", itemToDelete.id);
+
+        if (deleteError) throw deleteError;
+
+        // Update local state
+        setChapters(chapters.filter((ch) => ch.id !== itemToDelete.id));
+        setTopics(topics.map(t => 
+          t.chapterId === itemToDelete.id ? { ...t, chapterId: null } : t
+        ));
+
+        const topicCount = chapterTopicsData?.length || 0;
+        toast({
+          title: "Moved to Recycle Bin",
+          description: `${itemToDelete.name} moved to Recycle Bin. ${topicCount} topics moved back to subject level.`,
+        });
       }
     } catch (error) {
       console.error("Delete error:", error);
@@ -420,10 +728,24 @@ const Index = () => {
     <div className="flex h-screen w-full bg-background">
       <Sidebar
         subjects={subjects}
+        chapters={chapters}
+        topics={topics}
         activeSubject={activeSubject}
+        activeTopic={activeTopic}
+        expandedSubjects={expandedSubjects}
+        expandedChapters={expandedChapters}
         onSubjectSelect={setActiveSubject}
+        onTopicSelect={(id) => setEditingTopic(id)}
         onNewSubject={() => setDialogOpen(true)}
         onDeleteSubject={handleDeleteSubject}
+        onNewChapter={handleNewChapter}
+        onEditChapter={handleEditChapter}
+        onDeleteChapter={handleDeleteChapter}
+        onMoveChapter={handleMoveChapter}
+        onMoveTopic={handleMoveTopic}
+        onDeleteTopic={handleDeleteTopic}
+        onToggleSubject={handleToggleSubject}
+        onToggleChapter={handleToggleChapter}
       />
 
       <div className="flex-1 overflow-auto">
@@ -538,6 +860,46 @@ const Index = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ChapterDialog
+        open={chapterDialogOpen}
+        onOpenChange={setChapterDialogOpen}
+        subjectId={chapterSubjectId}
+        chapterId={editingChapter?.id}
+        chapterName={editingChapter?.name}
+        onSave={handleSaveChapter}
+      />
+
+      <MoveTopicDialog
+        open={moveTopicDialogOpen}
+        onOpenChange={setMoveTopicDialogOpen}
+        topicId={topicToMove?.id || ""}
+        topicTitle={topicToMove?.title || ""}
+        currentSubjectId={
+          topics.find(t => t.id === topicToMove?.id)?.subjectId || activeSubject || ""
+        }
+        currentChapterId={
+          topics.find(t => t.id === topicToMove?.id)?.chapterId
+        }
+        allSubjects={subjects}
+        allChapters={chapters}
+        onMove={handleMoveTopicConfirm}
+      />
+
+      <MoveChapterDialog
+        open={moveChapterDialogOpen}
+        onOpenChange={setMoveChapterDialogOpen}
+        chapterId={chapterToMove?.id || ""}
+        chapterName={chapterToMove?.name || ""}
+        currentSubjectId={
+          chapters.find(ch => ch.id === chapterToMove?.id)?.subject_id || ""
+        }
+        allSubjects={subjects}
+        topicCount={
+          topics.filter(t => t.chapterId === chapterToMove?.id).length
+        }
+        onMove={handleMoveChapterConfirm}
+      />
 
       <DeleteConfirmDialog
         open={deleteConfirmOpen}
