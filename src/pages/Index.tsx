@@ -52,6 +52,7 @@ const Index = () => {
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [activeSubject, setActiveSubject] = useState<string | null>(null);
+  const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
@@ -197,6 +198,7 @@ const Index = () => {
       .insert({
         title: newTopicTitle,
         subject_id: activeSubject,
+        chapter_id: activeChapter, // Assign to chapter if one is active
         user_id: user.id,
       })
       .select()
@@ -692,8 +694,13 @@ const Index = () => {
     }
   };
 
-  const activeTopics = topics.filter((t) => t.subjectId === activeSubject);
+  // Filter topics based on whether a chapter or subject is selected
+  const activeTopics = activeChapter
+    ? topics.filter((t) => t.chapterId === activeChapter)
+    : topics.filter((t) => t.subjectId === activeSubject && !t.chapterId);
+  
   const activeSubjectData = subjects.find((s) => s.id === activeSubject);
+  const activeChapterData = chapters.find((ch) => ch.id === activeChapter);
   const editingTopicData = topics.find((t) => t.id === editingTopic);
 
   if (loading) {
@@ -731,10 +738,21 @@ const Index = () => {
         chapters={chapters}
         topics={topics}
         activeSubject={activeSubject}
+        activeChapter={activeChapter}
         activeTopic={activeTopic}
         expandedSubjects={expandedSubjects}
         expandedChapters={expandedChapters}
-        onSubjectSelect={setActiveSubject}
+        onSubjectSelect={(id) => {
+          setActiveSubject(id);
+          setActiveChapter(null); // Clear chapter when selecting subject
+        }}
+        onChapterSelect={(id) => {
+          const chapter = chapters.find(ch => ch.id === id);
+          if (chapter) {
+            setActiveSubject(chapter.subject_id);
+            setActiveChapter(id);
+          }
+        }}
         onTopicSelect={(id) => setEditingTopic(id)}
         onNewSubject={() => setDialogOpen(true)}
         onDeleteSubject={handleDeleteSubject}
@@ -754,9 +772,10 @@ const Index = () => {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-3xl font-bold text-foreground">
-                  {activeSubjectData?.name}
+                  {activeChapterData ? activeChapterData.name : activeSubjectData?.name}
                 </h2>
                 <p className="text-muted-foreground mt-1">
+                  {activeChapterData && `${activeSubjectData?.name} • `}
                   {activeTopics.length} {activeTopics.length === 1 ? "topic" : "topics"}
                 </p>
               </div>
