@@ -737,9 +737,10 @@ const Index = () => {
           .from("chapters")
           .select("*")
           .eq("id", itemToDelete.id)
-          .single();
+          .maybeSingle();
 
         if (chapterError) throw chapterError;
+        if (!chapterData) throw new Error("Chapter not found");
 
         // Fetch all topics in this chapter
         const { data: chapterTopicsData, error: topicsError } = await supabase
@@ -748,6 +749,18 @@ const Index = () => {
           .eq("chapter_id", itemToDelete.id);
 
         if (topicsError) throw topicsError;
+
+        const topicCount = chapterTopicsData?.length || 0;
+
+        // Move topics back to subject level (set chapter_id to null) - only if there are topics
+        if (topicCount > 0) {
+          const { error: updateError } = await supabase
+            .from("topics")
+            .update({ chapter_id: null })
+            .eq("chapter_id", itemToDelete.id);
+
+          if (updateError) throw updateError;
+        }
 
         // Store in deleted_items
         const { error: insertError } = await supabase
@@ -758,18 +771,10 @@ const Index = () => {
             item_id: itemToDelete.id,
             item_name: itemToDelete.name,
             chapters_data: chapterData,
-            topic_data: chapterTopicsData || [],
+            topic_data: chapterTopicsData && chapterTopicsData.length > 0 ? chapterTopicsData : null,
           });
 
         if (insertError) throw insertError;
-
-        // Move topics back to subject level (set chapter_id to null)
-        const { error: updateError } = await supabase
-          .from("topics")
-          .update({ chapter_id: null })
-          .eq("chapter_id", itemToDelete.id);
-
-        if (updateError) throw updateError;
 
         // Delete chapter
         const { error: deleteError } = await supabase
@@ -784,11 +789,15 @@ const Index = () => {
         setTopics(topics.map(t => 
           t.chapterId === itemToDelete.id ? { ...t, chapterId: null } : t
         ));
+        if (activeChapter === itemToDelete.id) {
+          setActiveChapter(null);
+        }
 
-        const topicCount = chapterTopicsData?.length || 0;
         toast({
           title: "Moved to Recycle Bin",
-          description: `${itemToDelete.name} moved to Recycle Bin. ${topicCount} topics moved back to subject level.`,
+          description: topicCount > 0 
+            ? `${itemToDelete.name} moved to Recycle Bin. ${topicCount} topics moved back to subject level.`
+            : `${itemToDelete.name} moved to Recycle Bin.`,
         });
       }
     } catch (error) {
