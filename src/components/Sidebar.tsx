@@ -36,6 +36,7 @@ interface SidebarProps {
   onChapterSelect: (id: string) => void;
   onTopicSelect: (id: string) => void;
   onNewSubject: () => void;
+  onEditSubject: (id: string, name: string) => void;
   onDeleteSubject: (id: string, name: string) => void;
   onNewChapter: (subjectId: string) => void;
   onEditChapter: (chapterId: string, name: string) => void;
@@ -59,6 +60,7 @@ export const Sidebar = ({
   onChapterSelect,
   onTopicSelect,
   onNewSubject,
+  onEditSubject,
   onDeleteSubject,
   onNewChapter,
   onEditChapter,

@@ -1,20 +1,19 @@
-import { BookOpen, FileText, Sparkles, Trash2, MoveHorizontal, Edit } from "lucide-react";
+import { BookMarked, Trash2, MoveHorizontal, Edit } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-interface TopicCardProps {
-  topic: {
+interface ChapterCardProps {
+  chapter: {
     id: string;
-    title: string;
-    summary?: string;
+    name: string;
   };
   onClick: () => void;
-  onDelete: (id: string, title: string) => void;
-  onMove: (id: string, title: string) => void;
-  onEdit: (id: string, title: string) => void;
+  onDelete: (id: string, name: string) => void;
+  onMove: (id: string, name: string) => void;
+  onEdit: (id: string, name: string) => void;
 }
 
-export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCardProps) => {
+export const ChapterCard = ({ chapter, onClick, onDelete, onMove, onEdit }: ChapterCardProps) => {
   return (
     <Card className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group">
       <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -24,9 +23,9 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCar
           className="hover:bg-primary/20"
           onClick={(e) => {
             e.stopPropagation();
-            onEdit(topic.id, topic.title);
+            onEdit(chapter.id, chapter.name);
           }}
-          title="Rename topic"
+          title="Rename chapter"
         >
           <Edit className="w-4 h-4 text-muted-foreground" />
         </Button>
@@ -36,9 +35,9 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCar
           className="hover:bg-primary/20"
           onClick={(e) => {
             e.stopPropagation();
-            onMove(topic.id, topic.title);
+            onMove(chapter.id, chapter.name);
           }}
-          title="Move topic"
+          title="Move chapter"
         >
           <MoveHorizontal className="w-4 h-4 text-muted-foreground" />
         </Button>
@@ -48,9 +47,9 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCar
           className="hover:bg-destructive/20"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(topic.id, topic.title);
+            onDelete(chapter.id, chapter.name);
           }}
-          title="Delete topic"
+          title="Delete chapter"
         >
           <Trash2 className="w-4 h-4 text-destructive" />
         </Button>
@@ -58,21 +57,14 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCar
       <CardContent className="p-6 cursor-pointer" onClick={onClick}>
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
-            <BookOpen className="w-7 h-7 text-primary" />
+            <BookMarked className="w-7 h-7 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-xl mb-2 text-foreground truncate flex items-center gap-2">
-              {topic.title}
-              <Sparkles className="w-4 h-4 text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
+            <h3 className="font-bold text-xl text-foreground truncate">
+              {chapter.name}
             </h3>
-            {topic.summary && (
-              <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
-                {topic.summary}
-              </p>
-            )}
             <div className="flex items-center gap-2 mt-4 text-xs text-primary font-medium">
-              <FileText className="w-3 h-3" />
-              <span>Click to view or edit</span>
+              <span>Click to view topics</span>
             </div>
           </div>
         </div>

@@ -2,12 +2,23 @@ import { useState, useEffect } from "react";
 import { Plus, LogOut, Trash2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
+import { ChapterCard } from "@/components/ChapterCard";
 import { TopicEditor } from "@/components/TopicEditor";
 import { RecycleBin } from "@/components/RecycleBin";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 import { ChapterDialog } from "@/components/ChapterDialog";
+import { SubjectDialog } from "@/components/SubjectDialog";
+import { TopicDialog } from "@/components/TopicDialog";
 import { MoveTopicDialog } from "@/components/MoveTopicDialog";
 import { MoveChapterDialog } from "@/components/MoveChapterDialog";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -79,6 +90,12 @@ const Index = () => {
   const [topicToMove, setTopicToMove] = useState<{ id: string; title: string } | null>(null);
   const [moveChapterDialogOpen, setMoveChapterDialogOpen] = useState(false);
   const [chapterToMove, setChapterToMove] = useState<{ id: string; name: string } | null>(null);
+
+  // Rename dialogs
+  const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
+  const [editingSubject, setEditingSubject] = useState<{ id: string; name: string } | null>(null);
+  const [renameTopicDialogOpen, setRenameTopicDialogOpen] = useState(false);
+  const [renamingTopic, setRenamingTopic] = useState<{ id: string; title: string } | null>(null);
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
@@ -190,6 +207,70 @@ const Index = () => {
     });
   };
 
+  const handleSaveSubject = async (name: string, subjectId?: string) => {
+    if (!user) return;
+
+    try {
+      if (subjectId) {
+        // Update existing subject
+        const { error } = await supabase
+          .from("subjects")
+          .update({ name })
+          .eq("id", subjectId);
+
+        if (error) throw error;
+
+        setSubjects(subjects.map(s =>
+          s.id === subjectId ? { ...s, name } : s
+        ));
+
+        toast({
+          title: "Subject updated",
+          description: `${name} has been updated.`,
+        });
+      } else {
+        // Create new subject
+        const { data, error } = await supabase
+          .from("subjects")
+          .insert({
+            user_id: user.id,
+            name,
+            color: colors[Math.floor(Math.random() * colors.length)],
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setSubjects([
+          ...subjects,
+          {
+            id: data.id,
+            name: data.name,
+            color: data.color,
+          },
+        ]);
+
+        toast({
+          title: "Subject created",
+          description: `${name} has been added to your subjects.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error saving subject:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save subject",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditSubject = (subjectId: string, subjectName: string) => {
+    setEditingSubject({ id: subjectId, name: subjectName });
+    setSubjectDialogOpen(true);
+  };
+
   const handleNewTopic = async () => {
     if (!newTopicTitle.trim() || !activeSubject || !user) return;
 
@@ -228,6 +309,74 @@ const Index = () => {
       title: "Topic created",
       description: `${newTopic.title} has been added.`,
     });
+  };
+
+  const handleSaveTopic = async (title: string, topicId?: string) => {
+    if (!user) return;
+
+    try {
+      if (topicId) {
+        // Update existing topic
+        const { error } = await supabase
+          .from("topics")
+          .update({ title })
+          .eq("id", topicId);
+
+        if (error) throw error;
+
+        setTopics(topics.map(t =>
+          t.id === topicId ? { ...t, title } : t
+        ));
+
+        toast({
+          title: "Topic updated",
+          description: `${title} has been updated.`,
+        });
+      } else {
+        // Create new topic
+        if (!activeSubject) return;
+
+        const { data, error } = await supabase
+          .from("topics")
+          .insert({
+            user_id: user.id,
+            subject_id: activeSubject,
+            chapter_id: activeChapter || null,
+            title,
+          })
+          .select()
+          .single();
+
+        if (error) throw error;
+
+        setTopics([
+          ...topics,
+          {
+            id: data.id,
+            subjectId: data.subject_id,
+            title: data.title,
+            chapterId: data.chapter_id,
+          },
+        ]);
+
+        toast({
+          title: "Topic created",
+          description: `${title} has been added.`,
+        });
+      }
+    } catch (error) {
+      console.error("Error saving topic:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save topic",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditTopic = (topicId: string, topicTitle: string) => {
+    setRenamingTopic({ id: topicId, title: topicTitle });
+    setRenameTopicDialogOpen(true);
   };
 
   // Chapter operations
@@ -754,7 +903,11 @@ const Index = () => {
           }
         }}
         onTopicSelect={(id) => setEditingTopic(id)}
-        onNewSubject={() => setDialogOpen(true)}
+        onNewSubject={() => {
+          setEditingSubject(null);
+          setDialogOpen(true);
+        }}
+        onEditSubject={handleEditSubject}
         onDeleteSubject={handleDeleteSubject}
         onNewChapter={handleNewChapter}
         onEditChapter={handleEditChapter}
@@ -769,6 +922,44 @@ const Index = () => {
       <div className="flex-1 overflow-auto">
         {activeSubject ? (
           <div className="p-8">
+            {/* Breadcrumb Navigation */}
+            <Breadcrumb className="mb-6">
+              <BreadcrumbList>
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    className="cursor-pointer hover:text-primary"
+                    onClick={() => {
+                      setActiveSubject(null);
+                      setActiveChapter(null);
+                    }}
+                  >
+                    All Subjects
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  {activeChapter ? (
+                    <BreadcrumbLink
+                      className="cursor-pointer hover:text-primary"
+                      onClick={() => setActiveChapter(null)}
+                    >
+                      {activeSubjectData?.name}
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>{activeSubjectData?.name}</BreadcrumbPage>
+                  )}
+                </BreadcrumbItem>
+                {activeChapter && (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{activeChapterData?.name}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </>
+                )}
+              </BreadcrumbList>
+            </Breadcrumb>
+
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-3xl font-bold text-foreground">
@@ -824,6 +1015,7 @@ const Index = () => {
                       onClick={() => setEditingTopic(topic.id)}
                       onDelete={handleDeleteTopic}
                       onMove={handleMoveTopic}
+                      onEdit={handleEditTopic}
                     />
                   ))}
                 </div>
@@ -843,23 +1035,16 @@ const Index = () => {
                   {chapters
                     .filter(c => c.subject_id === activeSubject)
                     .sort((a, b) => a.chapter_order - b.chapter_order)
-                    .map((chapter) => {
-                      const chapterTopicCount = topics.filter(t => t.chapterId === chapter.id).length;
-                      return (
-                        <div
-                          key={chapter.id} 
-                          className="p-6 rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-lg transition-shadow"
-                          onClick={() => {
-                            setActiveChapter(chapter.id);
-                          }}
-                        >
-                          <h3 className="text-lg font-semibold">{chapter.name}</h3>
-                          <p className="text-sm text-muted-foreground mt-2">
-                            {chapterTopicCount} {chapterTopicCount === 1 ? "topic" : "topics"}
-                          </p>
-                        </div>
-                      );
-                    })}
+                    .map((chapter) => (
+                      <ChapterCard
+                        key={chapter.id}
+                        chapter={chapter}
+                        onClick={() => setActiveChapter(chapter.id)}
+                        onDelete={handleDeleteChapter}
+                        onMove={handleMoveChapter}
+                        onEdit={handleEditChapter}
+                      />
+                    ))}
                 </div>
               )
             )}
@@ -882,51 +1067,31 @@ const Index = () => {
         )}
       </div>
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Subject</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="subject-name">Subject Name</Label>
-              <Input
-                id="subject-name"
-                placeholder="e.g., Cognitive Psychology"
-                value={newSubjectName}
-                onChange={(e) => setNewSubjectName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleNewSubject()}
-              />
-            </div>
-            <Button onClick={handleNewSubject} className="w-full">
-              Create Subject
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Subject Dialog */}
+      <SubjectDialog
+        open={dialogOpen || subjectDialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          setSubjectDialogOpen(open);
+          if (!open) setEditingSubject(null);
+        }}
+        subjectId={editingSubject?.id}
+        subjectName={editingSubject?.name}
+        onSave={handleSaveSubject}
+      />
 
-      <Dialog open={topicDialogOpen} onOpenChange={setTopicDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Create New Topic</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="topic-title">Topic Title</Label>
-              <Input
-                id="topic-title"
-                placeholder="e.g., Memory and Learning"
-                value={newTopicTitle}
-                onChange={(e) => setNewTopicTitle(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleNewTopic()}
-              />
-            </div>
-            <Button onClick={handleNewTopic} className="w-full">
-              Create Topic
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      {/* Topic Dialog */}
+      <TopicDialog
+        open={topicDialogOpen || renameTopicDialogOpen}
+        onOpenChange={(open) => {
+          setTopicDialogOpen(open);
+          setRenameTopicDialogOpen(open);
+          if (!open) setRenamingTopic(null);
+        }}
+        topicId={renamingTopic?.id}
+        topicTitle={renamingTopic?.title}
+        onSave={handleSaveTopic}
+      />
 
       <ChapterDialog
         open={chapterDialogOpen}
