@@ -776,7 +776,10 @@ const Index = () => {
                 </h2>
                 <p className="text-muted-foreground mt-1">
                   {activeChapterData && `${activeSubjectData?.name} • `}
-                  {activeTopics.length} {activeTopics.length === 1 ? "topic" : "topics"}
+                  {activeChapter 
+                    ? `${activeTopics.length} ${activeTopics.length === 1 ? "topic" : "topics"}`
+                    : `${chapters.filter(c => c.subject_id === activeSubject).length} ${chapters.filter(c => c.subject_id === activeSubject).length === 1 ? "chapter" : "chapters"}`
+                  }
                 </p>
               </div>
               <div className="flex gap-2">
@@ -788,33 +791,77 @@ const Index = () => {
                   <LogOut className="w-4 h-4 mr-2" />
                   Sign Out
                 </Button>
-                <Button onClick={() => setTopicDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Topic
-                </Button>
+                {activeChapter ? (
+                  <Button onClick={() => setTopicDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Topic
+                  </Button>
+                ) : (
+                  <Button onClick={() => setChapterDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    New Chapter
+                  </Button>
+                )}
               </div>
             </div>
 
-            {activeTopics.length === 0 ? (
-              <div className="text-center py-16">
-                <p className="text-muted-foreground mb-4">No topics yet</p>
-                <Button variant="outline" onClick={() => setTopicDialogOpen(true)}>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Create your first topic
-                </Button>
-              </div>
+            {activeChapter ? (
+              // Display topics when a chapter is selected
+              activeTopics.length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-muted-foreground mb-4">No topics yet</p>
+                  <Button variant="outline" onClick={() => setTopicDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create your first topic
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {activeTopics.map((topic) => (
+                    <TopicCard
+                      key={topic.id}
+                      topic={topic}
+                      onClick={() => setEditingTopic(topic.id)}
+                      onDelete={handleDeleteTopic}
+                      onMove={handleMoveTopic}
+                    />
+                  ))}
+                </div>
+              )
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {activeTopics.map((topic) => (
-                  <TopicCard
-                    key={topic.id}
-                    topic={topic}
-                    onClick={() => setEditingTopic(topic.id)}
-                    onDelete={handleDeleteTopic}
-                    onMove={handleMoveTopic}
-                  />
-                ))}
-              </div>
+              // Display chapters when a subject is selected
+              chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
+                <div className="text-center py-16">
+                  <p className="text-muted-foreground mb-4">No chapters yet</p>
+                  <Button variant="outline" onClick={() => setChapterDialogOpen(true)}>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create your first chapter
+                  </Button>
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {chapters
+                    .filter(c => c.subject_id === activeSubject)
+                    .sort((a, b) => a.chapter_order - b.chapter_order)
+                    .map((chapter) => {
+                      const chapterTopicCount = topics.filter(t => t.chapterId === chapter.id).length;
+                      return (
+                        <div
+                          key={chapter.id} 
+                          className="p-6 rounded-lg border bg-card text-card-foreground shadow-sm cursor-pointer hover:shadow-lg transition-shadow"
+                          onClick={() => {
+                            setActiveChapter(chapter.id);
+                          }}
+                        >
+                          <h3 className="text-lg font-semibold">{chapter.name}</h3>
+                          <p className="text-sm text-muted-foreground mt-2">
+                            {chapterTopicCount} {chapterTopicCount === 1 ? "topic" : "topics"}
+                          </p>
+                        </div>
+                      );
+                    })}
+                </div>
+              )
             )}
           </div>
         ) : (
