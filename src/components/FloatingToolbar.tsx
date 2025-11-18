@@ -12,12 +12,57 @@ export const FloatingToolbar = ({ onMarkHeading }: FloatingToolbarProps) => {
   const [selectedText, setSelectedText] = useState("");
 
   const applyFormat = useCallback((command: string, value?: string) => {
+    // Get current selection before executing command
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    // Store the range and find the editable element
+    const range = selection.getRangeAt(0);
+    const editable = range.commonAncestorContainer;
+    const editableElement = (editable instanceof Element ? editable : editable.parentElement)?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (!editableElement) return;
+    
+    // Execute command
     document.execCommand(command, false, value);
-    // Trigger input event on the active element to sync state
-    const activeElement = document.activeElement;
-    if (activeElement) {
+    
+    // Restore focus to the editable element
+    editableElement.focus();
+    
+    // Trigger input event to sync state
+    const event = new Event('input', { bubbles: true });
+    editableElement.dispatchEvent(event);
+  }, []);
+
+  const toggleHighlight = useCallback(() => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    // Check if current selection has highlight
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const parent = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
+    
+    // Check for existing highlight
+    const hasHighlight = parent?.style?.backgroundColor && 
+                        parent.style.backgroundColor !== 'transparent' &&
+                        parent.style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+    
+    const editableElement = parent?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (hasHighlight) {
+      // Remove highlight
+      document.execCommand("hiliteColor", false, "transparent");
+    } else {
+      // Add highlight
+      document.execCommand("hiliteColor", false, "yellow");
+    }
+    
+    // Restore focus
+    if (editableElement) {
+      editableElement.focus();
       const event = new Event('input', { bubbles: true });
-      activeElement.dispatchEvent(event);
+      editableElement.dispatchEvent(event);
     }
   }, []);
 
@@ -101,9 +146,9 @@ export const FloatingToolbar = ({ onMarkHeading }: FloatingToolbarProps) => {
       <Button
         variant="ghost"
         size="sm"
-        onClick={() => applyFormat("hiliteColor", "yellow")}
+        onClick={toggleHighlight}
         className="h-8 w-8 p-0"
-        title="Highlight"
+        title="Highlight/Unhighlight"
       >
         <Highlighter className="h-4 w-4" />
       </Button>
