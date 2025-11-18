@@ -1,4 +1,4 @@
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading } from "lucide-react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -48,8 +48,105 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
   };
 
   const applyFormat = (command: string, value?: string) => {
+    // Get current selection before executing command
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    // Store the range and find the editable element
+    const range = selection.getRangeAt(0);
+    const editable = range.commonAncestorContainer;
+    const editableElement = (editable instanceof Element ? editable : editable.parentElement)?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (!editableElement) return;
+    
+    // Execute command
     document.execCommand(command, false, value);
+    
+    // Restore focus to the editable element
+    editableElement.focus();
+    
     // Ensure changes are saved immediately
+    setTimeout(syncActiveEditor, 0);
+  };
+
+  const handleIndent = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    let element = range.commonAncestorContainer;
+    
+    // Get the block element
+    if (element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement as HTMLElement;
+    }
+    
+    const blockElement = (element as HTMLElement).closest('p, div, li') as HTMLElement;
+    if (blockElement) {
+      const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
+      blockElement.style.marginLeft = `${currentMargin + 40}px`;
+      
+      // Restore focus
+      const editableElement = blockElement.closest('[contenteditable="true"]') as HTMLElement;
+      if (editableElement) editableElement.focus();
+      
+      syncActiveEditor();
+    }
+  };
+
+  const handleOutdent = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    let element = range.commonAncestorContainer;
+    
+    if (element.nodeType === Node.TEXT_NODE) {
+      element = element.parentElement as HTMLElement;
+    }
+    
+    const blockElement = (element as HTMLElement).closest('p, div, li') as HTMLElement;
+    if (blockElement) {
+      const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
+      if (currentMargin >= 40) {
+        blockElement.style.marginLeft = `${currentMargin - 40}px`;
+        
+        // Restore focus
+        const editableElement = blockElement.closest('[contenteditable="true"]') as HTMLElement;
+        if (editableElement) editableElement.focus();
+        
+        syncActiveEditor();
+      }
+    }
+  };
+
+  const toggleHighlight = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    // Check if current selection has highlight
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const parent = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
+    
+    // Check for existing highlight
+    const hasHighlight = parent?.style?.backgroundColor && 
+                        parent.style.backgroundColor !== 'transparent' &&
+                        parent.style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+    
+    const editableElement = parent?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (hasHighlight) {
+      // Remove highlight
+      document.execCommand("hiliteColor", false, "transparent");
+    } else {
+      // Add highlight
+      document.execCommand("hiliteColor", false, "yellow");
+    }
+    
+    // Restore focus
+    if (editableElement) editableElement.focus();
+    
     setTimeout(syncActiveEditor, 0);
   };
 
@@ -171,9 +268,9 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("hiliteColor", "yellow")}
-        className="h-8 w-8 p-0 hover:bg-accent/50"
-        title="Highlight"
+        onClick={toggleHighlight}
+        className="h-8 w-8 p-0 hover:bg-primary/10"
+        title="Highlight/Unhighlight"
       >
         <Highlighter className="w-3.5 h-3.5" />
       </Button>
@@ -203,7 +300,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("indent")}
+        onClick={handleIndent}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Indent"
       >
@@ -213,7 +310,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("outdent")}
+        onClick={handleOutdent}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Outdent"
       >
@@ -295,6 +392,28 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
           </Button>
         </>
       )}
+
+      <div className="w-px h-6 bg-border" />
+
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => applyFormat("undo")}
+        className="h-8 w-8 p-0 hover:bg-primary/10"
+        title="Undo"
+      >
+        <Undo className="w-3.5 h-3.5" />
+      </Button>
+
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => applyFormat("redo")}
+        className="h-8 w-8 p-0 hover:bg-primary/10"
+        title="Redo"
+      >
+        <Redo className="w-3.5 h-3.5" />
+      </Button>
     </div>
   );
 };
