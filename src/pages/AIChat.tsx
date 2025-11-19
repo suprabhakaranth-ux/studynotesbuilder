@@ -41,6 +41,20 @@ const AIChat = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Auto-load chapters when subject filter is active
+  useEffect(() => {
+    if (contextFilter.type === 'subject' && contextFilter.subjectId) {
+      loadChapters(contextFilter.subjectId);
+    }
+  }, [contextFilter.type, contextFilter.subjectId, loadChapters]);
+
+  // Auto-load topics when chapter filter is active
+  useEffect(() => {
+    if (contextFilter.type === 'chapter' && contextFilter.chapterId) {
+      loadTopics(contextFilter.chapterId);
+    }
+  }, [contextFilter.type, contextFilter.chapterId, loadTopics]);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     
@@ -195,93 +209,109 @@ const AIChat = () => {
 
           {/* Filter Bar */}
           {showFilter && (
-            <div className="px-6 py-4 bg-muted/30 border-t border-border">
-              <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-medium">Focus on:</span>
-                <Select
-                  value={contextFilter.type}
-                  onValueChange={(value) => {
-                    if (value === 'all') clearFilter();
-                    else setShowFilter(true);
-                  }}
-                >
-                  <SelectTrigger className="w-[180px]">
-                    <SelectValue placeholder="All (Recent)" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All (Recent)</SelectItem>
-                    <SelectItem value="subject">Select Subject</SelectItem>
-                    <SelectItem value="chapter">Select Chapter</SelectItem>
-                    <SelectItem value="topic">Select Topic</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="px-6 py-4 bg-muted/30 border-t border-border space-y-4">
+              {/* Tab Buttons */}
+              <div className="space-y-2">
+                <span className="text-sm font-medium">Filter Context:</span>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <Button
+                    variant={contextFilter.type === 'all' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setContextFilter({ type: 'all' })}
+                  >
+                    All (Recent)
+                  </Button>
+                  <Button
+                    variant={contextFilter.type === 'subject' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setContextFilter({ type: 'subject' })}
+                  >
+                    Subject
+                  </Button>
+                  <Button
+                    variant={contextFilter.type === 'chapter' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setContextFilter({ type: 'chapter' })}
+                  >
+                    Chapter
+                  </Button>
+                  <Button
+                    variant={contextFilter.type === 'topic' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setContextFilter({ type: 'topic' })}
+                  >
+                    Topic
+                  </Button>
+                </div>
+              </div>
 
-                {contextFilter.type !== 'all' && (
-                  <>
+              {/* Cascading Dropdowns */}
+              {contextFilter.type !== 'all' && (
+                <div className="flex items-center gap-3 flex-wrap">
+                  <Select
+                    value={contextFilter.subjectId || ''}
+                    onValueChange={(value) => handleFilterChange('subject', value)}
+                  >
+                    <SelectTrigger className="w-[200px]">
+                      <SelectValue placeholder="Choose subject..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {subjects.map((subject) => (
+                        <SelectItem key={subject.id} value={subject.id}>
+                          {subject.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  {(contextFilter.type === 'chapter' || contextFilter.type === 'topic') && contextFilter.subjectId && (
                     <Select
-                      value={contextFilter.subjectId || ''}
-                      onValueChange={(value) => handleFilterChange('subject', value)}
+                      value={contextFilter.chapterId || ''}
+                      onValueChange={(value) => handleFilterChange('chapter', value)}
                     >
                       <SelectTrigger className="w-[200px]">
-                        <SelectValue placeholder="Choose subject..." />
+                        <SelectValue placeholder="Choose chapter..." />
                       </SelectTrigger>
                       <SelectContent>
-                        {subjects.map((subject) => (
-                          <SelectItem key={subject.id} value={subject.id}>
-                            {subject.name}
+                        {chapters.map((chapter) => (
+                          <SelectItem key={chapter.id} value={chapter.id}>
+                            {chapter.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
+                  )}
 
-                    {(contextFilter.type === 'chapter' || contextFilter.type === 'topic') && contextFilter.subjectId && (
-                      <Select
-                        value={contextFilter.chapterId || ''}
-                        onValueChange={(value) => handleFilterChange('chapter', value)}
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Choose chapter..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {chapters.map((chapter) => (
-                            <SelectItem key={chapter.id} value={chapter.id}>
-                              {chapter.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
+                  {contextFilter.type === 'topic' && contextFilter.chapterId && (
+                    <Select
+                      value={contextFilter.topicId || ''}
+                      onValueChange={(value) => handleFilterChange('topic', value)}
+                    >
+                      <SelectTrigger className="w-[200px]">
+                        <SelectValue placeholder="Choose topic..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {topics.map((topic) => (
+                          <SelectItem key={topic.id} value={topic.id}>
+                            {topic.title}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
+                </div>
+              )}
 
-                    {contextFilter.type === 'topic' && contextFilter.chapterId && (
-                      <Select
-                        value={contextFilter.topicId || ''}
-                        onValueChange={(value) => handleFilterChange('topic', value)}
-                      >
-                        <SelectTrigger className="w-[200px]">
-                          <SelectValue placeholder="Choose topic..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {topics.map((topic) => (
-                            <SelectItem key={topic.id} value={topic.id}>
-                              {topic.title}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </>
-                )}
-
-                {getFilterLabel() && (
-                  <Badge variant="secondary" className="gap-2">
-                    Context: {getFilterLabel()}
-                    <X
-                      className="h-3 w-3 cursor-pointer"
-                      onClick={clearFilter}
-                    />
-                  </Badge>
-                )}
-              </div>
+              {/* Active Filter Badge */}
+              {getFilterLabel() && (
+                <Badge variant="secondary" className="gap-2">
+                  Context: {getFilterLabel()}
+                  <X 
+                    className="h-3 w-3 cursor-pointer hover:opacity-70" 
+                    onClick={clearFilter}
+                  />
+                </Badge>
+              )}
             </div>
           )}
         </div>
