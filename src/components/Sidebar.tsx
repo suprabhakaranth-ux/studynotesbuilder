@@ -1,7 +1,8 @@
-import { Plus, BookOpen, Settings, Sparkles, Trash2, FolderPlus, ChevronDown, ChevronRight, MoveHorizontal } from "lucide-react";
+import { Plus, BookOpen, Settings, Sparkles, Trash2, FolderPlus, ChevronDown, ChevronRight, MoveHorizontal, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChapterSection } from "@/components/ChapterSection";
+import { useNavigate } from "react-router-dom";
 
 interface Subject {
   id: string;
@@ -71,6 +72,8 @@ export const Sidebar = ({
   onToggleSubject,
   onToggleChapter,
 }: SidebarProps) => {
+  const navigate = useNavigate();
+  
   return <div className="w-64 border-r-2 border-border bg-gradient-to-b from-sidebar-background to-sidebar-accent/30 flex flex-col h-screen shadow-lg">
       <div className="p-4 border-b-2 border-border bg-gradient-to-br from-primary/10 to-secondary/10">
         <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
@@ -244,7 +247,16 @@ export const Sidebar = ({
         </div>
       </ScrollArea>
 
-      <div className="p-4 border-t border-border">
+      <div className="p-4 border-t border-border space-y-2">
+        <Button 
+          variant="outline" 
+          className="w-full justify-start bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border-primary/20" 
+          size="sm"
+          onClick={() => navigate('/ai-chat')}
+        >
+          <MessageSquare className="w-4 h-4 mr-2" />
+          AI Study Assistant
+        </Button>
         <Button variant="ghost" className="w-full justify-start" size="sm">
           <Settings className="w-4 h-4 mr-2" />
           Settings
