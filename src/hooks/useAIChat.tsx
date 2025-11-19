@@ -14,16 +14,73 @@ interface Conversation {
   updated_at: string;
 }
 
+interface ContextFilter {
+  type: 'all' | 'subject' | 'chapter' | 'topic';
+  subjectId?: string;
+  chapterId?: string;
+  topicId?: string;
+}
+
+interface Subject {
+  id: string;
+  name: string;
+  color: string;
+}
+
+interface Chapter {
+  id: string;
+  name: string;
+  subject_id: string;
+}
+
+interface Topic {
+  id: string;
+  title: string;
+  subject_id: string;
+  chapter_id: string;
+}
+
 export const useAIChat = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [currentConversationId, setCurrentConversationId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [contextFilter, setContextFilter] = useState<ContextFilter>({ type: 'all' });
+  const [subjects, setSubjects] = useState<Subject[]>([]);
+  const [chapters, setChapters] = useState<Chapter[]>([]);
+  const [topics, setTopics] = useState<Topic[]>([]);
   const { toast } = useToast();
 
   useEffect(() => {
     loadConversations();
+    loadSubjects();
   }, []);
+
+  const loadSubjects = async () => {
+    const { data } = await supabase
+      .from('subjects')
+      .select('*')
+      .order('name');
+    setSubjects(data || []);
+  };
+
+  const loadChapters = async (subjectId: string) => {
+    const { data } = await supabase
+      .from('chapters')
+      .select('*')
+      .eq('subject_id', subjectId)
+      .order('chapter_order');
+    setChapters(data || []);
+  };
+
+  const loadTopics = async (chapterId: string) => {
+    const { data } = await supabase
+      .from('topics')
+      .select('*')
+      .eq('chapter_id', chapterId)
+      .order('created_at', { ascending: false });
+    setTopics(data || []);
+  };
 
   const loadConversations = async () => {
     const { data, error } = await supabase
@@ -95,9 +152,10 @@ export const useAIChat = () => {
       .eq('id', conversationId);
   };
 
-  const sendMessage = async (userMessage: string) => {
+  const sendMessage = async (userMessage: string, filterOverride?: ContextFilter) => {
     if (!userMessage.trim() || isLoading) return;
 
+    const filterToUse = filterOverride || contextFilter;
     let convId = currentConversationId;
     
     // Create new conversation if none exists
@@ -132,7 +190,8 @@ export const useAIChat = () => {
         },
         body: JSON.stringify({
           messages: [...messages, userMsg],
-          conversationId: convId
+          conversationId: convId,
+          contextFilter: filterToUse
         }),
       });
 
@@ -261,6 +320,13 @@ export const useAIChat = () => {
     sendMessage,
     loadConversation,
     startNewChat,
-    deleteConversation
+    deleteConversation,
+    contextFilter,
+    setContextFilter,
+    subjects,
+    chapters,
+    topics,
+    loadChapters,
+    loadTopics
   };
 };

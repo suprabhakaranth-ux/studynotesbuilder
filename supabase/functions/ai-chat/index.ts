@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, conversationId } = await req.json();
+    const { messages, conversationId, contextFilter } = await req.json();
     
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -30,13 +30,55 @@ serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('Unauthorized');
 
-    // Fetch all user's study materials
-    const [subjectsRes, chaptersRes, topicsRes, blocksRes] = await Promise.all([
-      supabase.from('subjects').select('*').eq('user_id', user.id),
-      supabase.from('chapters').select('*').eq('user_id', user.id),
-      supabase.from('topics').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50), // Limit to recent 50 topics
-      supabase.from('blocks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100) // Limit to recent 100 blocks
-    ]);
+    // Fetch study materials based on context filter
+    let subjectsRes, chaptersRes, topicsRes, blocksRes;
+    
+    if (contextFilter?.type === 'topic' && contextFilter.topicId) {
+      // Fetch only the specific topic and its blocks
+      [topicsRes, blocksRes] = await Promise.all([
+        supabase.from('topics').select('*').eq('id', contextFilter.topicId).eq('user_id', user.id),
+        supabase.from('blocks').select('*').eq('topic_id', contextFilter.topicId).eq('user_id', user.id)
+      ]);
+      subjectsRes = { data: [] };
+      chaptersRes = { data: [] };
+    } else if (contextFilter?.type === 'chapter' && contextFilter.chapterId) {
+      // Fetch all topics and blocks for the specific chapter
+      [chaptersRes, topicsRes, blocksRes] = await Promise.all([
+        supabase.from('chapters').select('*').eq('id', contextFilter.chapterId).eq('user_id', user.id),
+        supabase.from('topics').select('*').eq('chapter_id', contextFilter.chapterId).eq('user_id', user.id),
+        supabase.from('blocks').select('*').eq('user_id', user.id)
+      ]);
+      
+      const topics = topicsRes.data || [];
+      const topicIds = topics.map(t => t.id);
+      if (topicIds.length > 0) {
+        blocksRes = await supabase.from('blocks').select('*').in('topic_id', topicIds).eq('user_id', user.id);
+      }
+      subjectsRes = { data: [] };
+    } else if (contextFilter?.type === 'subject' && contextFilter.subjectId) {
+      // Fetch all chapters, topics, and blocks for the specific subject
+      [subjectsRes, chaptersRes, topicsRes] = await Promise.all([
+        supabase.from('subjects').select('*').eq('id', contextFilter.subjectId).eq('user_id', user.id),
+        supabase.from('chapters').select('*').eq('subject_id', contextFilter.subjectId).eq('user_id', user.id),
+        supabase.from('topics').select('*').eq('subject_id', contextFilter.subjectId).eq('user_id', user.id)
+      ]);
+      
+      const topics = topicsRes.data || [];
+      const topicIds = topics.map(t => t.id);
+      if (topicIds.length > 0) {
+        blocksRes = await supabase.from('blocks').select('*').in('topic_id', topicIds).eq('user_id', user.id);
+      } else {
+        blocksRes = { data: [] };
+      }
+    } else {
+      // Default: Fetch recent topics and blocks
+      [subjectsRes, chaptersRes, topicsRes, blocksRes] = await Promise.all([
+        supabase.from('subjects').select('*').eq('user_id', user.id),
+        supabase.from('chapters').select('*').eq('user_id', user.id),
+        supabase.from('topics').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50),
+        supabase.from('blocks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100)
+      ]);
+    }
 
     // Build context from user's data (limited to avoid token limits)
     const subjects = subjectsRes.data || [];
@@ -45,13 +87,33 @@ serve(async (req) => {
     const blocks = blocksRes.data || [];
 
     let contextText = "# User's Study Materials for MA Psychology IGNOU\n\n";
-    contextText += `Available Subjects: ${subjects.map(s => s.name).join(', ')}\n`;
-    contextText += `Available Chapters: ${chapters.length} chapters across all subjects\n`;
-    contextText += `Available Topics: ${topics.length} topics\n\n`;
     
-    // Include recent topics and their content (summarized)
-    contextText += "## Recent Topics and Content:\n\n";
-    topics.slice(0, 20).forEach(topic => {
+    // Add context scope information
+    if (contextFilter?.type === 'topic') {
+      const topic = topics[0];
+      contextText += `## Focused Context: Single Topic\n`;
+      contextText += `Topic: ${topic?.title || 'Unknown'}\n\n`;
+    } else if (contextFilter?.type === 'chapter') {
+      const chapter = chaptersRes.data?.[0];
+      contextText += `## Focused Context: Chapter\n`;
+      contextText += `Chapter: ${chapter?.name || 'Unknown'}\n`;
+      contextText += `Topics: ${topics.length} topics in this chapter\n\n`;
+    } else if (contextFilter?.type === 'subject') {
+      const subject = subjectsRes.data?.[0];
+      contextText += `## Focused Context: Subject\n`;
+      contextText += `Subject: ${subject?.name || 'Unknown'}\n`;
+      contextText += `Chapters: ${chapters.length} chapters\n`;
+      contextText += `Topics: ${topics.length} topics\n\n`;
+    } else {
+      contextText += `Available Subjects: ${subjects.map(s => s.name).join(', ')}\n`;
+      contextText += `Available Chapters: ${chapters.length} chapters across all subjects\n`;
+      contextText += `Available Topics: ${topics.length} topics\n\n`;
+    }
+    
+    // Include topics and their content
+    contextText += "## Content:\n\n";
+    const topicsToShow = contextFilter?.type ? topics : topics.slice(0, 20);
+    topicsToShow.forEach(topic => {
       const chapter = chapters.find(c => c.id === topic.chapter_id);
       const subject = subjects.find(s => s.id === topic.subject_id);
       contextText += `### ${topic.title}\n`;
@@ -60,18 +122,27 @@ serve(async (req) => {
       }
       
       const topicBlocks = blocks.filter(b => b.topic_id === topic.id);
-      topicBlocks.slice(0, 3).forEach(block => {
+      const blocksToShow = contextFilter?.type === 'topic' ? topicBlocks : topicBlocks.slice(0, 3);
+      blocksToShow.forEach(block => {
         if (block.content) {
-          // Limit each block content to first 500 characters
-          const content = block.content.length > 500 
-            ? block.content.substring(0, 500) + '...' 
+          const maxLength = contextFilter?.type === 'topic' ? 2000 : 500;
+          const content = block.content.length > maxLength 
+            ? block.content.substring(0, maxLength) + '...' 
             : block.content;
           contextText += `${content}\n\n`;
         }
       });
     });
 
-    const systemPrompt = `You are an AI study assistant for MA Psychology IGNOU students. You have access to the student's study materials (recent topics shown below).
+    const contextScope = contextFilter?.type === 'topic' 
+      ? 'focused on a specific topic'
+      : contextFilter?.type === 'chapter'
+      ? 'focused on a specific chapter'
+      : contextFilter?.type === 'subject'
+      ? 'focused on a specific subject'
+      : 'showing recent topics from their library';
+    
+    const systemPrompt = `You are an AI study assistant for MA Psychology IGNOU students. You have access to the student's study materials (${contextScope}).
 
 Your capabilities:
 - Create quizzes and practice questions based on their notes
@@ -79,8 +150,6 @@ Your capabilities:
 - Explain psychology concepts (both from their notes and beyond)
 - Help with exam preparation and study strategies
 - Provide detailed explanations of theories, research methods, and psychological concepts
-
-Note: You're seeing a summary of recent topics. The student has ${subjects.length} subjects, ${chapters.length} chapters, and ${topics.length} total topics in their library.
 
 ${contextText}
 
@@ -90,7 +159,7 @@ When answering:
 - For concepts beyond their notes, provide comprehensive explanations
 - For IGNOU exam questions, structure answers in exam format with proper headings
 - Be encouraging and supportive
-- If you need more context about a specific topic, ask the student to specify which subject/chapter`;
+${!contextFilter?.type ? '- If you need more focused context, the student can filter to a specific subject, chapter, or topic' : ''}`;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
