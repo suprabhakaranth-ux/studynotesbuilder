@@ -34,40 +34,44 @@ serve(async (req) => {
     const [subjectsRes, chaptersRes, topicsRes, blocksRes] = await Promise.all([
       supabase.from('subjects').select('*').eq('user_id', user.id),
       supabase.from('chapters').select('*').eq('user_id', user.id),
-      supabase.from('topics').select('*').eq('user_id', user.id),
-      supabase.from('blocks').select('*').eq('user_id', user.id)
+      supabase.from('topics').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(50), // Limit to recent 50 topics
+      supabase.from('blocks').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(100) // Limit to recent 100 blocks
     ]);
 
-    // Build context from user's data
+    // Build context from user's data (limited to avoid token limits)
     const subjects = subjectsRes.data || [];
     const chapters = chaptersRes.data || [];
     const topics = topicsRes.data || [];
     const blocks = blocksRes.data || [];
 
     let contextText = "# User's Study Materials for MA Psychology IGNOU\n\n";
+    contextText += `Available Subjects: ${subjects.map(s => s.name).join(', ')}\n`;
+    contextText += `Available Chapters: ${chapters.length} chapters across all subjects\n`;
+    contextText += `Available Topics: ${topics.length} topics\n\n`;
     
-    subjects.forEach(subject => {
-      contextText += `## Subject: ${subject.name}\n`;
+    // Include recent topics and their content (summarized)
+    contextText += "## Recent Topics and Content:\n\n";
+    topics.slice(0, 20).forEach(topic => {
+      const chapter = chapters.find(c => c.id === topic.chapter_id);
+      const subject = subjects.find(s => s.id === topic.subject_id);
+      contextText += `### ${topic.title}\n`;
+      if (chapter && subject) {
+        contextText += `(${subject.name} - ${chapter.name})\n`;
+      }
       
-      const subjectChapters = chapters.filter(c => c.subject_id === subject.id);
-      subjectChapters.forEach(chapter => {
-        contextText += `### Chapter: ${chapter.name}\n`;
-        
-        const chapterTopics = topics.filter(t => t.chapter_id === chapter.id);
-        chapterTopics.forEach(topic => {
-          contextText += `#### Topic: ${topic.title}\n`;
-          
-          const topicBlocks = blocks.filter(b => b.topic_id === topic.id);
-          topicBlocks.forEach(block => {
-            if (block.content) {
-              contextText += `${block.content}\n\n`;
-            }
-          });
-        });
+      const topicBlocks = blocks.filter(b => b.topic_id === topic.id);
+      topicBlocks.slice(0, 3).forEach(block => {
+        if (block.content) {
+          // Limit each block content to first 500 characters
+          const content = block.content.length > 500 
+            ? block.content.substring(0, 500) + '...' 
+            : block.content;
+          contextText += `${content}\n\n`;
+        }
       });
     });
 
-    const systemPrompt = `You are an AI study assistant for MA Psychology IGNOU students. You have access to the student's complete study materials.
+    const systemPrompt = `You are an AI study assistant for MA Psychology IGNOU students. You have access to the student's study materials (recent topics shown below).
 
 Your capabilities:
 - Create quizzes and practice questions based on their notes
@@ -76,7 +80,8 @@ Your capabilities:
 - Help with exam preparation and study strategies
 - Provide detailed explanations of theories, research methods, and psychological concepts
 
-Student's Study Materials:
+Note: You're seeing a summary of recent topics. The student has ${subjects.length} subjects, ${chapters.length} chapters, and ${topics.length} total topics in their library.
+
 ${contextText}
 
 When answering:
@@ -84,7 +89,8 @@ When answering:
 - For quiz creation, use their actual content
 - For concepts beyond their notes, provide comprehensive explanations
 - For IGNOU exam questions, structure answers in exam format with proper headings
-- Be encouraging and supportive`;
+- Be encouraging and supportive
+- If you need more context about a specific topic, ask the student to specify which subject/chapter`;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) throw new Error('LOVABLE_API_KEY not configured');
