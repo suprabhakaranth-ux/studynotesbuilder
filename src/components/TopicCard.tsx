@@ -61,7 +61,7 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit }: TopicCar
             <BookOpen className="w-7 h-7 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="font-bold text-xl mb-2 text-foreground truncate flex items-center gap-2">
+            <h3 className="font-bold text-xl mb-2 text-foreground line-clamp-2 flex items-center gap-2">
               {topic.title}
               <Sparkles className="w-4 h-4 text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
             </h3>
