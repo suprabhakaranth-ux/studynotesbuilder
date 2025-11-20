@@ -132,7 +132,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     .eq("user_id", user.id)
     .order("node_order", { ascending: true });
   
-  if (headingNodesData) {
+  if (headingNodesData && headingNodesData.length > 0) {
     // Build a map of all nodes by ID
     const nodeMap = new Map<string, HeadingNode>();
     headingNodesData.forEach(h => {
@@ -161,6 +161,22 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     });
 
     setHeadingNodes(rootNodes);
+  } else {
+    // No saved heading tree yet - seed once from blocks.headings for backward compatibility
+    const allHeadings = (blocksData || [])
+      .filter(b => b.headings && Array.isArray(b.headings) && b.headings.length > 0)
+      .flatMap(b => (b.headings as string[]) || []);
+
+    if (allHeadings.length > 0) {
+      const unique = Array.from(new Set(allHeadings));
+      const initialNodes: HeadingNode[] = unique.map(h => ({
+        id: crypto.randomUUID(),
+        title: String(h),
+        notes: "",
+        children: [],
+      }));
+      setHeadingNodes(initialNodes);
+    }
   }
 
       setLoading(false);
@@ -191,44 +207,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     };
   }, [blocks, summaryContent, mnemonicContent, headingNodes, topicId, user, loading]);
 
-  // Auto-populate headings from blocks
-  useEffect(() => {
-    if (loading) return;
-    
-    const allHeadings = blocks
-      .filter(b => b.headings && b.headings.length > 0)
-      .flatMap(b => b.headings || []);
-    
-    // Only add new headings, don't remove existing ones
-    setHeadingNodes(prev => {
-      // Recursively collect all titles from the entire heading tree
-      const getAllTitles = (nodes: HeadingNode[]): string[] => {
-        const titles: string[] = [];
-        for (const node of nodes) {
-          titles.push(node.title);
-          if (node.children.length > 0) {
-            titles.push(...getAllTitles(node.children));
-          }
-        }
-        return titles;
-      };
-      
-      const existingTitles = new Set(getAllTitles(prev));
-      const newHeadings = allHeadings.filter(h => !existingTitles.has(h));
-      
-      if (newHeadings.length > 0) {
-        const newNodes: HeadingNode[] = newHeadings.map(h => ({
-          id: crypto.randomUUID(),
-          title: h,
-          notes: "",
-          children: []
-        }));
-        return [...prev, ...newNodes];
-      }
-      
-      return prev;
-    });
-  }, [blocks, loading]);
 
   const addBlock = (type: BlockType) => {
     const newBlock: Block = {
@@ -550,6 +528,35 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     
     const currentHeadings = targetBlock.headings || [];
     updateBlock(targetBlock.id, targetBlock.content, [...currentHeadings, text]);
+    
+    // Also directly add to heading nodes tree (single source of truth)
+    setHeadingNodes(prev => {
+      // Check if heading already exists anywhere in the tree
+      const getAllTitles = (nodes: HeadingNode[]): string[] => {
+        const titles: string[] = [];
+        for (const node of nodes) {
+          titles.push(node.title);
+          if (node.children.length > 0) {
+            titles.push(...getAllTitles(node.children));
+          }
+        }
+        return titles;
+      };
+      
+      const existingTitles = new Set(getAllTitles(prev));
+      if (existingTitles.has(text)) {
+        return prev; // Already exists, don't add duplicate
+      }
+      
+      // Create new heading node as root
+      const newNode: HeadingNode = {
+        id: crypto.randomUUID(),
+        title: text,
+        notes: "",
+        children: [],
+      };
+      return [...prev, newNode];
+    });
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
