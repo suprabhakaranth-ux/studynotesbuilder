@@ -68,7 +68,7 @@ export const ChapterSection = ({
           </button>
           <button
             onClick={() => onChapterClick(chapter.id)}
-            className="flex-1 text-left text-sm font-medium text-foreground truncate"
+            className="flex-1 text-left text-sm font-medium text-foreground line-clamp-2"
           >
             {chapter.name}
           </button>
@@ -126,7 +126,7 @@ export const ChapterSection = ({
               >
                 <button
                   onClick={() => onTopicClick(topic.id)}
-                  className="w-full text-left text-sm truncate"
+                  className="w-full text-left text-sm line-clamp-2"
                 >
                   {topic.title}
                 </button>
