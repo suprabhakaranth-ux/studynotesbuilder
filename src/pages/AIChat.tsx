@@ -9,12 +9,16 @@ import ReactMarkdown from 'react-markdown';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeleteConfirmDialog } from '@/components/DeleteConfirmDialog';
 
 const AIChat = () => {
   const [input, setInput] = useState('');
   const [showSidebar, setShowSidebar] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -126,6 +130,29 @@ const AIChat = () => {
     }
   };
 
+  const handleDeleteConversation = async (conversationId: string) => {
+    await deleteConversation(conversationId);
+    setDeleteDialogOpen(false);
+    setConversationToDelete(null);
+    
+    // If deleting current conversation, load previous one or start new
+    if (conversationId === currentConversationId) {
+      const remainingConversations = conversations.filter(c => c.id !== conversationId);
+      if (remainingConversations.length > 0) {
+        loadConversation(remainingConversations[0].id);
+      } else {
+        startNewChat();
+      }
+    }
+    
+    toast({ title: 'Conversation deleted' });
+  };
+
+  const confirmDelete = (conversationId: string) => {
+    setConversationToDelete(conversationId);
+    setDeleteDialogOpen(true);
+  };
+
   return (
     <div className="flex h-screen bg-background">
       {/* Conversations Sidebar */}
@@ -160,18 +187,27 @@ const AIChat = () => {
               >
                 <div className="flex items-center gap-2 flex-1 min-w-0">
                   <MessageSquare className="h-4 w-4 flex-shrink-0" />
-                  <span className="text-sm truncate">{conv.title}</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-sm truncate">{conv.title}</span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p className="max-w-xs">{conv.title}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                  className="h-6 w-6 hover:bg-destructive/20 transition-opacity"
                   onClick={(e) => {
                     e.stopPropagation();
-                    deleteConversation(conv.id);
+                    confirmDelete(conv.id);
                   }}
                 >
-                  <Trash2 className="h-3 w-3" />
+                  <Trash2 className="h-3 w-3 text-destructive" />
                 </Button>
               </div>
             ))}
@@ -197,6 +233,17 @@ const AIChat = () => {
                 <Filter className="h-4 w-4 mr-2" />
                 Filter Context
               </Button>
+              {currentConversationId && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => confirmDelete(currentConversationId)}
+                  className="hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Chat
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -408,6 +455,14 @@ const AIChat = () => {
           </div>
         </div>
       </div>
+
+      <DeleteConfirmDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={() => conversationToDelete && handleDeleteConversation(conversationToDelete)}
+        itemName={conversationToDelete ? conversations.find(c => c.id === conversationToDelete)?.title || "this conversation" : "this conversation"}
+        isPermanent={true}
+      />
     </div>
   );
 };
