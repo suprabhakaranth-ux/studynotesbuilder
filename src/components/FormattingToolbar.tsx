@@ -10,6 +10,8 @@ import {
 
 interface FormattingToolbarProps {
   onMarkHeading?: (text: string) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 const colorOptions = [
@@ -24,7 +26,35 @@ const colorOptions = [
   { name: "Teal", value: "#14B8A6" },
 ];
 
-export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => {
+export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingToolbarProps) => {
+  const handleUndo = () => {
+    if (onUndo) {
+      onUndo();
+      return;
+    }
+    
+    // Fallback: find focused contenteditable and call its undo function
+    const focused = document.activeElement;
+    const editable = focused?.closest('[contenteditable="true"]') as any;
+    if (editable && typeof editable.__performUndo === 'function') {
+      editable.__performUndo();
+    }
+  };
+
+  const handleRedo = () => {
+    if (onRedo) {
+      onRedo();
+      return;
+    }
+    
+    // Fallback: find focused contenteditable and call its redo function
+    const focused = document.activeElement;
+    const editable = focused?.closest('[contenteditable="true"]') as any;
+    if (editable && typeof editable.__performRedo === 'function') {
+      editable.__performRedo();
+    }
+  };
+
   const syncActiveEditor = () => {
     const sel = document.getSelection();
     if (!sel || sel.rangeCount === 0) return;
@@ -32,7 +62,6 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     const element = (anchor instanceof Element ? anchor : anchor?.parentElement) as Element | null;
     const editable = element?.closest('[contenteditable="true"]') as HTMLElement | null;
     if (editable) {
-      // Trigger input so RichTextEditor persists content to state/localStorage
       editable.dispatchEvent(new Event("input", { bubbles: true }));
     }
   };
@@ -48,24 +77,17 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
   };
 
   const applyFormat = (command: string, value?: string) => {
-    // Get current selection before executing command
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
-    // Store the range and find the editable element
     const range = selection.getRangeAt(0);
     const editable = range.commonAncestorContainer;
     const editableElement = (editable instanceof Element ? editable : editable.parentElement)?.closest('[contenteditable="true"]') as HTMLElement;
     
     if (!editableElement) return;
     
-    // Execute command
     document.execCommand(command, false, value);
-    
-    // Restore focus to the editable element
     editableElement.focus();
-    
-    // Ensure changes are saved immediately
     setTimeout(syncActiveEditor, 0);
   };
 
@@ -76,22 +98,36 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     const range = selection.getRangeAt(0);
     let element = range.commonAncestorContainer;
     
-    // Get the block element
     if (element.nodeType === Node.TEXT_NODE) {
       element = element.parentElement as HTMLElement;
     }
     
-    const blockElement = (element as HTMLElement).closest('p, div, li') as HTMLElement;
-    if (blockElement) {
-      const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
-      blockElement.style.marginLeft = `${currentMargin + 40}px`;
+    const listItem = (element as HTMLElement).closest('li') as HTMLLIElement;
+    
+    if (listItem) {
+      const parentList = listItem.parentElement as HTMLUListElement | HTMLOListElement;
+      const listType = parentList.tagName;
+      const previousSibling = listItem.previousElementSibling as HTMLLIElement;
       
-      // Restore focus
-      const editableElement = blockElement.closest('[contenteditable="true"]') as HTMLElement;
-      if (editableElement) editableElement.focus();
-      
-      syncActiveEditor();
+      if (previousSibling) {
+        let nestedList = previousSibling.querySelector(`:scope > ${listType.toLowerCase()}`) as HTMLUListElement | HTMLOListElement;
+        
+        if (!nestedList) {
+          nestedList = document.createElement(listType) as HTMLUListElement | HTMLOListElement;
+          previousSibling.appendChild(nestedList);
+        }
+        
+        nestedList.appendChild(listItem);
+      }
+    } else {
+      const blockElement = (element as HTMLElement).closest('p, div, blockquote') as HTMLElement;
+      if (blockElement) {
+        const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
+        blockElement.style.marginLeft = `${currentMargin + 40}px`;
+      }
     }
+    
+    syncActiveEditor();
   };
 
   const handleOutdent = () => {
@@ -105,31 +141,60 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       element = element.parentElement as HTMLElement;
     }
     
-    const blockElement = (element as HTMLElement).closest('p, div, li') as HTMLElement;
-    if (blockElement) {
-      const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
-      if (currentMargin >= 40) {
-        blockElement.style.marginLeft = `${currentMargin - 40}px`;
+    const listItem = (element as HTMLElement).closest('li') as HTMLLIElement;
+    
+    if (listItem) {
+      const parentList = listItem.parentElement as HTMLUListElement | HTMLOListElement;
+      const grandparentListItem = parentList.parentElement as HTMLLIElement;
+      
+      if (grandparentListItem && grandparentListItem.tagName === 'LI') {
+        const grandparentList = grandparentListItem.parentElement as HTMLUListElement | HTMLOListElement;
+        const nextSibling = grandparentListItem.nextSibling;
         
-        // Restore focus
-        const editableElement = blockElement.closest('[contenteditable="true"]') as HTMLElement;
-        if (editableElement) editableElement.focus();
+        if (nextSibling) {
+          grandparentList.insertBefore(listItem, nextSibling);
+        } else {
+          grandparentList.appendChild(listItem);
+        }
         
-        syncActiveEditor();
+        if (parentList.children.length === 0) {
+          parentList.remove();
+        }
+      }
+    } else {
+      const blockElement = (element as HTMLElement).closest('p, div, blockquote') as HTMLElement;
+      if (blockElement) {
+        const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
+        if (currentMargin >= 40) {
+          blockElement.style.marginLeft = `${currentMargin - 40}px`;
+        }
       }
     }
+    
+    syncActiveEditor();
+  };
+
+  const createList = (ordered: boolean) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const editableElement = (selection.anchorNode as Node)?.parentElement?.closest('[contenteditable="true"]') as HTMLElement;
+    if (!editableElement) return;
+    
+    editableElement.focus();
+    document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList", false);
+    
+    setTimeout(syncActiveEditor, 0);
   };
 
   const toggleHighlight = () => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
     
-    // Check if current selection has highlight
     const range = selection.getRangeAt(0);
     const container = range.commonAncestorContainer;
     const parent = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
     
-    // Check for existing highlight
     const hasHighlight = parent?.style?.backgroundColor && 
                         parent.style.backgroundColor !== 'transparent' &&
                         parent.style.backgroundColor !== 'rgba(0, 0, 0, 0)';
@@ -137,16 +202,12 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     const editableElement = parent?.closest('[contenteditable="true"]') as HTMLElement;
     
     if (hasHighlight) {
-      // Remove highlight
       document.execCommand("hiliteColor", false, "transparent");
     } else {
-      // Add highlight
       document.execCommand("hiliteColor", false, "yellow");
     }
     
-    // Restore focus
     if (editableElement) editableElement.focus();
-    
     setTimeout(syncActiveEditor, 0);
   };
 
@@ -160,36 +221,16 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     try {
       const span = document.createElement('span');
       span.style.fontSize = size;
-      
-      // Extract the selected content
       const contents = range.extractContents();
-      
-      // Wrap it in the span
       span.appendChild(contents);
-      
-      // Insert the wrapped content back
       range.insertNode(span);
-      
-      // Clear selection
       sel.removeAllRanges();
-      
       setTimeout(syncActiveEditor, 0);
     } catch (e) {
-      // Fallback to execCommand if range manipulation fails
-      console.warn('Font size application failed, using fallback');
-      document.execCommand('fontSize', false, '7');
-      const fontElements = document.querySelectorAll('font[size="7"]');
-      fontElements.forEach(el => {
-        const span = document.createElement('span');
-        span.style.fontSize = size;
-        while (el.firstChild) {
-          span.appendChild(el.firstChild);
-        }
-        el.parentNode?.replaceChild(span, el);
-      });
-      setTimeout(syncActiveEditor, 0);
+      console.warn('Font size application failed');
     }
   };
+
   return (
     <div 
       className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
@@ -280,7 +321,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("insertUnorderedList")}
+        onClick={() => createList(false)}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Bullet List"
       >
@@ -290,7 +331,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("insertOrderedList")}
+        onClick={() => createList(true)}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Numbered List"
       >
@@ -398,7 +439,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("undo")}
+        onClick={handleUndo}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Undo"
       >
@@ -408,7 +449,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => applyFormat("redo")}
+        onClick={handleRedo}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Redo"
       >

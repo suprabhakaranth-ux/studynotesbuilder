@@ -350,6 +350,7 @@ export type Database = {
           chapter_id: string | null
           created_at: string | null
           id: string
+          studied: boolean
           subject_id: string | null
           title: string
           updated_at: string | null
@@ -359,6 +360,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string | null
           id?: string
+          studied?: boolean
           subject_id?: string | null
           title: string
           updated_at?: string | null
@@ -368,6 +370,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string | null
           id?: string
+          studied?: boolean
           subject_id?: string | null
           title?: string
           updated_at?: string | null
