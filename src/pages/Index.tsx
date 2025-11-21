@@ -53,6 +53,7 @@ interface Topic {
   title: string;
   summary?: string;
   chapterId?: string | null;
+  studied?: boolean;
 }
 
 const Index = () => {
@@ -157,6 +158,7 @@ const Index = () => {
           subjectId: t.subject_id || "default",
           title: t.title,
           chapterId: t.chapter_id,
+          studied: t.studied || false,
         }));
         setTopics(mappedTopics);
       }
@@ -377,6 +379,45 @@ const Index = () => {
   const handleEditTopic = (topicId: string, topicTitle: string) => {
     setRenamingTopic({ id: topicId, title: topicTitle });
     setRenameTopicDialogOpen(true);
+  };
+
+  const handleToggleStudied = async (topicId: string) => {
+    if (!user) return;
+
+    try {
+      const topic = topics.find(t => t.id === topicId);
+      if (!topic) return;
+
+      const newStudiedValue = !topic.studied;
+
+      // Optimistic UI update
+      setTopics(topics.map(t =>
+        t.id === topicId ? { ...t, studied: newStudiedValue } : t
+      ));
+
+      const { error } = await supabase
+        .from("topics")
+        .update({ studied: newStudiedValue })
+        .eq("id", topicId);
+
+      if (error) throw error;
+
+      toast({
+        title: newStudiedValue ? "Marked as studied" : "Unmarked as studied",
+        description: `${topic.title} has been updated.`,
+      });
+    } catch (error) {
+      console.error("Error toggling studied status:", error);
+      // Revert optimistic update
+      setTopics(topics.map(t =>
+        t.id === topicId ? { ...t, studied: !t.studied } : t
+      ));
+      toast({
+        title: "Error",
+        description: "Failed to update studied status",
+        variant: "destructive",
+      });
+    }
   };
 
   // Chapter operations
@@ -1018,13 +1059,14 @@ const Index = () => {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {activeTopics.map((topic) => (
-                    <TopicCard
+                     <TopicCard
                       key={topic.id}
                       topic={topic}
                       onClick={() => setEditingTopic(topic.id)}
                       onDelete={handleDeleteTopic}
                       onMove={handleMoveTopic}
                       onEdit={handleEditTopic}
+                      onToggleStudied={handleToggleStudied}
                     />
                   ))}
                 </div>

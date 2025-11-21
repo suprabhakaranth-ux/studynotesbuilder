@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo, useCallback } from "react";
 import { cn } from "@/lib/utils";
 import { FloatingToolbar } from "./FloatingToolbar";
 
@@ -11,6 +11,11 @@ interface RichTextEditorProps {
   onMarkHeading?: (text: string) => void;
 }
 
+interface EditorHistoryState {
+  content: string;
+  timestamp: number;
+}
+
 export const RichTextEditor = ({ 
   value, 
   onChange, 
@@ -20,18 +25,96 @@ export const RichTextEditor = ({
   onMarkHeading
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
+  const historyStack = useRef<EditorHistoryState[]>([]);
+  const historyPosition = useRef<number>(-1);
+  const lastSavedContent = useRef<string>("");
+  const saveTimeoutRef = useRef<NodeJS.Timeout>();
 
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;
+      // Initialize history with the first value
+      if (historyStack.current.length === 0 && value) {
+        historyStack.current = [{ content: value, timestamp: Date.now() }];
+        historyPosition.current = 0;
+        lastSavedContent.current = value;
+      }
     }
   }, [value]);
 
+  const saveToHistory = useCallback((content: string) => {
+    // Only save if content actually changed
+    if (content === lastSavedContent.current) return;
+    
+    // Remove any "future" history if we're not at the end
+    if (historyPosition.current < historyStack.current.length - 1) {
+      historyStack.current = historyStack.current.slice(0, historyPosition.current + 1);
+    }
+    
+    // Add new state
+    historyStack.current.push({
+      content,
+      timestamp: Date.now(),
+    });
+    
+    // Limit history size (last 50 states)
+    if (historyStack.current.length > 50) {
+      historyStack.current.shift();
+    } else {
+      historyPosition.current++;
+    }
+    
+    lastSavedContent.current = content;
+  }, []);
+
   const handleInput = () => {
     if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
+      const content = editorRef.current.innerHTML;
+      onChange(content);
+
+      // Debounced save to history
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+      saveTimeoutRef.current = setTimeout(() => {
+        saveToHistory(content);
+      }, 300);
     }
   };
+
+  const performUndo = useCallback(() => {
+    if (historyPosition.current <= 0) return;
+    
+    historyPosition.current--;
+    const previousState = historyStack.current[historyPosition.current];
+    
+    if (editorRef.current && previousState) {
+      editorRef.current.innerHTML = previousState.content;
+      onChange(previousState.content);
+      lastSavedContent.current = previousState.content;
+    }
+  }, [onChange]);
+
+  const performRedo = useCallback(() => {
+    if (historyPosition.current >= historyStack.current.length - 1) return;
+    
+    historyPosition.current++;
+    const nextState = historyStack.current[historyPosition.current];
+    
+    if (editorRef.current && nextState) {
+      editorRef.current.innerHTML = nextState.content;
+      onChange(nextState.content);
+      lastSavedContent.current = nextState.content;
+    }
+  }, [onChange]);
+
+  // Expose undo/redo functions on the element for FormattingToolbar to use
+  useEffect(() => {
+    if (editorRef.current) {
+      (editorRef.current as any).__performUndo = performUndo;
+      (editorRef.current as any).__performRedo = performRedo;
+    }
+  }, [performUndo, performRedo]);
 
   const handlePaste = (e: React.ClipboardEvent) => {
     e.preventDefault();
@@ -110,7 +193,13 @@ export const RichTextEditor = ({
       }
     }
     
+    // Save to history after paste
     handleInput();
+    setTimeout(() => {
+      if (editorRef.current) {
+        saveToHistory(editorRef.current.innerHTML);
+      }
+    }, 100);
   };
 
   return (
@@ -129,7 +218,9 @@ export const RichTextEditor = ({
         data-placeholder={placeholder}
         suppressContentEditableWarning
       />
-      <FloatingToolbar onMarkHeading={onMarkHeading} />
+      <FloatingToolbar 
+        onMarkHeading={onMarkHeading} 
+      />
     </>
   );
 };
