@@ -10,6 +10,8 @@ import {
 
 interface FormattingToolbarProps {
   onMarkHeading?: (text: string) => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
 }
 
 const colorOptions = [
@@ -24,46 +26,43 @@ const colorOptions = [
   { name: "Teal", value: "#14B8A6" },
 ];
 
-export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => {
-  // Helper to get the currently active contenteditable element
-  const getActiveEditable = (): HTMLElement | null => {
-    const sel = window.getSelection();
-    if (sel && sel.rangeCount > 0) {
-      const range = sel.getRangeAt(0);
-      const node = range.commonAncestorContainer;
-      const el = (node instanceof Element ? node : node.parentElement);
-      const editable = el?.closest('[contenteditable="true"]') as HTMLElement | null;
-      if (editable) return editable;
-    }
-
-    // Fallback: use focused element
-    const focused = document.activeElement;
-    const editable = focused?.closest('[contenteditable="true"]') as HTMLElement | null;
-    return editable;
-  };
-
-  // Unified command executor that ensures input event is dispatched
-  const runCommand = (command: string, value?: string) => {
-    const editable = getActiveEditable();
-    if (!editable) return;
-
-    editable.focus();
-    document.execCommand(command, false, value);
-    // Trigger React's onInput so RichTextEditor updates value + history
-    editable.dispatchEvent(new Event("input", { bubbles: true }));
-  };
-
+export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingToolbarProps) => {
   const handleUndo = () => {
-    const editable = getActiveEditable() as any;
-    if (editable && typeof editable.__performUndo === "function") {
+    if (onUndo) {
+      onUndo();
+      return;
+    }
+    
+    // Fallback: find focused contenteditable and call its undo function
+    const focused = document.activeElement;
+    const editable = focused?.closest('[contenteditable="true"]') as any;
+    if (editable && typeof editable.__performUndo === 'function') {
       editable.__performUndo();
     }
   };
 
   const handleRedo = () => {
-    const editable = getActiveEditable() as any;
-    if (editable && typeof editable.__performRedo === "function") {
+    if (onRedo) {
+      onRedo();
+      return;
+    }
+    
+    // Fallback: find focused contenteditable and call its redo function
+    const focused = document.activeElement;
+    const editable = focused?.closest('[contenteditable="true"]') as any;
+    if (editable && typeof editable.__performRedo === 'function') {
       editable.__performRedo();
+    }
+  };
+
+  const syncActiveEditor = () => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    const anchor = sel.anchorNode as Node | null;
+    const element = (anchor instanceof Element ? anchor : anchor?.parentElement) as Element | null;
+    const editable = element?.closest('[contenteditable="true"]') as HTMLElement | null;
+    if (editable) {
+      editable.dispatchEvent(new Event("input", { bubbles: true }));
     }
   };
 
@@ -77,130 +76,167 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
     }
   };
 
-  const toggleHighlight = () => {
-    const editable = getActiveEditable();
-    if (!editable) return;
-
-    editable.focus();
-    document.execCommand("hiliteColor", false, "yellow");
-    editable.dispatchEvent(new Event("input", { bubbles: true }));
-  };
-
-  const applyFontSize = (size: string) => {
-    const sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0) return;
-
-    const range = sel.getRangeAt(0);
-    if (range.collapsed) return;
-
-    const span = document.createElement("span");
-    span.style.fontSize = size;
-    span.appendChild(range.extractContents());
-    range.insertNode(span);
-    sel.removeAllRanges();
-
-    const editable = getActiveEditable();
-    if (editable) {
-      editable.focus();
-      editable.dispatchEvent(new Event("input", { bubbles: true }));
-    }
+  const applyFormat = (command: string, value?: string) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const editable = range.commonAncestorContainer;
+    const editableElement = (editable instanceof Element ? editable : editable.parentElement)?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (!editableElement) return;
+    
+    document.execCommand(command, false, value);
+    editableElement.focus();
+    setTimeout(syncActiveEditor, 0);
   };
 
   const handleIndent = () => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
-
+    
     const range = selection.getRangeAt(0);
     let element = range.commonAncestorContainer;
-
+    
     if (element.nodeType === Node.TEXT_NODE) {
       element = element.parentElement as HTMLElement;
     }
-
-    const listItem = (element as HTMLElement).closest("li") as HTMLLIElement;
-
+    
+    const listItem = (element as HTMLElement).closest('li') as HTMLLIElement;
+    
     if (listItem) {
       const parentList = listItem.parentElement as HTMLUListElement | HTMLOListElement;
       const listType = parentList.tagName;
       const previousSibling = listItem.previousElementSibling as HTMLLIElement;
-
+      
       if (previousSibling) {
         let nestedList = previousSibling.querySelector(`:scope > ${listType.toLowerCase()}`) as HTMLUListElement | HTMLOListElement;
-
+        
         if (!nestedList) {
           nestedList = document.createElement(listType) as HTMLUListElement | HTMLOListElement;
           previousSibling.appendChild(nestedList);
         }
-
+        
         nestedList.appendChild(listItem);
       }
     } else {
-      const blockElement = (element as HTMLElement).closest("p, div, blockquote") as HTMLElement;
+      const blockElement = (element as HTMLElement).closest('p, div, blockquote') as HTMLElement;
       if (blockElement) {
         const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
-        blockElement.style.marginLeft = `${currentMargin + 32}px`;
+        blockElement.style.marginLeft = `${currentMargin + 40}px`;
       }
     }
-
-    const editable = getActiveEditable();
-    if (editable) {
-      editable.dispatchEvent(new Event("input", { bubbles: true }));
-    }
+    
+    syncActiveEditor();
   };
 
   const handleOutdent = () => {
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) return;
-
+    
     const range = selection.getRangeAt(0);
     let element = range.commonAncestorContainer;
-
+    
     if (element.nodeType === Node.TEXT_NODE) {
       element = element.parentElement as HTMLElement;
     }
-
-    const listItem = (element as HTMLElement).closest("li") as HTMLLIElement;
-
+    
+    const listItem = (element as HTMLElement).closest('li') as HTMLLIElement;
+    
     if (listItem) {
       const parentList = listItem.parentElement as HTMLUListElement | HTMLOListElement;
       const grandparentListItem = parentList.parentElement as HTMLLIElement;
-
-      if (grandparentListItem && grandparentListItem.tagName === "LI") {
+      
+      if (grandparentListItem && grandparentListItem.tagName === 'LI') {
         const grandparentList = grandparentListItem.parentElement as HTMLUListElement | HTMLOListElement;
         const nextSibling = grandparentListItem.nextSibling;
-
+        
         if (nextSibling) {
           grandparentList.insertBefore(listItem, nextSibling);
         } else {
           grandparentList.appendChild(listItem);
         }
-
+        
         if (parentList.children.length === 0) {
           parentList.remove();
         }
       }
     } else {
-      const blockElement = (element as HTMLElement).closest("p, div, blockquote") as HTMLElement;
+      const blockElement = (element as HTMLElement).closest('p, div, blockquote') as HTMLElement;
       if (blockElement) {
         const currentMargin = parseInt(window.getComputedStyle(blockElement).marginLeft) || 0;
-        if (currentMargin >= 32) {
-          blockElement.style.marginLeft = `${currentMargin - 32}px`;
+        if (currentMargin >= 40) {
+          blockElement.style.marginLeft = `${currentMargin - 40}px`;
         }
       }
     }
+    
+    syncActiveEditor();
+  };
 
-    const editable = getActiveEditable();
-    if (editable) {
-      editable.dispatchEvent(new Event("input", { bubbles: true }));
+  const createList = (ordered: boolean) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const editableElement = (selection.anchorNode as Node)?.parentElement?.closest('[contenteditable="true"]') as HTMLElement;
+    if (!editableElement) return;
+    
+    editableElement.focus();
+    document.execCommand(ordered ? "insertOrderedList" : "insertUnorderedList", false);
+    
+    setTimeout(syncActiveEditor, 0);
+  };
+
+  const toggleHighlight = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return;
+    
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const parent = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
+    
+    const hasHighlight = parent?.style?.backgroundColor && 
+                        parent.style.backgroundColor !== 'transparent' &&
+                        parent.style.backgroundColor !== 'rgba(0, 0, 0, 0)';
+    
+    const editableElement = parent?.closest('[contenteditable="true"]') as HTMLElement;
+    
+    if (hasHighlight) {
+      document.execCommand("hiliteColor", false, "transparent");
+    } else {
+      document.execCommand("hiliteColor", false, "yellow");
+    }
+    
+    if (editableElement) editableElement.focus();
+    setTimeout(syncActiveEditor, 0);
+  };
+
+  const applyFontSize = (size: string) => {
+    const sel = document.getSelection();
+    if (!sel || sel.rangeCount === 0) return;
+    
+    const range = sel.getRangeAt(0);
+    if (range.collapsed) return;
+    
+    try {
+      const span = document.createElement('span');
+      span.style.fontSize = size;
+      const contents = range.extractContents();
+      span.appendChild(contents);
+      range.insertNode(span);
+      sel.removeAllRanges();
+      setTimeout(syncActiveEditor, 0);
+    } catch (e) {
+      console.warn('Font size application failed');
     }
   };
 
   return (
-    <div
+    <div 
       className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
       onMouseDown={(e) => e.preventDefault()}
     >
-      <Select onValueChange={(value) => runCommand("fontName", value)}>
+      <Select onValueChange={(value) => applyFormat("fontName", value)}>
         <SelectTrigger className="w-[110px] h-8 bg-card text-xs">
           <SelectValue placeholder="Font" />
         </SelectTrigger>
@@ -233,7 +269,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("bold")}
+        onClick={() => applyFormat("bold")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Bold"
       >
@@ -243,7 +279,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("italic")}
+        onClick={() => applyFormat("italic")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Italic"
       >
@@ -253,7 +289,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("underline")}
+        onClick={() => applyFormat("underline")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Underline"
       >
@@ -263,7 +299,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("strikeThrough")}
+        onClick={() => applyFormat("strikeThrough")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Strikethrough"
       >
@@ -275,7 +311,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
         variant="ghost"
         onClick={toggleHighlight}
         className="h-8 w-8 p-0 hover:bg-primary/10"
-        title="Highlight"
+        title="Highlight/Unhighlight"
       >
         <Highlighter className="w-3.5 h-3.5" />
       </Button>
@@ -285,7 +321,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("insertUnorderedList")}
+        onClick={() => createList(false)}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Bullet List"
       >
@@ -295,7 +331,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("insertOrderedList")}
+        onClick={() => createList(true)}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Numbered List"
       >
@@ -327,7 +363,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("justifyLeft")}
+        onClick={() => applyFormat("justifyLeft")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Align Left"
       >
@@ -337,7 +373,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("justifyCenter")}
+        onClick={() => applyFormat("justifyCenter")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Align Center"
       >
@@ -347,7 +383,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <Button
         size="sm"
         variant="ghost"
-        onClick={() => runCommand("justifyRight")}
+        onClick={() => applyFormat("justifyRight")}
         className="h-8 w-8 p-0 hover:bg-primary/10"
         title="Align Right"
       >
@@ -356,7 +392,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
 
       <div className="w-px h-6 bg-border" />
 
-      <Select onValueChange={(value) => runCommand("foreColor", value)}>
+      <Select onValueChange={(value) => applyFormat("foreColor", value)}>
         <SelectTrigger className="w-[100px] h-8 bg-card text-xs">
           <SelectValue placeholder="Color" />
         </SelectTrigger>
@@ -378,7 +414,7 @@ export const FormattingToolbar = ({ onMarkHeading }: FormattingToolbarProps) => 
       <input
         type="color"
         className="w-8 h-8 rounded cursor-pointer border border-border"
-        onChange={(e) => runCommand("foreColor", e.target.value)}
+        onChange={(e) => applyFormat("foreColor", e.target.value)}
         title="Custom color"
       />
 

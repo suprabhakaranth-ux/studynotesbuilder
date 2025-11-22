@@ -33,11 +33,11 @@ export const RichTextEditor = ({
   useEffect(() => {
     if (editorRef.current && editorRef.current.innerHTML !== value) {
       editorRef.current.innerHTML = value;
-      // ALWAYS initialize history with baseline state (even if empty)
-      if (historyStack.current.length === 0) {
-        historyStack.current = [{ content: value || "", timestamp: Date.now() }];
+      // Initialize history with the first value
+      if (historyStack.current.length === 0 && value) {
+        historyStack.current = [{ content: value, timestamp: Date.now() }];
         historyPosition.current = 0;
-        lastSavedContent.current = value || "";
+        lastSavedContent.current = value;
       }
     }
   }, [value]);
