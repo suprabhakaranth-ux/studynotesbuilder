@@ -257,6 +257,15 @@ export const Sidebar = ({
           <MessageSquare className="w-4 h-4 mr-2" />
           AI Study Assistant
         </Button>
+        <Button 
+          variant="outline" 
+          className="w-full justify-start" 
+          size="sm"
+          onClick={() => window.open('/showcase', '_blank')}
+        >
+          <Sparkles className="w-4 h-4 mr-2" />
+          View Demo
+        </Button>
         <Button variant="ghost" className="w-full justify-start" size="sm">
           <Settings className="w-4 h-4 mr-2" />
           Settings
