@@ -1,4 +1,5 @@
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo, Paintbrush } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -27,6 +28,27 @@ const colorOptions = [
 ];
 
 export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingToolbarProps) => {
+  const [formatPainterActive, setFormatPainterActive] = useState(false);
+  const copiedFormatRef = useRef<any>(null);
+
+  useEffect(() => {
+    if (!formatPainterActive) return;
+
+    const handleMouseUp = () => {
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && !selection.isCollapsed && copiedFormatRef.current) {
+          applyFormatting(copiedFormatRef.current);
+          setFormatPainterActive(false);
+          copiedFormatRef.current = null;
+        }
+      }, 10);
+    };
+
+    document.addEventListener('mouseup', handleMouseUp);
+    return () => document.removeEventListener('mouseup', handleMouseUp);
+  }, [formatPainterActive]);
+
   const handleUndo = () => {
     if (onUndo) {
       onUndo();
@@ -231,6 +253,72 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
     }
   };
 
+  const captureFormatting = () => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return null;
+    
+    const range = selection.getRangeAt(0);
+    const container = range.commonAncestorContainer;
+    const element = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as HTMLElement;
+    
+    if (!element) return null;
+    
+    const computedStyle = window.getComputedStyle(element);
+    
+    return {
+      fontFamily: computedStyle.fontFamily,
+      fontSize: computedStyle.fontSize,
+      fontWeight: computedStyle.fontWeight,
+      fontStyle: computedStyle.fontStyle,
+      textDecoration: computedStyle.textDecoration,
+      color: computedStyle.color,
+      backgroundColor: computedStyle.backgroundColor,
+    };
+  };
+
+  const applyFormatting = (format: any) => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !format) return;
+    
+    const range = selection.getRangeAt(0);
+    if (range.collapsed) return;
+    
+    try {
+      const span = document.createElement('span');
+      span.style.fontFamily = format.fontFamily;
+      span.style.fontSize = format.fontSize;
+      span.style.fontWeight = format.fontWeight;
+      span.style.fontStyle = format.fontStyle;
+      span.style.textDecoration = format.textDecoration;
+      span.style.color = format.color;
+      if (format.backgroundColor && format.backgroundColor !== 'rgba(0, 0, 0, 0)' && format.backgroundColor !== 'transparent') {
+        span.style.backgroundColor = format.backgroundColor;
+      }
+      
+      const contents = range.extractContents();
+      span.appendChild(contents);
+      range.insertNode(span);
+      
+      selection.removeAllRanges();
+      setTimeout(syncActiveEditor, 0);
+    } catch (e) {
+      console.warn('Format painter application failed');
+    }
+  };
+
+  const handleFormatPainter = () => {
+    if (formatPainterActive) {
+      setFormatPainterActive(false);
+      copiedFormatRef.current = null;
+    } else {
+      const format = captureFormatting();
+      if (format) {
+        copiedFormatRef.current = format;
+        setFormatPainterActive(true);
+      }
+    }
+  };
+
   return (
     <div 
       className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
@@ -314,6 +402,16 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
         title="Highlight/Unhighlight"
       >
         <Highlighter className="w-3.5 h-3.5" />
+      </Button>
+
+      <Button
+        size="sm"
+        variant={formatPainterActive ? "default" : "ghost"}
+        onClick={handleFormatPainter}
+        className={`h-8 w-8 p-0 ${formatPainterActive ? 'bg-primary text-primary-foreground' : 'hover:bg-primary/10'}`}
+        title={formatPainterActive ? "Click to cancel or select text to apply format" : "Format Painter: Select formatted text, click this button, then select text to apply formatting"}
+      >
+        <Paintbrush className="w-3.5 h-3.5" />
       </Button>
 
       <div className="w-px h-6 bg-border" />
