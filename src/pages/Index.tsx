@@ -100,10 +100,10 @@ const Index = () => {
 
   const colors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
-  // Redirect to auth if not logged in
+  // Redirect to landing if not logged in
   useEffect(() => {
     if (!loading && !user) {
-      navigate("/auth");
+      navigate("/");
     }
   }, [user, loading, navigate]);
 
