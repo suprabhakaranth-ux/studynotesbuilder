@@ -98,6 +98,16 @@ export const RecycleBin = ({ onClose, onRestore, userId }: RecycleBinProps) => {
 
         if (subjectError) throw subjectError;
 
+        // Restore associated chapters
+        const chaptersData = deletedData.chapters_data as any[];
+        if (chaptersData && chaptersData.length > 0) {
+          const { error: chaptersError } = await supabase
+            .from("chapters")
+            .insert(chaptersData);
+
+          if (chaptersError) throw chaptersError;
+        }
+
         // Restore associated topics
         const topicsData = deletedData.topic_data as any[];
         if (topicsData && topicsData.length > 0) {

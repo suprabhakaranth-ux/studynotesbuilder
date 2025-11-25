@@ -3,6 +3,7 @@ import { Plus, LogOut, Trash2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
 import { ChapterCard } from "@/components/ChapterCard";
+import { SubjectCard } from "@/components/SubjectCard";
 import { TopicEditor } from "@/components/TopicEditor";
 import { RecycleBin } from "@/components/RecycleBin";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -648,6 +649,14 @@ const Index = () => {
 
         if (subjectError) throw subjectError;
 
+        // Fetch all chapters for this subject
+        const { data: chaptersData, error: chaptersError } = await supabase
+          .from("chapters")
+          .select("*")
+          .eq("subject_id", itemToDelete.id);
+
+        if (chaptersError) throw chaptersError;
+
         // Fetch all topics for this subject
         const { data: topicsData, error: topicsError } = await supabase
           .from("topics")
@@ -665,6 +674,7 @@ const Index = () => {
             item_id: itemToDelete.id,
             item_name: itemToDelete.name,
             subject_data: subjectData,
+            chapters_data: chaptersData || [],
             topic_data: topicsData || [],
           });
 
@@ -684,6 +694,11 @@ const Index = () => {
           await supabase.from("topics").delete().in("id", topicIds);
         }
 
+        // Delete all chapters for this subject
+        if (chaptersData && chaptersData.length > 0) {
+          await supabase.from("chapters").delete().eq("subject_id", itemToDelete.id);
+        }
+
         // Delete subject
         const { error: deleteError } = await supabase
           .from("subjects")
@@ -694,6 +709,7 @@ const Index = () => {
 
         // Update local state
         setSubjects(subjects.filter((s) => s.id !== itemToDelete.id));
+        setChapters(chapters.filter((c) => c.subject_id !== itemToDelete.id));
         setTopics(topics.filter((t) => t.subjectId !== itemToDelete.id));
         if (activeSubject === itemToDelete.id) {
           setActiveSubject(null);
@@ -701,7 +717,7 @@ const Index = () => {
 
         toast({
           title: "Moved to Recycle Bin",
-          description: `${itemToDelete.name} and its topics can be restored from the Recycle Bin.`,
+          description: `${itemToDelete.name} and its content can be restored from the Recycle Bin.`,
         });
       } else if (itemToDelete.type === "topic") {
         // Fetch topic data
@@ -873,19 +889,14 @@ const Index = () => {
           setSubjects(mappedSubjects);
         }
 
-        const { data: topicsData } = await supabase
-          .from("topics")
+        const { data: chaptersData } = await supabase
+          .from("chapters")
           .select("*")
           .eq("user_id", user.id)
-          .order("created_at", { ascending: false });
+          .order("chapter_order", { ascending: true });
 
-        if (topicsData) {
-          const mappedTopics = topicsData.map((t) => ({
-            id: t.id,
-            subjectId: t.subject_id || "default",
-            title: t.title,
-          }));
-          setTopics(mappedTopics);
+        if (chaptersData) {
+          setChapters(chaptersData);
         }
       };
 
@@ -1101,19 +1112,54 @@ const Index = () => {
             )}
           </div>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-foreground mb-2">
-                Welcome to Psychology Notes
-              </h2>
-              <p className="text-muted-foreground mb-6">
-                Select a subject from the sidebar or create a new one to get started
-              </p>
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="w-4 h-4 mr-2" />
-                Create Subject
-              </Button>
+          <div className="p-8">
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-3xl font-bold text-foreground">
+                  All Subjects
+                </h2>
+                <p className="text-muted-foreground mt-1">
+                  {subjects.length} {subjects.length === 1 ? "subject" : "subjects"}
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => setRecycleBinOpen(true)}>
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Recycle Bin
+                </Button>
+                <Button variant="outline" onClick={signOut}>
+                  <LogOut className="w-4 h-4 mr-2" />
+                  Sign Out
+                </Button>
+                <Button onClick={() => setDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  New Subject
+                </Button>
+              </div>
             </div>
+
+            {subjects.length === 0 ? (
+              <div className="text-center py-16">
+                <p className="text-muted-foreground mb-4">No subjects yet</p>
+                <Button variant="outline" onClick={() => setDialogOpen(true)}>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Create your first subject
+                </Button>
+              </div>
+            ) : (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {subjects.map((subject) => (
+                  <SubjectCard
+                    key={subject.id}
+                    subject={subject}
+                    chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
+                    onClick={() => setActiveSubject(subject.id)}
+                    onDelete={handleDeleteSubject}
+                    onEdit={handleEditSubject}
+                  />
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
