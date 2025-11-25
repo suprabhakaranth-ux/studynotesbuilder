@@ -233,36 +233,36 @@ export const HeadingNodeComponent = ({
               <Plus className="w-3 h-3 mr-1" />
               Add Subheading
             </Button>
+          </div>
+        )}
 
-            {node.children.length > 0 && (
-              <div className="space-y-1 mt-2">
-                {node.children.map((child, idx) => (
-                  <HeadingNodeComponent
-                    key={child.id}
-                    node={child}
-                    index={idx + 1}
-                    forceCollapsed={forceCollapsed}
-                    onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
-                    onDelete={() => deleteChild(idx)}
-                    onPromote={() => {
-                      // Promote child to be a sibling (parent level) or to root
-                      const newChildren = [...node.children];
-                      const promotedChild = newChildren.splice(idx, 1)[0];
-                      onUpdate({ ...node, children: newChildren });
-                      
-                      // If we're at level 0, promote to root; otherwise just update parent
-                      if (level === 0 && onPromoteChild) {
-                        onPromoteChild(promotedChild);
-                      }
-                    }}
-                    onPromoteChild={onPromoteChild}
-                    canPromote={true}
-                    canDemote={false}
-                    level={level + 1}
-                  />
-                ))}
-              </div>
-            )}
+        {node.children.length > 0 && (
+          <div className="space-y-1 mt-2 ml-6">
+            {node.children.map((child, idx) => (
+              <HeadingNodeComponent
+                key={child.id}
+                node={child}
+                index={idx + 1}
+                forceCollapsed={forceCollapsed}
+                onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
+                onDelete={() => deleteChild(idx)}
+                onPromote={() => {
+                  // Promote child to be a sibling (parent level) or to root
+                  const newChildren = [...node.children];
+                  const promotedChild = newChildren.splice(idx, 1)[0];
+                  onUpdate({ ...node, children: newChildren });
+                  
+                  // If we're at level 0, promote to root; otherwise just update parent
+                  if (level === 0 && onPromoteChild) {
+                    onPromoteChild(promotedChild);
+                  }
+                }}
+                onPromoteChild={onPromoteChild}
+                canPromote={true}
+                canDemote={false}
+                level={level + 1}
+              />
+            ))}
           </div>
         )}
       </div>
