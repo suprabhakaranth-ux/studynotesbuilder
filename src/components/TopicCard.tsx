@@ -65,22 +65,6 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
       </div>
       <CardContent className="p-6 cursor-pointer" onClick={onClick}>
         <div className="flex items-start gap-4">
-          <Button
-            size="icon"
-            variant="ghost"
-            className="flex-shrink-0 w-10 h-10 hover:bg-transparent"
-            onClick={(e) => {
-              e.stopPropagation();
-              onToggleStudied(topic.id);
-            }}
-            title={isStudied ? "Mark as not studied" : "Mark as studied"}
-          >
-            {isStudied ? (
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            ) : (
-              <Circle className="w-6 h-6 text-muted-foreground" />
-            )}
-          </Button>
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
             <BookOpen className="w-7 h-7 text-primary" />
           </div>
@@ -94,9 +78,27 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
                 {topic.summary}
               </p>
             )}
-            <div className="flex items-center gap-2 mt-4 text-xs text-primary font-medium">
-              <FileText className="w-3 h-3" />
-              <span>Click to view or edit</span>
+            <div className="flex items-center justify-between mt-4">
+              <div className="flex items-center gap-2 text-xs text-primary font-medium">
+                <FileText className="w-3 h-3" />
+                <span>Click to view or edit</span>
+              </div>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="flex-shrink-0 h-7 px-2 hover:bg-transparent"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleStudied(topic.id);
+                }}
+                title={isStudied ? "Mark as not studied" : "Mark as studied"}
+              >
+                {isStudied ? (
+                  <CheckCircle2 className="w-5 h-5 text-green-600" />
+                ) : (
+                  <Circle className="w-5 h-5 text-muted-foreground" />
+                )}
+              </Button>
             </div>
           </div>
         </div>
