@@ -1,4 +1,4 @@
-import { BookMarked, Trash2, MoveHorizontal, Edit } from "lucide-react";
+import { BookMarked, Trash2, MoveHorizontal, Edit, Download } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -11,9 +11,10 @@ interface ChapterCardProps {
   onDelete: (id: string, name: string) => void;
   onMove: (id: string, name: string) => void;
   onEdit: (id: string, name: string) => void;
+  onExport: (id: string, name: string) => void;
 }
 
-export const ChapterCard = ({ chapter, onClick, onDelete, onMove, onEdit }: ChapterCardProps) => {
+export const ChapterCard = ({ chapter, onClick, onDelete, onMove, onEdit, onExport }: ChapterCardProps) => {
   return (
     <Card className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group">
       <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
@@ -28,6 +29,18 @@ export const ChapterCard = ({ chapter, onClick, onDelete, onMove, onEdit }: Chap
           title="Rename chapter"
         >
           <Edit className="w-4 h-4 text-muted-foreground" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="hover:bg-primary/20"
+          onClick={(e) => {
+            e.stopPropagation();
+            onExport(chapter.id, chapter.name);
+          }}
+          title="Export chapter"
+        >
+          <Download className="w-4 h-4 text-muted-foreground" />
         </Button>
         <Button
           variant="ghost"
