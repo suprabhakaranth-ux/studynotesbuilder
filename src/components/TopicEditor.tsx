@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -400,109 +398,99 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     }
   };
 
-  const exportToPDF = async () => {
+  const exportToWord = async () => {
     try {
-      const pdf = new jsPDF('p', 'mm', 'a4');
-      const pageWidth = pdf.internal.pageSize.getWidth();
-      const pageHeight = pdf.internal.pageSize.getHeight();
-      const margin = 15;
-      let yPosition = margin;
+      const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
+      const { saveAs } = await import("file-saver");
+
+      const children: any[] = [];
 
       // Add title
-      pdf.setFontSize(20);
-      pdf.setFont("helvetica", "bold");
-      pdf.text(topicTitle, margin, yPosition);
-      yPosition += 15;
-
-      // Helper to check if we need a new page
-      const checkNewPage = (neededHeight: number) => {
-        if (yPosition + neededHeight > pageHeight - margin) {
-          pdf.addPage();
-          yPosition = margin;
-          return true;
-        }
-        return false;
-      };
+      children.push(new Paragraph({
+        text: topicTitle,
+        heading: HeadingLevel.HEADING_1,
+      }));
 
       // Add content blocks
-      pdf.setFontSize(12);
-      pdf.setFont("helvetica", "normal");
-      
       for (const block of blocks) {
-        // Create temporary div to extract text from HTML
         const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = block.content;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
+        tempDiv.innerHTML = block.content || '';
+        const text = tempDiv.textContent || '';
         if (text.trim()) {
-          const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-          const blockHeight = lines.length * 7;
-          
-          checkNewPage(blockHeight + 5);
-          pdf.text(lines, margin, yPosition);
-          yPosition += blockHeight + 5;
+          children.push(new Paragraph({ text }));
         }
       }
 
-      // Add summary if exists
-      if (summaryContent.trim()) {
-        checkNewPage(20);
-        pdf.setFontSize(16);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Summary", margin, yPosition);
-        yPosition += 10;
+      // Add headings from Summary tab with hierarchical structure
+      if (headingNodes.length > 0) {
+        children.push(new Paragraph({
+          text: "Summary",
+          heading: HeadingLevel.HEADING_2,
+        }));
 
+        const addHeadingNodes = (nodes: HeadingNode[], level: any) => {
+          nodes.forEach(node => {
+            children.push(new Paragraph({
+              text: node.title,
+              heading: level,
+            }));
+            if (node.notes) {
+              children.push(new Paragraph({ text: node.notes }));
+            }
+            if (node.children && node.children.length > 0) {
+              addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
+            }
+          });
+        };
+
+        addHeadingNodes(headingNodes, HeadingLevel.HEADING_2);
+      }
+
+      // Add summary content
+      if (summaryContent.trim()) {
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = summaryContent;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-        
-        for (const line of lines) {
-          checkNewPage(7);
-          pdf.text(line, margin, yPosition);
-          yPosition += 7;
+        const text = tempDiv.textContent || '';
+        if (text.trim()) {
+          children.push(new Paragraph({
+            text: "Summary Content",
+            heading: HeadingLevel.HEADING_2,
+          }));
+          children.push(new Paragraph({ text }));
         }
-        yPosition += 5;
       }
 
-      // Add mnemonic if exists
+      // Add mnemonic
       if (mnemonicContent.trim()) {
-        checkNewPage(20);
-        pdf.setFontSize(16);
-        pdf.setFont("helvetica", "bold");
-        pdf.text("Mnemonic", margin, yPosition);
-        yPosition += 10;
-
         const tempDiv = document.createElement('div');
         tempDiv.innerHTML = mnemonicContent;
-        const text = tempDiv.textContent || tempDiv.innerText || '';
-        
-        pdf.setFontSize(12);
-        pdf.setFont("helvetica", "normal");
-        const lines = pdf.splitTextToSize(text, pageWidth - 2 * margin);
-        
-        for (const line of lines) {
-          checkNewPage(7);
-          pdf.text(line, margin, yPosition);
-          yPosition += 7;
+        const text = tempDiv.textContent || '';
+        if (text.trim()) {
+          children.push(new Paragraph({
+            text: "Mnemonic",
+            heading: HeadingLevel.HEADING_2,
+          }));
+          children.push(new Paragraph({ text }));
         }
       }
 
-      // Save the PDF
-      pdf.save(`${topicTitle.replace(/[^a-z0-9]/gi, '_')}.pdf`);
-      
+      // Create and download document
+      const doc = new Document({
+        sections: [{ children }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${topicTitle.replace(/[^a-z0-9]/gi, '_')}.docx`);
+
       toast({
-        title: "Success",
-        description: "PDF exported successfully",
+        title: "Export successful",
+        description: "Word document exported successfully",
       });
     } catch (error) {
-      console.error("Error exporting PDF:", error);
+      console.error("Error exporting to Word:", error);
       toast({
-        title: "Error",
-        description: "Failed to export PDF",
+        title: "Export failed",
+        description: "Failed to export Word document",
         variant: "destructive",
       });
     }
@@ -620,9 +608,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
             </DropdownMenuContent>
           </DropdownMenu>
           
-          <Button size="sm" variant="outline" onClick={exportToPDF}>
+          <Button size="sm" variant="outline" onClick={exportToWord}>
             <Download className="w-4 h-4 mr-2" />
-            Export PDF
+            Export Word
           </Button>
           
           <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">

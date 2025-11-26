@@ -506,6 +506,178 @@ const Index = () => {
     }
   };
 
+  const handleExportChapter = async (chapterId: string, chapterName: string) => {
+    if (!user) return;
+
+    try {
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
+      const { saveAs } = await import("file-saver");
+
+      // Fetch all topics in this chapter
+      const chapterTopics = topics.filter(t => t.chapterId === chapterId);
+      
+      if (chapterTopics.length === 0) {
+        toast({
+          title: "No topics to export",
+          description: "This chapter has no topics yet.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const children: any[] = [];
+
+      // Add chapter title
+      children.push(new Paragraph({
+        text: chapterName,
+        heading: HeadingLevel.TITLE,
+      }));
+
+      // For each topic, fetch and add its content
+      for (const topic of chapterTopics) {
+        // Add topic title
+        children.push(new Paragraph({
+          text: topic.title,
+          heading: HeadingLevel.HEADING_1,
+        }));
+
+        // Fetch blocks
+        const { data: blocksData } = await supabase
+          .from("blocks")
+          .select("*")
+          .eq("topic_id", topic.id)
+          .eq("user_id", user.id)
+          .order("block_order", { ascending: true });
+
+        // Add content blocks
+        if (blocksData && blocksData.length > 0) {
+          for (const block of blocksData) {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = block.content || '';
+            const text = tempDiv.textContent || '';
+            if (text.trim()) {
+              children.push(new Paragraph({ text }));
+            }
+          }
+        }
+
+        // Fetch heading nodes
+        const { data: headingNodesData } = await supabase
+          .from("heading_nodes")
+          .select("*")
+          .eq("topic_id", topic.id)
+          .eq("user_id", user.id)
+          .order("node_order", { ascending: true });
+
+        if (headingNodesData && headingNodesData.length > 0) {
+          children.push(new Paragraph({
+            text: "Summary",
+            heading: HeadingLevel.HEADING_2,
+          }));
+
+          // Build heading tree and flatten
+          const nodeMap = new Map();
+          headingNodesData.forEach(h => {
+            nodeMap.set(h.id, { ...h, children: [] });
+          });
+
+          const rootNodes: any[] = [];
+          headingNodesData.forEach(h => {
+            const node = nodeMap.get(h.id);
+            if (h.parent_id) {
+              const parent = nodeMap.get(h.parent_id);
+              if (parent) parent.children.push(node);
+            } else {
+              rootNodes.push(node);
+            }
+          });
+
+          const addHeadingNodes = (nodes: any[], level: any) => {
+            nodes.forEach(node => {
+              children.push(new Paragraph({
+                text: node.title,
+                heading: level,
+              }));
+              if (node.notes) {
+                children.push(new Paragraph({ text: node.notes }));
+              }
+              if (node.children && node.children.length > 0) {
+                addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
+              }
+            });
+          };
+
+          addHeadingNodes(rootNodes, HeadingLevel.HEADING_2);
+        }
+
+        // Fetch summary
+        const { data: summaryData } = await supabase
+          .from("summaries")
+          .select("*")
+          .eq("topic_id", topic.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (summaryData && summaryData.content) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = summaryData.content;
+          const text = tempDiv.textContent || '';
+          if (text.trim()) {
+            children.push(new Paragraph({
+              text: "Summary Content",
+              heading: HeadingLevel.HEADING_2,
+            }));
+            children.push(new Paragraph({ text }));
+          }
+        }
+
+        // Fetch mnemonic
+        const { data: mnemonicData } = await supabase
+          .from("mnemonics")
+          .select("*")
+          .eq("topic_id", topic.id)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (mnemonicData && mnemonicData.content) {
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = mnemonicData.content;
+          const text = tempDiv.textContent || '';
+          if (text.trim()) {
+            children.push(new Paragraph({
+              text: "Mnemonic",
+              heading: HeadingLevel.HEADING_2,
+            }));
+            children.push(new Paragraph({ text }));
+          }
+        }
+
+        // Add spacing between topics
+        children.push(new Paragraph({ text: "" }));
+      }
+
+      // Create and download document
+      const doc = new Document({
+        sections: [{ children }],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      saveAs(blob, `${chapterName.replace(/[^a-z0-9]/gi, '_')}.docx`);
+
+      toast({
+        title: "Export successful",
+        description: `${chapterName} exported to Word document.`,
+      });
+    } catch (error) {
+      console.error("Error exporting chapter:", error);
+      toast({
+        title: "Export failed",
+        description: "An error occurred while exporting the chapter",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleMoveChapterConfirm = async (chapterId: string, newSubjectId: string) => {
     if (!user) return;
 
@@ -1049,7 +1221,7 @@ const Index = () => {
                     New Topic
                   </Button>
                 ) : (
-                  <Button onClick={() => setChapterDialogOpen(true)}>
+                  <Button onClick={() => handleNewChapter(activeSubject!)}>
                     <Plus className="w-4 h-4 mr-2" />
                     New Chapter
                   </Button>
@@ -1087,7 +1259,7 @@ const Index = () => {
               chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
                 <div className="text-center py-16">
                   <p className="text-muted-foreground mb-4">No chapters yet</p>
-                  <Button variant="outline" onClick={() => setChapterDialogOpen(true)}>
+                  <Button variant="outline" onClick={() => handleNewChapter(activeSubject!)}>
                     <Plus className="w-4 h-4 mr-2" />
                     Create your first chapter
                   </Button>
@@ -1105,6 +1277,7 @@ const Index = () => {
                         onDelete={handleDeleteChapter}
                         onMove={handleMoveChapter}
                         onEdit={handleEditChapter}
+                        onExport={handleExportChapter}
                       />
                     ))}
                 </div>
