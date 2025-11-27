@@ -402,6 +402,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     try {
       const { Document, Packer, Paragraph, HeadingLevel } = await import("docx");
       const { saveAs } = await import("file-saver");
+      const { parseHtmlToParagraphs } = await import("@/utils/wordExport");
 
       const children: any[] = [];
 
@@ -409,15 +410,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       children.push(new Paragraph({
         text: topicTitle,
         heading: HeadingLevel.HEADING_1,
+        spacing: { after: 400 },
       }));
 
-      // Add content blocks
+      // Add content blocks with proper formatting
       for (const block of blocks) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = block.content || '';
-        const text = tempDiv.textContent || '';
-        if (text.trim()) {
-          children.push(new Paragraph({ text }));
+        if (block.content) {
+          const paragraphs = parseHtmlToParagraphs(block.content);
+          children.push(...paragraphs);
         }
       }
 
@@ -426,6 +426,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         children.push(new Paragraph({
           text: "Summary",
           heading: HeadingLevel.HEADING_2,
+          spacing: { before: 600, after: 300 },
         }));
 
         const addHeadingNodes = (nodes: HeadingNode[], level: any) => {
@@ -433,9 +434,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
             children.push(new Paragraph({
               text: node.title,
               heading: level,
+              spacing: { before: 300, after: 200 },
             }));
             if (node.notes) {
-              children.push(new Paragraph({ text: node.notes }));
+              const noteParagraphs = parseHtmlToParagraphs(node.notes);
+              children.push(...noteParagraphs);
             }
             if (node.children && node.children.length > 0) {
               addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
@@ -448,35 +451,41 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
       // Add summary content
       if (summaryContent.trim()) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = summaryContent;
-        const text = tempDiv.textContent || '';
-        if (text.trim()) {
-          children.push(new Paragraph({
-            text: "Summary Content",
-            heading: HeadingLevel.HEADING_2,
-          }));
-          children.push(new Paragraph({ text }));
-        }
+        children.push(new Paragraph({
+          text: "Summary Content",
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 600, after: 300 },
+        }));
+        const summaryParagraphs = parseHtmlToParagraphs(summaryContent);
+        children.push(...summaryParagraphs);
       }
 
       // Add mnemonic
       if (mnemonicContent.trim()) {
-        const tempDiv = document.createElement('div');
-        tempDiv.innerHTML = mnemonicContent;
-        const text = tempDiv.textContent || '';
-        if (text.trim()) {
-          children.push(new Paragraph({
-            text: "Mnemonic",
-            heading: HeadingLevel.HEADING_2,
-          }));
-          children.push(new Paragraph({ text }));
-        }
+        children.push(new Paragraph({
+          text: "Mnemonic",
+          heading: HeadingLevel.HEADING_2,
+          spacing: { before: 600, after: 300 },
+        }));
+        const mnemonicParagraphs = parseHtmlToParagraphs(mnemonicContent);
+        children.push(...mnemonicParagraphs);
       }
 
       // Create and download document
       const doc = new Document({
-        sections: [{ children }],
+        sections: [{ 
+          children,
+          properties: {
+            page: {
+              margin: {
+                top: 1440,    // 1 inch
+                right: 1440,
+                bottom: 1440,
+                left: 1440,
+              },
+            },
+          },
+        }],
       });
 
       const blob = await Packer.toBlob(doc);

@@ -512,6 +512,7 @@ const Index = () => {
     try {
       const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
       const { saveAs } = await import("file-saver");
+      const { parseHtmlToParagraphs, createPageBreak } = await import("@/utils/wordExport");
 
       // Fetch all topics in this chapter
       const chapterTopics = topics.filter(t => t.chapterId === chapterId);
@@ -531,14 +532,23 @@ const Index = () => {
       children.push(new Paragraph({
         text: chapterName,
         heading: HeadingLevel.TITLE,
+        spacing: { after: 600 },
       }));
 
       // For each topic, fetch and add its content
-      for (const topic of chapterTopics) {
+      for (let i = 0; i < chapterTopics.length; i++) {
+        const topic = chapterTopics[i];
+        
+        // Add page break before each topic (except the first one)
+        if (i > 0) {
+          children.push(createPageBreak());
+        }
+
         // Add topic title
         children.push(new Paragraph({
           text: topic.title,
           heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 400 },
         }));
 
         // Fetch blocks
@@ -549,14 +559,12 @@ const Index = () => {
           .eq("user_id", user.id)
           .order("block_order", { ascending: true });
 
-        // Add content blocks
+        // Add content blocks with proper formatting
         if (blocksData && blocksData.length > 0) {
           for (const block of blocksData) {
-            const tempDiv = document.createElement('div');
-            tempDiv.innerHTML = block.content || '';
-            const text = tempDiv.textContent || '';
-            if (text.trim()) {
-              children.push(new Paragraph({ text }));
+            if (block.content) {
+              const paragraphs = parseHtmlToParagraphs(block.content);
+              children.push(...paragraphs);
             }
           }
         }
@@ -573,6 +581,7 @@ const Index = () => {
           children.push(new Paragraph({
             text: "Summary",
             heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
           }));
 
           // Build heading tree and flatten
@@ -597,9 +606,11 @@ const Index = () => {
               children.push(new Paragraph({
                 text: node.title,
                 heading: level,
+                spacing: { before: 300, after: 200 },
               }));
               if (node.notes) {
-                children.push(new Paragraph({ text: node.notes }));
+                const noteParagraphs = parseHtmlToParagraphs(node.notes);
+                children.push(...noteParagraphs);
               }
               if (node.children && node.children.length > 0) {
                 addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
@@ -619,16 +630,13 @@ const Index = () => {
           .maybeSingle();
 
         if (summaryData && summaryData.content) {
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = summaryData.content;
-          const text = tempDiv.textContent || '';
-          if (text.trim()) {
-            children.push(new Paragraph({
-              text: "Summary Content",
-              heading: HeadingLevel.HEADING_2,
-            }));
-            children.push(new Paragraph({ text }));
-          }
+          children.push(new Paragraph({
+            text: "Summary Content",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
+          }));
+          const summaryParagraphs = parseHtmlToParagraphs(summaryData.content);
+          children.push(...summaryParagraphs);
         }
 
         // Fetch mnemonic
@@ -640,25 +648,31 @@ const Index = () => {
           .maybeSingle();
 
         if (mnemonicData && mnemonicData.content) {
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = mnemonicData.content;
-          const text = tempDiv.textContent || '';
-          if (text.trim()) {
-            children.push(new Paragraph({
-              text: "Mnemonic",
-              heading: HeadingLevel.HEADING_2,
-            }));
-            children.push(new Paragraph({ text }));
-          }
+          children.push(new Paragraph({
+            text: "Mnemonic",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
+          }));
+          const mnemonicParagraphs = parseHtmlToParagraphs(mnemonicData.content);
+          children.push(...mnemonicParagraphs);
         }
-
-        // Add spacing between topics
-        children.push(new Paragraph({ text: "" }));
       }
 
       // Create and download document
       const doc = new Document({
-        sections: [{ children }],
+        sections: [{ 
+          children,
+          properties: {
+            page: {
+              margin: {
+                top: 1440,    // 1 inch
+                right: 1440,
+                bottom: 1440,
+                left: 1440,
+              },
+            },
+          },
+        }],
       });
 
       const blob = await Packer.toBlob(doc);
