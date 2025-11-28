@@ -2,10 +2,12 @@ import { Paragraph, TextRun, HeadingLevel, PageBreak } from "docx";
 
 /**
  * Convert CSS pixel values to twip (twentieth of a point)
+ * Returns undefined for invalid/non-numeric values
  */
-const pxToTwip = (px: string | null): number => {
-  if (!px) return 0;
+const pxToTwip = (px: string | null): number | undefined => {
+  if (!px || px === "normal" || px === "auto") return undefined;
   const value = parseFloat(px.replace("px", ""));
+  if (isNaN(value) || value === 0) return undefined;
   return Math.round(value * 15); // approx conversion
 };
 
@@ -45,11 +47,8 @@ const getTextStyle = (element: HTMLElement, inherited: any) => {
         ? rgbToHex(style.color)
         : undefined,
 
-    highlight:
-      style.backgroundColor !== "rgba(0, 0, 0, 0)" &&
-      style.backgroundColor !== "transparent"
-        ? rgbToHex(style.backgroundColor)
-        : undefined,
+    // Note: highlight removed as it requires specific color names in docx
+    // and arbitrary hex values cause document corruption
 
     size: style.fontSize ? parseInt(style.fontSize) * 2 : undefined, // docx size is half-points
   };
@@ -137,11 +136,18 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
     const tag = el.tagName.toLowerCase();
     const style = window.getComputedStyle(el);
 
-    const spacing = {
+    // Extract spacing values (filter out undefined)
+    const spacingRaw = {
       before: pxToTwip(style.marginTop),
       after: pxToTwip(style.marginBottom),
-      line: pxToTwip(style.lineHeight),
+      // Note: lineHeight removed as it requires specific docx line spacing format
+      // (e.g., 240 for single, 360 for 1.5x) not direct twip conversion
     };
+    
+    // Clean up spacing object - remove undefined values
+    const spacing = Object.fromEntries(
+      Object.entries(spacingRaw).filter(([_, v]) => v !== undefined)
+    ) as any;
 
     // HEADINGS
     if (["h1", "h2", "h3", "h4"].includes(tag)) {
@@ -222,7 +228,12 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
     if (["p", "div", "section", "article", "span"].includes(tag)) {
       const runs = processInline(el, {});
       if (runs.length) {
-        paragraphs.push(new Paragraph({ children: runs, spacing }));
+        // Only add spacing if it has valid properties
+        const options: any = { children: runs };
+        if (Object.keys(spacing).length > 0) {
+          options.spacing = spacing;
+        }
+        paragraphs.push(new Paragraph(options));
       }
     }
 

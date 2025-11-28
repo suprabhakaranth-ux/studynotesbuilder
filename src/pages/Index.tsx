@@ -510,7 +510,7 @@ const Index = () => {
     if (!user) return;
 
     try {
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import("docx");
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
       const { parseHtmlToParagraphs, createPageBreak } = await import("@/utils/wordExport");
 
@@ -660,6 +660,48 @@ const Index = () => {
 
       // Create and download document
       const doc = new Document({
+        numbering: {
+          config: [
+            {
+              reference: "default-numbering",
+              levels: [
+                {
+                  level: 0,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 720, hanging: 360 },
+                    },
+                  },
+                },
+                {
+                  level: 1,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.%2.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 1440, hanging: 360 },
+                    },
+                  },
+                },
+                {
+                  level: 2,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.%2.%3.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 2160, hanging: 360 },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
         sections: [{ 
           children,
           properties: {
