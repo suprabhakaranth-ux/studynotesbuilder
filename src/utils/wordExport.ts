@@ -224,20 +224,28 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
       return;
     }
 
-    // PARAGRAPH / DIV / OTHER BLOCK ELEMENT
-    if (["p", "div", "section", "article", "span"].includes(tag)) {
+    // CONTAINER ELEMENTS - only recurse, don't process inline content
+    if (["div", "section", "article"].includes(tag)) {
+      Array.from(el.children).forEach((child) =>
+        walk(child as HTMLElement, listLevel)
+      );
+      return;
+    }
+
+    // LEAF BLOCK ELEMENTS - process inline content and return
+    if (["p", "span"].includes(tag)) {
       const runs = processInline(el, {});
       if (runs.length) {
-        // Only add spacing if it has valid properties
         const options: any = { children: runs };
         if (Object.keys(spacing).length > 0) {
           options.spacing = spacing;
         }
         paragraphs.push(new Paragraph(options));
       }
+      return;
     }
 
-    // RECURSE CHILDREN
+    // RECURSE CHILDREN for any other elements
     Array.from(el.children).forEach((child) =>
       walk(child as HTMLElement, listLevel)
     );
