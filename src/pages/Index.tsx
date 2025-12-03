@@ -512,7 +512,7 @@ const Index = () => {
     try {
       const { Document, Packer, Paragraph, TextRun, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
-      const { parseHtmlToParagraphs, createPageBreak } = await import("@/utils/wordExport");
+      const { parseHtmlToParagraphsWithValidation, createPageBreak } = await import("@/utils/wordExport");
 
       // Fetch all topics in this chapter and reverse to export oldest first
       const chapterTopics = topics.filter(t => t.chapterId === chapterId).reverse();
@@ -527,6 +527,8 @@ const Index = () => {
       }
 
       const children: any[] = [];
+      let totalSourceChars = 0;
+      let totalExportedChars = 0;
 
       // Add chapter title
       children.push(new Paragraph({
@@ -563,8 +565,10 @@ const Index = () => {
         if (blocksData && blocksData.length > 0) {
           for (const block of blocksData) {
             if (block.content) {
-              const paragraphs = parseHtmlToParagraphs(block.content);
-              children.push(...paragraphs);
+              const result = parseHtmlToParagraphsWithValidation(block.content);
+              children.push(...result.paragraphs);
+              totalSourceChars += result.sourceCharCount;
+              totalExportedChars += result.exportedCharCount;
             }
           }
         }
@@ -609,8 +613,10 @@ const Index = () => {
                 spacing: { before: 300, after: 200 },
               }));
               if (node.notes) {
-                const noteParagraphs = parseHtmlToParagraphs(node.notes);
-                children.push(...noteParagraphs);
+                const result = parseHtmlToParagraphsWithValidation(node.notes);
+                children.push(...result.paragraphs);
+                totalSourceChars += result.sourceCharCount;
+                totalExportedChars += result.exportedCharCount;
               }
               if (node.children && node.children.length > 0) {
                 addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
@@ -635,8 +641,10 @@ const Index = () => {
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 600, after: 300 },
           }));
-          const summaryParagraphs = parseHtmlToParagraphs(summaryData.content);
-          children.push(...summaryParagraphs);
+          const result = parseHtmlToParagraphsWithValidation(summaryData.content);
+          children.push(...result.paragraphs);
+          totalSourceChars += result.sourceCharCount;
+          totalExportedChars += result.exportedCharCount;
         }
 
         // Fetch mnemonic
@@ -653,8 +661,10 @@ const Index = () => {
             heading: HeadingLevel.HEADING_2,
             spacing: { before: 600, after: 300 },
           }));
-          const mnemonicParagraphs = parseHtmlToParagraphs(mnemonicData.content);
-          children.push(...mnemonicParagraphs);
+          const result = parseHtmlToParagraphsWithValidation(mnemonicData.content);
+          children.push(...result.paragraphs);
+          totalSourceChars += result.sourceCharCount;
+          totalExportedChars += result.exportedCharCount;
         }
       }
 
@@ -720,10 +730,22 @@ const Index = () => {
       const blob = await Packer.toBlob(doc);
       saveAs(blob, `${chapterName.replace(/[^a-z0-9]/gi, '_')}.docx`);
 
-      toast({
-        title: "Export successful",
-        description: `${chapterName} exported to Word document.`,
-      });
+      // Show export result with validation info
+      const ratio = totalSourceChars > 0 ? totalExportedChars / totalSourceChars : 1;
+      const hasWarning = ratio < 0.9 && totalSourceChars > 100;
+      
+      if (hasWarning) {
+        toast({
+          title: "Export completed with warning",
+          description: `Exported ${totalExportedChars.toLocaleString()} of ${totalSourceChars.toLocaleString()} characters (${Math.round(ratio * 100)}%). Some content may be missing.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Export successful",
+          description: `${chapterName} exported (${totalExportedChars.toLocaleString()} characters)`,
+        });
+      }
     } catch (error) {
       console.error("Error exporting chapter:", error);
       toast({

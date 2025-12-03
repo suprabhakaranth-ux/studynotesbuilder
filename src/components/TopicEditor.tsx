@@ -402,9 +402,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     try {
       const { Document, Packer, Paragraph, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
-      const { parseHtmlToParagraphs } = await import("@/utils/wordExport");
+      const { parseHtmlToParagraphsWithValidation } = await import("@/utils/wordExport");
 
       const children: any[] = [];
+      let totalSourceChars = 0;
+      let totalExportedChars = 0;
 
       // Add title
       children.push(new Paragraph({
@@ -416,8 +418,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       // Add content blocks with proper formatting
       for (const block of blocks) {
         if (block.content) {
-          const paragraphs = parseHtmlToParagraphs(block.content);
-          children.push(...paragraphs);
+          const result = parseHtmlToParagraphsWithValidation(block.content);
+          children.push(...result.paragraphs);
+          totalSourceChars += result.sourceCharCount;
+          totalExportedChars += result.exportedCharCount;
         }
       }
 
@@ -437,8 +441,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               spacing: { before: 300, after: 200 },
             }));
             if (node.notes) {
-              const noteParagraphs = parseHtmlToParagraphs(node.notes);
-              children.push(...noteParagraphs);
+              const result = parseHtmlToParagraphsWithValidation(node.notes);
+              children.push(...result.paragraphs);
+              totalSourceChars += result.sourceCharCount;
+              totalExportedChars += result.exportedCharCount;
             }
             if (node.children && node.children.length > 0) {
               addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
@@ -456,8 +462,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           heading: HeadingLevel.HEADING_2,
           spacing: { before: 600, after: 300 },
         }));
-        const summaryParagraphs = parseHtmlToParagraphs(summaryContent);
-        children.push(...summaryParagraphs);
+        const result = parseHtmlToParagraphsWithValidation(summaryContent);
+        children.push(...result.paragraphs);
+        totalSourceChars += result.sourceCharCount;
+        totalExportedChars += result.exportedCharCount;
       }
 
       // Add mnemonic
@@ -467,8 +475,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
           heading: HeadingLevel.HEADING_2,
           spacing: { before: 600, after: 300 },
         }));
-        const mnemonicParagraphs = parseHtmlToParagraphs(mnemonicContent);
-        children.push(...mnemonicParagraphs);
+        const result = parseHtmlToParagraphsWithValidation(mnemonicContent);
+        children.push(...result.paragraphs);
+        totalSourceChars += result.sourceCharCount;
+        totalExportedChars += result.exportedCharCount;
       }
 
       // Create and download document
@@ -533,10 +543,22 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
       const blob = await Packer.toBlob(doc);
       saveAs(blob, `${topicTitle.replace(/[^a-z0-9]/gi, '_')}.docx`);
 
-      toast({
-        title: "Export successful",
-        description: "Word document exported successfully",
-      });
+      // Show export result with validation info
+      const ratio = totalSourceChars > 0 ? totalExportedChars / totalSourceChars : 1;
+      const hasWarning = ratio < 0.9 && totalSourceChars > 100;
+      
+      if (hasWarning) {
+        toast({
+          title: "Export completed with warning",
+          description: `Exported ${totalExportedChars.toLocaleString()} of ${totalSourceChars.toLocaleString()} characters (${Math.round(ratio * 100)}%). Some content may be missing.`,
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Export successful",
+          description: `Word document exported (${totalExportedChars.toLocaleString()} characters)`,
+        });
+      }
     } catch (error) {
       console.error("Error exporting to Word:", error);
       toast({

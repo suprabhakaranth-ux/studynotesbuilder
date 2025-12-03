@@ -117,13 +117,37 @@ export const parseHtmlToRuns = (html: string): TextRun[] => {
 };
 
 /**
+ * Export result with validation info
+ */
+export interface ExportResult {
+  paragraphs: Paragraph[];
+  sourceCharCount: number;
+  exportedCharCount: number;
+  ratio: number;
+  hasWarning: boolean;
+}
+
+/**
  * Recursively parse HTML into paragraphs (block level) with enhanced formatting
+ * Returns paragraphs and validation metrics
  */
 export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
-  if (!html) return [];
+  const result = parseHtmlToParagraphsWithValidation(html);
+  return result.paragraphs;
+};
+
+/**
+ * Parse HTML with validation - returns paragraphs and character count metrics
+ */
+export const parseHtmlToParagraphsWithValidation = (html: string): ExportResult => {
+  if (!html) return { paragraphs: [], sourceCharCount: 0, exportedCharCount: 0, ratio: 1, hasWarning: false };
 
   const root = document.createElement("div");
   root.innerHTML = html;
+
+  // Calculate source text length (excluding whitespace for comparison)
+  const sourceText = root.textContent || "";
+  const sourceCharCount = sourceText.replace(/\s+/g, "").length;
 
   // Temporarily attach to DOM for getComputedStyle to work
   root.style.position = "absolute";
@@ -131,6 +155,7 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
   document.body.appendChild(root);
 
   const paragraphs: Paragraph[] = [];
+  let exportedTextBuffer: string[] = [];
 
   const walk = (el: HTMLElement, listLevel = 0) => {
     const tag = el.tagName.toLowerCase();
@@ -140,8 +165,6 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
     const spacingRaw = {
       before: pxToTwip(style.marginTop),
       after: pxToTwip(style.marginBottom),
-      // Note: lineHeight removed as it requires specific docx line spacing format
-      // (e.g., 240 for single, 360 for 1.5x) not direct twip conversion
     };
     
     // Clean up spacing object - remove undefined values
@@ -149,8 +172,14 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
       Object.entries(spacingRaw).filter(([_, v]) => v !== undefined)
     ) as any;
 
+    // Skip meta and br tags at block level
+    if (tag === "meta" || tag === "br") {
+      return;
+    }
+
     // HEADINGS
     if (["h1", "h2", "h3", "h4"].includes(tag)) {
+      const text = el.textContent || "";
       const headingMap: any = {
         h1: HeadingLevel.HEADING_1,
         h2: HeadingLevel.HEADING_2,
@@ -159,19 +188,23 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
       };
       paragraphs.push(
         new Paragraph({
-          text: el.textContent || "",
+          text,
           heading: headingMap[tag],
           spacing,
         })
       );
+      exportedTextBuffer.push(text);
       return;
     }
 
-    // ORDERED LIST
+    // ORDERED LIST - handle all children, not just <li>
     if (tag === "ol") {
-      Array.from(el.children).forEach((li) => {
-        if (li.tagName.toLowerCase() === "li") {
-          const runs = processInline(li, {});
+      Array.from(el.children).forEach((child) => {
+        const childTag = child.tagName.toLowerCase();
+        
+        if (childTag === "li") {
+          const runs = processInline(child, {});
+          const text = child.textContent || "";
           if (runs.length) {
             paragraphs.push(
               new Paragraph({
@@ -180,27 +213,44 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
                 spacing,
               })
             );
+            exportedTextBuffer.push(text);
           }
 
           // Handle nested lists inside li
-          Array.from(li.children).forEach((child: any) => {
-            if (
-              child.tagName?.toLowerCase() === "ol" ||
-              child.tagName?.toLowerCase() === "ul"
-            ) {
-              walk(child, listLevel + 1);
+          Array.from(child.children).forEach((nested: any) => {
+            const nestedTag = nested.tagName?.toLowerCase();
+            if (nestedTag === "ol" || nestedTag === "ul") {
+              walk(nested, listLevel + 1);
             }
           });
+        } else if (childTag === "ol" || childTag === "ul") {
+          // Nested list directly under ol
+          walk(child as HTMLElement, listLevel + 1);
+        } else if (["div", "p", "section", "article"].includes(childTag)) {
+          // Block element inside list - recurse
+          walk(child as HTMLElement, listLevel);
+        } else if (["span", "b", "strong", "em", "i", "a", "u", "s"].includes(childTag)) {
+          // Inline element with content - extract as paragraph
+          const runs = processInline(child, {});
+          const text = child.textContent || "";
+          if (runs.length) {
+            paragraphs.push(new Paragraph({ children: runs }));
+            exportedTextBuffer.push(text);
+          }
         }
+        // Skip meta, br, etc.
       });
       return;
     }
 
-    // UNORDERED LIST
+    // UNORDERED LIST - handle all children, not just <li>
     if (tag === "ul") {
-      Array.from(el.children).forEach((li) => {
-        if (li.tagName.toLowerCase() === "li") {
-          const runs = processInline(li, {});
+      Array.from(el.children).forEach((child) => {
+        const childTag = child.tagName.toLowerCase();
+        
+        if (childTag === "li") {
+          const runs = processInline(child, {});
+          const text = child.textContent || "";
           if (runs.length) {
             paragraphs.push(
               new Paragraph({
@@ -209,17 +259,32 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
                 spacing,
               })
             );
+            exportedTextBuffer.push(text);
           }
 
-          Array.from(li.children).forEach((child: any) => {
-            if (
-              child.tagName?.toLowerCase() === "ul" ||
-              child.tagName?.toLowerCase() === "ol"
-            ) {
-              walk(child, listLevel + 1);
+          // Handle nested lists inside li
+          Array.from(child.children).forEach((nested: any) => {
+            const nestedTag = nested.tagName?.toLowerCase();
+            if (nestedTag === "ul" || nestedTag === "ol") {
+              walk(nested, listLevel + 1);
             }
           });
+        } else if (childTag === "ul" || childTag === "ol") {
+          // Nested list directly under ul
+          walk(child as HTMLElement, listLevel + 1);
+        } else if (["div", "p", "section", "article"].includes(childTag)) {
+          // Block element inside list - recurse
+          walk(child as HTMLElement, listLevel);
+        } else if (["span", "b", "strong", "em", "i", "a", "u", "s"].includes(childTag)) {
+          // Inline element with content - extract as paragraph
+          const runs = processInline(child, {});
+          const text = child.textContent || "";
+          if (runs.length) {
+            paragraphs.push(new Paragraph({ children: runs }));
+            exportedTextBuffer.push(text);
+          }
         }
+        // Skip meta, br, etc.
       });
       return;
     }
@@ -235,12 +300,14 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
     // LEAF BLOCK ELEMENTS - process inline content and return
     if (["p", "span"].includes(tag)) {
       const runs = processInline(el, {});
+      const text = el.textContent || "";
       if (runs.length) {
         const options: any = { children: runs };
         if (Object.keys(spacing).length > 0) {
           options.spacing = spacing;
         }
         paragraphs.push(new Paragraph(options));
+        exportedTextBuffer.push(text);
       }
       return;
     }
@@ -256,7 +323,16 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
   // Clean up DOM
   document.body.removeChild(root);
 
-  return paragraphs;
+  // Calculate exported text length
+  const exportedCharCount = exportedTextBuffer.join("").replace(/\s+/g, "").length;
+  const ratio = sourceCharCount > 0 ? exportedCharCount / sourceCharCount : 1;
+  const hasWarning = ratio < 0.9 && sourceCharCount > 100;
+
+  if (hasWarning) {
+    console.warn(`Export validation: Only ${Math.round(ratio * 100)}% of content exported. Source: ${sourceCharCount} chars, Exported: ${exportedCharCount} chars`);
+  }
+
+  return { paragraphs, sourceCharCount, exportedCharCount, ratio, hasWarning };
 };
 
 /**
