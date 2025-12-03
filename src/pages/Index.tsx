@@ -514,8 +514,8 @@ const Index = () => {
       const { saveAs } = await import("file-saver");
       const { parseHtmlToParagraphs, createPageBreak } = await import("@/utils/wordExport");
 
-      // Fetch all topics in this chapter
-      const chapterTopics = topics.filter(t => t.chapterId === chapterId);
+      // Fetch all topics in this chapter and reverse to export oldest first
+      const chapterTopics = topics.filter(t => t.chapterId === chapterId).reverse();
       
       if (chapterTopics.length === 0) {
         toast({
