@@ -510,9 +510,8 @@ const Index = () => {
     if (!user) return;
 
     try {
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
-      const { parseHtmlToParagraphsWithValidation, createPageBreak } = await import("@/utils/wordExport");
+      const { convertHtmlToDocx, buildChapterHtml } = await import("@/utils/wordExport");
 
       // Fetch all topics in this chapter and reverse to export oldest first
       const chapterTopics = topics.filter(t => t.chapterId === chapterId).reverse();
@@ -526,33 +525,10 @@ const Index = () => {
         return;
       }
 
-      const children: any[] = [];
-      let totalSourceChars = 0;
-      let totalExportedChars = 0;
-
-      // Add chapter title
-      children.push(new Paragraph({
-        text: chapterName,
-        heading: HeadingLevel.TITLE,
-        spacing: { after: 600 },
-      }));
-
-      // For each topic, fetch and add its content
-      for (let i = 0; i < chapterTopics.length; i++) {
-        const topic = chapterTopics[i];
-        
-        // Add page break before each topic (except the first one)
-        if (i > 0) {
-          children.push(createPageBreak());
-        }
-
-        // Add topic title
-        children.push(new Paragraph({
-          text: topic.title,
-          heading: HeadingLevel.HEADING_1,
-          spacing: { before: 400, after: 400 },
-        }));
-
+      // Fetch all topic data
+      const topicsData = [];
+      
+      for (const topic of chapterTopics) {
         // Fetch blocks
         const { data: blocksData } = await supabase
           .from("blocks")
@@ -561,19 +537,7 @@ const Index = () => {
           .eq("user_id", user.id)
           .order("block_order", { ascending: true });
 
-        // Add content blocks with proper formatting
-        if (blocksData && blocksData.length > 0) {
-          for (const block of blocksData) {
-            if (block.content) {
-              const result = parseHtmlToParagraphsWithValidation(block.content);
-              children.push(...result.paragraphs);
-              totalSourceChars += result.sourceCharCount;
-              totalExportedChars += result.exportedCharCount;
-            }
-          }
-        }
-
-        // Fetch heading nodes
+        // Fetch heading nodes and rebuild tree
         const { data: headingNodesData } = await supabase
           .from("heading_nodes")
           .select("*")
@@ -581,50 +545,22 @@ const Index = () => {
           .eq("user_id", user.id)
           .order("node_order", { ascending: true });
 
+        let headingNodes: any[] = [];
         if (headingNodesData && headingNodesData.length > 0) {
-          children.push(new Paragraph({
-            text: "Summary",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 600, after: 300 },
-          }));
-
-          // Build heading tree and flatten
           const nodeMap = new Map();
           headingNodesData.forEach(h => {
             nodeMap.set(h.id, { ...h, children: [] });
           });
 
-          const rootNodes: any[] = [];
           headingNodesData.forEach(h => {
             const node = nodeMap.get(h.id);
             if (h.parent_id) {
               const parent = nodeMap.get(h.parent_id);
               if (parent) parent.children.push(node);
             } else {
-              rootNodes.push(node);
+              headingNodes.push(node);
             }
           });
-
-          const addHeadingNodes = (nodes: any[], level: any) => {
-            nodes.forEach(node => {
-              children.push(new Paragraph({
-                text: node.title,
-                heading: level,
-                spacing: { before: 300, after: 200 },
-              }));
-              if (node.notes) {
-                const result = parseHtmlToParagraphsWithValidation(node.notes);
-                children.push(...result.paragraphs);
-                totalSourceChars += result.sourceCharCount;
-                totalExportedChars += result.exportedCharCount;
-              }
-              if (node.children && node.children.length > 0) {
-                addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
-              }
-            });
-          };
-
-          addHeadingNodes(rootNodes, HeadingLevel.HEADING_2);
         }
 
         // Fetch summary
@@ -635,18 +571,6 @@ const Index = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (summaryData && summaryData.content) {
-          children.push(new Paragraph({
-            text: "Summary Content",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 600, after: 300 },
-          }));
-          const result = parseHtmlToParagraphsWithValidation(summaryData.content);
-          children.push(...result.paragraphs);
-          totalSourceChars += result.sourceCharCount;
-          totalExportedChars += result.exportedCharCount;
-        }
-
         // Fetch mnemonic
         const { data: mnemonicData } = await supabase
           .from("mnemonics")
@@ -655,97 +579,24 @@ const Index = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        if (mnemonicData && mnemonicData.content) {
-          children.push(new Paragraph({
-            text: "Mnemonic",
-            heading: HeadingLevel.HEADING_2,
-            spacing: { before: 600, after: 300 },
-          }));
-          const result = parseHtmlToParagraphsWithValidation(mnemonicData.content);
-          children.push(...result.paragraphs);
-          totalSourceChars += result.sourceCharCount;
-          totalExportedChars += result.exportedCharCount;
-        }
+        topicsData.push({
+          title: topic.title,
+          blocks: (blocksData || []).map(b => ({ content: b.content || '' })),
+          headingNodes,
+          summaryContent: summaryData?.content || '',
+          mnemonicContent: mnemonicData?.content || '',
+        });
       }
 
-      // Create and download document
-      const doc = new Document({
-        numbering: {
-          config: [
-            {
-              reference: "default-numbering",
-              levels: [
-                {
-                  level: 0,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 720, hanging: 360 },
-                    },
-                  },
-                },
-                {
-                  level: 1,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.%2.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 1440, hanging: 360 },
-                    },
-                  },
-                },
-                {
-                  level: 2,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.%2.%3.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 2160, hanging: 360 },
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        sections: [{ 
-          children,
-          properties: {
-            page: {
-              margin: {
-                top: 1440,    // 1 inch
-                right: 1440,
-                bottom: 1440,
-                left: 1440,
-              },
-            },
-          },
-        }],
-      });
-
-      const blob = await Packer.toBlob(doc);
+      // Build complete HTML and convert to Word
+      const html = buildChapterHtml(chapterName, topicsData);
+      const blob = await convertHtmlToDocx(html);
       saveAs(blob, `${chapterName.replace(/[^a-z0-9]/gi, '_')}.docx`);
 
-      // Show export result with validation info
-      const ratio = totalSourceChars > 0 ? totalExportedChars / totalSourceChars : 1;
-      const hasWarning = ratio < 0.9 && totalSourceChars > 100;
-      
-      if (hasWarning) {
-        toast({
-          title: "Export completed with warning",
-          description: `Exported ${totalExportedChars.toLocaleString()} of ${totalSourceChars.toLocaleString()} characters (${Math.round(ratio * 100)}%). Some content may be missing.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Export successful",
-          description: `${chapterName} exported (${totalExportedChars.toLocaleString()} characters)`,
-        });
-      }
+      toast({
+        title: "Export successful",
+        description: `${chapterName} exported`,
+      });
     } catch (error) {
       console.error("Error exporting chapter:", error);
       toast({

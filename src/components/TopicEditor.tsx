@@ -400,165 +400,26 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   const exportToWord = async () => {
     try {
-      const { Document, Packer, Paragraph, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
-      const { parseHtmlToParagraphsWithValidation } = await import("@/utils/wordExport");
+      const { convertHtmlToDocx, buildTopicHtml } = await import("@/utils/wordExport");
 
-      const children: any[] = [];
-      let totalSourceChars = 0;
-      let totalExportedChars = 0;
+      // Build complete HTML content
+      const html = buildTopicHtml(
+        topicTitle,
+        blocks,
+        headingNodes,
+        summaryContent,
+        mnemonicContent
+      );
 
-      // Add title
-      children.push(new Paragraph({
-        text: topicTitle,
-        heading: HeadingLevel.HEADING_1,
-        spacing: { after: 400 },
-      }));
-
-      // Add content blocks with proper formatting
-      for (const block of blocks) {
-        if (block.content) {
-          const result = parseHtmlToParagraphsWithValidation(block.content);
-          children.push(...result.paragraphs);
-          totalSourceChars += result.sourceCharCount;
-          totalExportedChars += result.exportedCharCount;
-        }
-      }
-
-      // Add headings from Summary tab with hierarchical structure
-      if (headingNodes.length > 0) {
-        children.push(new Paragraph({
-          text: "Summary",
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 600, after: 300 },
-        }));
-
-        const addHeadingNodes = (nodes: HeadingNode[], level: any) => {
-          nodes.forEach(node => {
-            children.push(new Paragraph({
-              text: node.title,
-              heading: level,
-              spacing: { before: 300, after: 200 },
-            }));
-            if (node.notes) {
-              const result = parseHtmlToParagraphsWithValidation(node.notes);
-              children.push(...result.paragraphs);
-              totalSourceChars += result.sourceCharCount;
-              totalExportedChars += result.exportedCharCount;
-            }
-            if (node.children && node.children.length > 0) {
-              addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
-            }
-          });
-        };
-
-        addHeadingNodes(headingNodes, HeadingLevel.HEADING_2);
-      }
-
-      // Add summary content
-      if (summaryContent.trim()) {
-        children.push(new Paragraph({
-          text: "Summary Content",
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 600, after: 300 },
-        }));
-        const result = parseHtmlToParagraphsWithValidation(summaryContent);
-        children.push(...result.paragraphs);
-        totalSourceChars += result.sourceCharCount;
-        totalExportedChars += result.exportedCharCount;
-      }
-
-      // Add mnemonic
-      if (mnemonicContent.trim()) {
-        children.push(new Paragraph({
-          text: "Mnemonic",
-          heading: HeadingLevel.HEADING_2,
-          spacing: { before: 600, after: 300 },
-        }));
-        const result = parseHtmlToParagraphsWithValidation(mnemonicContent);
-        children.push(...result.paragraphs);
-        totalSourceChars += result.sourceCharCount;
-        totalExportedChars += result.exportedCharCount;
-      }
-
-      // Create and download document
-      const doc = new Document({
-        numbering: {
-          config: [
-            {
-              reference: "default-numbering",
-              levels: [
-                {
-                  level: 0,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 720, hanging: 360 },
-                    },
-                  },
-                },
-                {
-                  level: 1,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.%2.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 1440, hanging: 360 },
-                    },
-                  },
-                },
-                {
-                  level: 2,
-                  format: LevelFormat.DECIMAL,
-                  text: "%1.%2.%3.",
-                  alignment: AlignmentType.LEFT,
-                  style: {
-                    paragraph: {
-                      indent: { left: 2160, hanging: 360 },
-                    },
-                  },
-                },
-              ],
-            },
-          ],
-        },
-        sections: [{ 
-          children,
-          properties: {
-            page: {
-              margin: {
-                top: 1440,    // 1 inch
-                right: 1440,
-                bottom: 1440,
-                left: 1440,
-              },
-            },
-          },
-        }],
-      });
-
-      const blob = await Packer.toBlob(doc);
+      // Convert to Word document using html-to-docx library
+      const blob = await convertHtmlToDocx(html);
       saveAs(blob, `${topicTitle.replace(/[^a-z0-9]/gi, '_')}.docx`);
 
-      // Show export result with validation info
-      const ratio = totalSourceChars > 0 ? totalExportedChars / totalSourceChars : 1;
-      const hasWarning = ratio < 0.9 && totalSourceChars > 100;
-      
-      if (hasWarning) {
-        toast({
-          title: "Export completed with warning",
-          description: `Exported ${totalExportedChars.toLocaleString()} of ${totalSourceChars.toLocaleString()} characters (${Math.round(ratio * 100)}%). Some content may be missing.`,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Export successful",
-          description: `Word document exported (${totalExportedChars.toLocaleString()} characters)`,
-        });
-      }
+      toast({
+        title: "Export successful",
+        description: "Word document exported",
+      });
     } catch (error) {
       console.error("Error exporting to Word:", error);
       toast({
