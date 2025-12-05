@@ -1,143 +1,269 @@
-import { toDocx } from 'docshift';
+import { Paragraph, TextRun, HeadingLevel, PageBreak } from "docx";
 
 /**
- * Convert HTML content to a Word document blob using docshift library.
- * This is a pure client-side library that handles HTML to DOCX conversion.
+ * Convert CSS pixel values to twip (twentieth of a point)
+ * Returns undefined for invalid/non-numeric values
  */
-export const convertHtmlToDocx = async (html: string): Promise<Blob> => {
-  // Wrap content in styled HTML for better formatting
-  const styledHtml = `
-    <div style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5;">
-      ${html}
-    </div>
-  `;
-
-  return await toDocx(styledHtml);
+const pxToTwip = (px: string | null): number | undefined => {
+  if (!px || px === "normal" || px === "auto") return undefined;
+  const value = parseFloat(px.replace("px", ""));
+  if (isNaN(value) || value === 0) return undefined;
+  return Math.round(value * 15); // approx conversion
 };
 
 /**
- * Build HTML string for a topic export
+ * Convert rgb(r, g, b) to hex format for Word
  */
-export const buildTopicHtml = (
-  title: string,
-  blocks: { content: string }[],
-  headingNodes: { title: string; notes: string; children: any[] }[],
-  summaryContent: string,
-  mnemonicContent: string
-): string => {
-  let html = `<h1>${escapeHtml(title)}</h1>`;
-
-  // Add content blocks
-  for (const block of blocks) {
-    if (block.content) {
-      html += block.content;
-    }
-  }
-
-  // Add headings from Summary tab with hierarchical structure
-  if (headingNodes.length > 0) {
-    html += `<h2>Summary</h2>`;
-    html += buildHeadingNodesHtml(headingNodes, 2);
-  }
-
-  // Add summary content
-  if (summaryContent.trim()) {
-    html += `<h2>Summary Content</h2>`;
-    html += summaryContent;
-  }
-
-  // Add mnemonic
-  if (mnemonicContent.trim()) {
-    html += `<h2>Mnemonic</h2>`;
-    html += mnemonicContent;
-  }
-
-  return html;
+const rgbToHex = (rgb: string): string | undefined => {
+  const match = rgb.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+  if (!match) return undefined;
+  const [, r, g, b] = match;
+  return ((1 << 24) + (parseInt(r) << 16) + (parseInt(g) << 8) + parseInt(b))
+    .toString(16)
+    .slice(1);
 };
 
 /**
- * Recursively build HTML for heading nodes
+ * Extract inline style and map it to TextRun formatting
  */
-const buildHeadingNodesHtml = (nodes: any[], level: number): string => {
-  let html = '';
-  const headingTag = level <= 6 ? `h${level}` : 'p';
+const getTextStyle = (element: HTMLElement, inherited: any) => {
+  const style = window.getComputedStyle(element);
 
-  for (const node of nodes) {
-    html += `<${headingTag}>${escapeHtml(node.title)}</${headingTag}>`;
-    if (node.notes) {
-      html += node.notes;
-    }
-    if (node.children && node.children.length > 0) {
-      html += buildHeadingNodesHtml(node.children, Math.min(level + 1, 6));
-    }
-  }
+  return {
+    bold:
+      inherited.bold ||
+      style.fontWeight === "bold" ||
+      parseInt(style.fontWeight) >= 600,
 
-  return html;
+    italics: inherited.italic || style.fontStyle === "italic",
+
+    underline:
+      inherited.underline || style.textDecoration.includes("underline")
+        ? {}
+        : undefined,
+
+    color:
+      style.color && style.color !== "rgb(0, 0, 0)"
+        ? rgbToHex(style.color)
+        : undefined,
+
+    // Note: highlight removed as it requires specific color names in docx
+    // and arbitrary hex values cause document corruption
+
+    size: style.fontSize ? parseInt(style.fontSize) * 2 : undefined, // docx size is half-points
+  };
 };
 
 /**
- * Build HTML string for a chapter export with multiple topics
+ * Convert inline content (with tags) into TextRun[]
  */
-export const buildChapterHtml = (
-  chapterName: string,
-  topicsData: Array<{
-    title: string;
-    blocks: { content: string }[];
-    headingNodes: any[];
-    summaryContent: string;
-    mnemonicContent: string;
-  }>
-): string => {
-  let html = `<h1 style="text-align: center;">${escapeHtml(chapterName)}</h1>`;
+const processInline = (
+  node: Node,
+  inherited: any = {},
+  runs: TextRun[] = []
+): TextRun[] => {
+  if (node.nodeType === Node.TEXT_NODE) {
+    const text = node.textContent || "";
+    if (text) {
+      runs.push(new TextRun({ text, ...inherited }));
+    }
+    return runs;
+  }
 
-  for (let i = 0; i < topicsData.length; i++) {
-    const topic = topicsData[i];
+  if (node.nodeType === Node.ELEMENT_NODE) {
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
 
-    // Add page break before each topic (except the first one)
-    if (i > 0) {
-      html += '<p style="page-break-before: always;"></p>';
+    let next = { ...inherited };
+
+    if (tag === "strong" || tag === "b") next.bold = true;
+    if (tag === "em" || tag === "i") next.italics = true;
+    if (tag === "u") next.underline = {};
+
+    // Get CSS styling
+    next = { ...next, ...getTextStyle(el, inherited) };
+
+    if (tag === "br") {
+      runs.push(new TextRun({ break: 1 }));
+      return runs;
     }
 
-    // Add topic title
-    html += `<h2>${escapeHtml(topic.title)}</h2>`;
+    el.childNodes.forEach((child) => processInline(child, next, runs));
+    return runs;
+  }
 
-    // Add content blocks
-    for (const block of topic.blocks) {
-      if (block.content) {
-        html += block.content;
+  return runs;
+};
+
+/**
+ * Legacy function - parses HTML to TextRun objects (kept for compatibility)
+ */
+export const parseHtmlToRuns = (html: string): TextRun[] => {
+  if (!html) return [];
+
+  const root = document.createElement("div");
+  root.innerHTML = html;
+
+  // Temporarily attach to DOM for getComputedStyle to work
+  root.style.position = "absolute";
+  root.style.left = "-9999px";
+  document.body.appendChild(root);
+
+  const runs: TextRun[] = [];
+  root.childNodes.forEach((node) => processInline(node, {}, runs));
+
+  document.body.removeChild(root);
+  return runs;
+};
+
+/**
+ * Recursively parse HTML into paragraphs (block level) with enhanced formatting
+ */
+export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
+  if (!html) return [];
+
+  const root = document.createElement("div");
+  root.innerHTML = html;
+
+  // Temporarily attach to DOM for getComputedStyle to work
+  root.style.position = "absolute";
+  root.style.left = "-9999px";
+  document.body.appendChild(root);
+
+  const paragraphs: Paragraph[] = [];
+
+  const walk = (el: HTMLElement, listLevel = 0) => {
+    const tag = el.tagName.toLowerCase();
+    const style = window.getComputedStyle(el);
+
+    // Extract spacing values (filter out undefined)
+    const spacingRaw = {
+      before: pxToTwip(style.marginTop),
+      after: pxToTwip(style.marginBottom),
+      // Note: lineHeight removed as it requires specific docx line spacing format
+      // (e.g., 240 for single, 360 for 1.5x) not direct twip conversion
+    };
+    
+    // Clean up spacing object - remove undefined values
+    const spacing = Object.fromEntries(
+      Object.entries(spacingRaw).filter(([_, v]) => v !== undefined)
+    ) as any;
+
+    // HEADINGS
+    if (["h1", "h2", "h3", "h4"].includes(tag)) {
+      const headingMap: any = {
+        h1: HeadingLevel.HEADING_1,
+        h2: HeadingLevel.HEADING_2,
+        h3: HeadingLevel.HEADING_3,
+        h4: HeadingLevel.HEADING_4,
+      };
+      paragraphs.push(
+        new Paragraph({
+          text: el.textContent || "",
+          heading: headingMap[tag],
+          spacing,
+        })
+      );
+      return;
+    }
+
+    // ORDERED LIST
+    if (tag === "ol") {
+      Array.from(el.children).forEach((li) => {
+        if (li.tagName.toLowerCase() === "li") {
+          const runs = processInline(li, {});
+          if (runs.length) {
+            paragraphs.push(
+              new Paragraph({
+                children: runs,
+                numbering: { reference: "default-numbering", level: listLevel },
+                spacing,
+              })
+            );
+          }
+
+          // Handle nested lists inside li
+          Array.from(li.children).forEach((child: any) => {
+            if (
+              child.tagName?.toLowerCase() === "ol" ||
+              child.tagName?.toLowerCase() === "ul"
+            ) {
+              walk(child, listLevel + 1);
+            }
+          });
+        }
+      });
+      return;
+    }
+
+    // UNORDERED LIST
+    if (tag === "ul") {
+      Array.from(el.children).forEach((li) => {
+        if (li.tagName.toLowerCase() === "li") {
+          const runs = processInline(li, {});
+          if (runs.length) {
+            paragraphs.push(
+              new Paragraph({
+                children: runs,
+                bullet: { level: listLevel },
+                spacing,
+              })
+            );
+          }
+
+          Array.from(li.children).forEach((child: any) => {
+            if (
+              child.tagName?.toLowerCase() === "ul" ||
+              child.tagName?.toLowerCase() === "ol"
+            ) {
+              walk(child, listLevel + 1);
+            }
+          });
+        }
+      });
+      return;
+    }
+
+    // CONTAINER ELEMENTS - only recurse, don't process inline content
+    if (["div", "section", "article"].includes(tag)) {
+      Array.from(el.children).forEach((child) =>
+        walk(child as HTMLElement, listLevel)
+      );
+      return;
+    }
+
+    // LEAF BLOCK ELEMENTS - process inline content and return
+    if (["p", "span"].includes(tag)) {
+      const runs = processInline(el, {});
+      if (runs.length) {
+        const options: any = { children: runs };
+        if (Object.keys(spacing).length > 0) {
+          options.spacing = spacing;
+        }
+        paragraphs.push(new Paragraph(options));
       }
+      return;
     }
 
-    // Add headings from Summary tab
-    if (topic.headingNodes.length > 0) {
-      html += `<h3>Summary</h3>`;
-      html += buildHeadingNodesHtml(topic.headingNodes, 4);
-    }
+    // RECURSE CHILDREN for any other elements
+    Array.from(el.children).forEach((child) =>
+      walk(child as HTMLElement, listLevel)
+    );
+  };
 
-    // Add summary content
-    if (topic.summaryContent.trim()) {
-      html += `<h3>Summary Content</h3>`;
-      html += topic.summaryContent;
-    }
+  Array.from(root.children).forEach((child) => walk(child as HTMLElement, 0));
 
-    // Add mnemonic
-    if (topic.mnemonicContent.trim()) {
-      html += `<h3>Mnemonic</h3>`;
-      html += topic.mnemonicContent;
-    }
-  }
+  // Clean up DOM
+  document.body.removeChild(root);
 
-  return html;
+  return paragraphs;
 };
 
 /**
- * Escape HTML special characters
+ * Creates a page break paragraph
  */
-const escapeHtml = (text: string): string => {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+export const createPageBreak = (): Paragraph => {
+  return new Paragraph({
+    children: [new PageBreak()],
+  });
 };

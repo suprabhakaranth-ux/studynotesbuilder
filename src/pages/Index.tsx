@@ -510,8 +510,9 @@ const Index = () => {
     if (!user) return;
 
     try {
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel, LevelFormat, AlignmentType } = await import("docx");
       const { saveAs } = await import("file-saver");
-      const { convertHtmlToDocx, buildChapterHtml } = await import("@/utils/wordExport");
+      const { parseHtmlToParagraphs, createPageBreak } = await import("@/utils/wordExport");
 
       // Fetch all topics in this chapter and reverse to export oldest first
       const chapterTopics = topics.filter(t => t.chapterId === chapterId).reverse();
@@ -525,10 +526,31 @@ const Index = () => {
         return;
       }
 
-      // Fetch all topic data
-      const topicsData = [];
-      
-      for (const topic of chapterTopics) {
+      const children: any[] = [];
+
+      // Add chapter title
+      children.push(new Paragraph({
+        text: chapterName,
+        heading: HeadingLevel.TITLE,
+        spacing: { after: 600 },
+      }));
+
+      // For each topic, fetch and add its content
+      for (let i = 0; i < chapterTopics.length; i++) {
+        const topic = chapterTopics[i];
+        
+        // Add page break before each topic (except the first one)
+        if (i > 0) {
+          children.push(createPageBreak());
+        }
+
+        // Add topic title
+        children.push(new Paragraph({
+          text: topic.title,
+          heading: HeadingLevel.HEADING_1,
+          spacing: { before: 400, after: 400 },
+        }));
+
         // Fetch blocks
         const { data: blocksData } = await supabase
           .from("blocks")
@@ -537,7 +559,17 @@ const Index = () => {
           .eq("user_id", user.id)
           .order("block_order", { ascending: true });
 
-        // Fetch heading nodes and rebuild tree
+        // Add content blocks with proper formatting
+        if (blocksData && blocksData.length > 0) {
+          for (const block of blocksData) {
+            if (block.content) {
+              const paragraphs = parseHtmlToParagraphs(block.content);
+              children.push(...paragraphs);
+            }
+          }
+        }
+
+        // Fetch heading nodes
         const { data: headingNodesData } = await supabase
           .from("heading_nodes")
           .select("*")
@@ -545,22 +577,48 @@ const Index = () => {
           .eq("user_id", user.id)
           .order("node_order", { ascending: true });
 
-        let headingNodes: any[] = [];
         if (headingNodesData && headingNodesData.length > 0) {
+          children.push(new Paragraph({
+            text: "Summary",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
+          }));
+
+          // Build heading tree and flatten
           const nodeMap = new Map();
           headingNodesData.forEach(h => {
             nodeMap.set(h.id, { ...h, children: [] });
           });
 
+          const rootNodes: any[] = [];
           headingNodesData.forEach(h => {
             const node = nodeMap.get(h.id);
             if (h.parent_id) {
               const parent = nodeMap.get(h.parent_id);
               if (parent) parent.children.push(node);
             } else {
-              headingNodes.push(node);
+              rootNodes.push(node);
             }
           });
+
+          const addHeadingNodes = (nodes: any[], level: any) => {
+            nodes.forEach(node => {
+              children.push(new Paragraph({
+                text: node.title,
+                heading: level,
+                spacing: { before: 300, after: 200 },
+              }));
+              if (node.notes) {
+                const noteParagraphs = parseHtmlToParagraphs(node.notes);
+                children.push(...noteParagraphs);
+              }
+              if (node.children && node.children.length > 0) {
+                addHeadingNodes(node.children, level === HeadingLevel.HEADING_2 ? HeadingLevel.HEADING_3 : HeadingLevel.HEADING_3);
+              }
+            });
+          };
+
+          addHeadingNodes(rootNodes, HeadingLevel.HEADING_2);
         }
 
         // Fetch summary
@@ -571,6 +629,16 @@ const Index = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
+        if (summaryData && summaryData.content) {
+          children.push(new Paragraph({
+            text: "Summary Content",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
+          }));
+          const summaryParagraphs = parseHtmlToParagraphs(summaryData.content);
+          children.push(...summaryParagraphs);
+        }
+
         // Fetch mnemonic
         const { data: mnemonicData } = await supabase
           .from("mnemonics")
@@ -579,23 +647,82 @@ const Index = () => {
           .eq("user_id", user.id)
           .maybeSingle();
 
-        topicsData.push({
-          title: topic.title,
-          blocks: (blocksData || []).map(b => ({ content: b.content || '' })),
-          headingNodes,
-          summaryContent: summaryData?.content || '',
-          mnemonicContent: mnemonicData?.content || '',
-        });
+        if (mnemonicData && mnemonicData.content) {
+          children.push(new Paragraph({
+            text: "Mnemonic",
+            heading: HeadingLevel.HEADING_2,
+            spacing: { before: 600, after: 300 },
+          }));
+          const mnemonicParagraphs = parseHtmlToParagraphs(mnemonicData.content);
+          children.push(...mnemonicParagraphs);
+        }
       }
 
-      // Build complete HTML and convert to Word
-      const html = buildChapterHtml(chapterName, topicsData);
-      const blob = await convertHtmlToDocx(html);
+      // Create and download document
+      const doc = new Document({
+        numbering: {
+          config: [
+            {
+              reference: "default-numbering",
+              levels: [
+                {
+                  level: 0,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 720, hanging: 360 },
+                    },
+                  },
+                },
+                {
+                  level: 1,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.%2.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 1440, hanging: 360 },
+                    },
+                  },
+                },
+                {
+                  level: 2,
+                  format: LevelFormat.DECIMAL,
+                  text: "%1.%2.%3.",
+                  alignment: AlignmentType.LEFT,
+                  style: {
+                    paragraph: {
+                      indent: { left: 2160, hanging: 360 },
+                    },
+                  },
+                },
+              ],
+            },
+          ],
+        },
+        sections: [{ 
+          children,
+          properties: {
+            page: {
+              margin: {
+                top: 1440,    // 1 inch
+                right: 1440,
+                bottom: 1440,
+                left: 1440,
+              },
+            },
+          },
+        }],
+      });
+
+      const blob = await Packer.toBlob(doc);
       saveAs(blob, `${chapterName.replace(/[^a-z0-9]/gi, '_')}.docx`);
 
       toast({
         title: "Export successful",
-        description: `${chapterName} exported`,
+        description: `${chapterName} exported to Word document.`,
       });
     } catch (error) {
       console.error("Error exporting chapter:", error);
