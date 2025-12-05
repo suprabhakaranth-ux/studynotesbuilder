@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo, Paintbrush } from "lucide-react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo, Paintbrush, ClipboardPaste } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -8,6 +8,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useToast } from "@/hooks/use-toast";
+import {
+  sanitizeToDestinationStyle,
+  extractPlainText,
+  textToHtml,
+  sanitizeSourceFormatting,
+  insertContentAtCursor,
+  getSelectionHtml,
+  replaceSelection,
+} from "@/utils/pasteSpecial";
 
 interface FormattingToolbarProps {
   onMarkHeading?: (text: string) => void;
@@ -30,6 +47,74 @@ const colorOptions = [
 export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingToolbarProps) => {
   const [formatPainterActive, setFormatPainterActive] = useState(false);
   const copiedFormatRef = useRef<any>(null);
+  const { toast } = useToast();
+
+  const handlePasteSpecial = async (mode: "source" | "destination" | "text") => {
+    try {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.read) {
+        const clipboardItems = await navigator.clipboard.read();
+        let html = "";
+        let text = "";
+        
+        for (const item of clipboardItems) {
+          if (item.types.includes("text/html")) {
+            const blob = await item.getType("text/html");
+            html = await blob.text();
+          }
+          if (item.types.includes("text/plain")) {
+            const blob = await item.getType("text/plain");
+            text = await blob.text();
+          }
+        }
+        
+        let contentToInsert = "";
+        
+        switch (mode) {
+          case "source":
+            contentToInsert = html ? sanitizeSourceFormatting(html) : text;
+            break;
+          case "destination":
+            contentToInsert = sanitizeToDestinationStyle(html || text);
+            break;
+          case "text":
+            contentToInsert = textToHtml(extractPlainText(html || text));
+            break;
+        }
+        
+        if (contentToInsert) {
+          insertContentAtCursor(contentToInsert);
+          toast({ title: "Content pasted", description: `Pasted with ${mode === "source" ? "source formatting" : mode === "destination" ? "destination style" : "text only"}` });
+        } else {
+          toast({ title: "Clipboard empty", description: "No content found in clipboard", variant: "destructive" });
+        }
+      } else {
+        // Fallback: use execCommand paste (limited functionality)
+        toast({ title: "Limited support", description: "Use Ctrl+V for full paste functionality in this browser", variant: "destructive" });
+      }
+    } catch (error) {
+      console.error("Paste special failed:", error);
+      toast({ title: "Paste failed", description: "Could not access clipboard. Try using Ctrl+V.", variant: "destructive" });
+    }
+  };
+
+  const handleStandardizeSelection = () => {
+    const selectedHtml = getSelectionHtml();
+    
+    if (!selectedHtml) {
+      toast({ title: "No selection", description: "Select text first to standardize", variant: "destructive" });
+      return;
+    }
+    
+    const cleanedHtml = sanitizeToDestinationStyle(selectedHtml);
+    const success = replaceSelection(cleanedHtml);
+    
+    if (success) {
+      toast({ title: "Text standardized", description: "Selected content has been cleaned up" });
+    } else {
+      toast({ title: "Failed", description: "Could not standardize selection", variant: "destructive" });
+    }
+  };
 
   useEffect(() => {
     if (!formatPainterActive) return;
@@ -413,6 +498,34 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
       >
         <Paintbrush className="w-3.5 h-3.5" />
       </Button>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-8 w-8 p-0 hover:bg-primary/10"
+            title="Paste Special"
+          >
+            <ClipboardPaste className="w-3.5 h-3.5" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="bg-card z-50">
+          <DropdownMenuItem onClick={() => handlePasteSpecial("source")}>
+            Keep Source Formatting
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handlePasteSpecial("destination")}>
+            Match Destination Style
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => handlePasteSpecial("text")}>
+            Keep Text Only
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleStandardizeSelection}>
+            Standardize Selection
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       <div className="w-px h-6 bg-border" />
 
