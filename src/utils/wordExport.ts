@@ -1,22 +1,36 @@
-import HTMLtoDOCX from 'html-to-docx';
+import htmlDocx from 'html-docx-js/dist/html-docx';
 
 /**
- * Convert HTML content to a Word document blob using html-to-docx library.
+ * Convert HTML content to a Word document blob using html-docx-js library.
  * This handles malformed HTML gracefully and preserves all text content.
+ * Note: Best results when opened in Microsoft Word.
  */
 export const convertHtmlToDocx = async (
   html: string,
   options?: {
     title?: string;
-    margins?: { top?: number; right?: number; bottom?: number; left?: number };
+    margins?: { top?: string; right?: string; bottom?: string; left?: string };
   }
 ): Promise<Blob> => {
-  // Wrap content in basic HTML structure for better parsing
+  // Wrap content in full HTML document with styling
   const fullHtml = `
     <!DOCTYPE html>
     <html>
       <head>
         <meta charset="UTF-8">
+        <style>
+          body { 
+            font-family: Calibri, Arial, sans-serif; 
+            font-size: 11pt;
+            line-height: 1.5;
+          }
+          h1 { font-size: 18pt; margin-top: 12pt; margin-bottom: 6pt; }
+          h2 { font-size: 14pt; margin-top: 12pt; margin-bottom: 6pt; }
+          h3 { font-size: 12pt; margin-top: 10pt; margin-bottom: 4pt; }
+          h4, h5, h6 { font-size: 11pt; margin-top: 8pt; margin-bottom: 4pt; }
+          p { margin-top: 0; margin-bottom: 6pt; }
+          ul, ol { margin-top: 6pt; margin-bottom: 6pt; }
+        </style>
       </head>
       <body>
         ${html}
@@ -24,19 +38,7 @@ export const convertHtmlToDocx = async (
     </html>
   `;
 
-  const docxBlob = await HTMLtoDOCX(fullHtml, null, {
-    table: { row: { cantSplit: true } },
-    footer: false,
-    pageNumber: false,
-    margins: options?.margins || {
-      top: 1440,    // 1 inch in twips
-      right: 1440,
-      bottom: 1440,
-      left: 1440,
-    },
-  });
-
-  return docxBlob as Blob;
+  return htmlDocx.asBlob(fullHtml);
 };
 
 /**
@@ -119,7 +121,7 @@ export const buildChapterHtml = (
 
     // Add page break before each topic (except the first one)
     if (i > 0) {
-      html += '<div style="page-break-after: always;"></div>';
+      html += '<br style="page-break-before: always;">';
     }
 
     // Add topic title
