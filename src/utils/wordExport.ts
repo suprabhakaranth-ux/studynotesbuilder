@@ -1,44 +1,18 @@
-import htmlDocx from 'html-docx-js/dist/html-docx';
+import { toDocx } from 'docshift';
 
 /**
- * Convert HTML content to a Word document blob using html-docx-js library.
- * This handles malformed HTML gracefully and preserves all text content.
- * Note: Best results when opened in Microsoft Word.
+ * Convert HTML content to a Word document blob using docshift library.
+ * This is a pure client-side library that handles HTML to DOCX conversion.
  */
-export const convertHtmlToDocx = async (
-  html: string,
-  options?: {
-    title?: string;
-    margins?: { top?: string; right?: string; bottom?: string; left?: string };
-  }
-): Promise<Blob> => {
-  // Wrap content in full HTML document with styling
-  const fullHtml = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="UTF-8">
-        <style>
-          body { 
-            font-family: Calibri, Arial, sans-serif; 
-            font-size: 11pt;
-            line-height: 1.5;
-          }
-          h1 { font-size: 18pt; margin-top: 12pt; margin-bottom: 6pt; }
-          h2 { font-size: 14pt; margin-top: 12pt; margin-bottom: 6pt; }
-          h3 { font-size: 12pt; margin-top: 10pt; margin-bottom: 4pt; }
-          h4, h5, h6 { font-size: 11pt; margin-top: 8pt; margin-bottom: 4pt; }
-          p { margin-top: 0; margin-bottom: 6pt; }
-          ul, ol { margin-top: 6pt; margin-bottom: 6pt; }
-        </style>
-      </head>
-      <body>
-        ${html}
-      </body>
-    </html>
+export const convertHtmlToDocx = async (html: string): Promise<Blob> => {
+  // Wrap content in styled HTML for better formatting
+  const styledHtml = `
+    <div style="font-family: Calibri, Arial, sans-serif; font-size: 11pt; line-height: 1.5;">
+      ${html}
+    </div>
   `;
 
-  return htmlDocx.asBlob(fullHtml);
+  return await toDocx(styledHtml);
 };
 
 /**
@@ -114,14 +88,14 @@ export const buildChapterHtml = (
     mnemonicContent: string;
   }>
 ): string => {
-  let html = `<h1 style="text-align: center; font-size: 24pt;">${escapeHtml(chapterName)}</h1>`;
+  let html = `<h1 style="text-align: center;">${escapeHtml(chapterName)}</h1>`;
 
   for (let i = 0; i < topicsData.length; i++) {
     const topic = topicsData[i];
 
     // Add page break before each topic (except the first one)
     if (i > 0) {
-      html += '<br style="page-break-before: always;">';
+      html += '<p style="page-break-before: always;"></p>';
     }
 
     // Add topic title
