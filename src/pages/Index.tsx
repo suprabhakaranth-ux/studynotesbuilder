@@ -46,6 +46,7 @@ interface Chapter {
   subject_id: string;
   name: string;
   chapter_order: number;
+  studied?: boolean;
 }
 
 interface Topic {
@@ -141,7 +142,10 @@ const Index = () => {
       if (chaptersError) {
         console.error("Error loading chapters:", chaptersError);
       } else if (chaptersData) {
-        setChapters(chaptersData);
+        setChapters(chaptersData.map(c => ({
+          ...c,
+          studied: c.studied || false,
+        })));
       }
 
       // Load topics from database
@@ -412,6 +416,45 @@ const Index = () => {
       // Revert optimistic update
       setTopics(topics.map(t =>
         t.id === topicId ? { ...t, studied: !t.studied } : t
+      ));
+      toast({
+        title: "Error",
+        description: "Failed to update studied status",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleToggleChapterStudied = async (chapterId: string) => {
+    if (!user) return;
+
+    try {
+      const chapter = chapters.find(c => c.id === chapterId);
+      if (!chapter) return;
+
+      const newStudiedValue = !chapter.studied;
+
+      // Optimistic UI update
+      setChapters(chapters.map(c =>
+        c.id === chapterId ? { ...c, studied: newStudiedValue } : c
+      ));
+
+      const { error } = await supabase
+        .from("chapters")
+        .update({ studied: newStudiedValue })
+        .eq("id", chapterId);
+
+      if (error) throw error;
+
+      toast({
+        title: newStudiedValue ? "Marked as studied" : "Unmarked as studied",
+        description: `${chapter.name} has been updated.`,
+      });
+    } catch (error) {
+      console.error("Error toggling chapter studied status:", error);
+      // Revert optimistic update
+      setChapters(chapters.map(c =>
+        c.id === chapterId ? { ...c, studied: !c.studied } : c
       ));
       toast({
         title: "Error",
@@ -1334,6 +1377,7 @@ const Index = () => {
                         onMove={handleMoveChapter}
                         onEdit={handleEditChapter}
                         onExport={handleExportChapter}
+                        onToggleStudied={handleToggleChapterStudied}
                       />
                     ))}
                 </div>
