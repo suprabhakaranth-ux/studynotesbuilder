@@ -175,12 +175,16 @@ const Landing = () => {
             Organize your study materials with hierarchical structure, rich text editing, 
             and AI-powered assistance. Master any subject with intelligent note-taking.
           </p>
-          <div className="flex gap-4 justify-center pt-4">
+          <div className="flex gap-4 justify-center pt-4 flex-wrap">
             <Button size="lg" onClick={() => navigate("/auth")}>
               Start Learning
               <ChevronRight className="w-4 h-4 ml-2" />
             </Button>
-            <Button size="lg" variant="outline" onClick={() => navigate("/showcase")}>
+            <Button size="lg" variant="outline" onClick={() => navigate("/library")}>
+              <BookOpen className="w-4 h-4 mr-2" />
+              Browse Notes Library
+            </Button>
+            <Button size="lg" variant="ghost" onClick={() => navigate("/showcase")}>
               View Full Demo
             </Button>
           </div>
