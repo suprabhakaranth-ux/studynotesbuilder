@@ -49,11 +49,14 @@ interface TopicEditorProps {
   topicId: string;
   topicTitle: string;
   onBack: () => void;
+  readOnly?: boolean;
+  userId?: string; // For public read-only mode
 }
 
-export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) => {
+export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, userId: propUserId }: TopicEditorProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
+  const effectiveUserId = propUserId || user?.id;
   const [blocks, setBlocks] = useState<Block[]>(() => [
     { id: crypto.randomUUID(), type: "text", content: "" },
   ]);
@@ -76,7 +79,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
 
   // Load data from database on mount
   useEffect(() => {
-    if (!user) return;
+    if (!effectiveUserId) return;
 
     const loadData = async () => {
       setLoading(true);
@@ -86,7 +89,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         .from("blocks")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .order("block_order", { ascending: true });
       
       if (blocksData && blocksData.length > 0) {
@@ -103,7 +106,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         .from("summaries")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .maybeSingle();
       
       if (summaryData) {
@@ -115,7 +118,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         .from("mnemonics")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", user.id)
+        .eq("user_id", effectiveUserId)
         .maybeSingle();
       
       if (mnemonicData) {
@@ -127,7 +130,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     .from("heading_nodes")
     .select("*")
     .eq("topic_id", topicId)
-    .eq("user_id", user.id)
+    .eq("user_id", effectiveUserId)
     .order("node_order", { ascending: true });
   
   if (headingNodesData && headingNodesData.length > 0) {
@@ -181,11 +184,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
     };
 
     loadData();
-  }, [topicId, user]);
+  }, [topicId, effectiveUserId]);
 
-  // Centralized debounced auto-save for all topic data
+  // Centralized debounced auto-save for all topic data (skip in readOnly mode)
   useEffect(() => {
-    if (!user || loading) return;
+    if (!user || loading || readOnly) return;
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -203,7 +206,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         saveTimeoutRef.current = null;
       }
     };
-  }, [blocks, summaryContent, mnemonicContent, headingNodes, topicId, user, loading]);
+  }, [blocks, summaryContent, mnemonicContent, headingNodes, topicId, user, loading, readOnly]);
 
 
   const addBlock = (type: BlockType) => {
@@ -235,7 +238,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const saveAll = async () => {
-    if (!user) return;
+    if (!user || readOnly) return;
     // Prevent concurrent saves
     if (savingRef.current) return;
     savingRef.current = true;
@@ -385,17 +388,18 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
   };
 
   const handleBack = async () => {
-    try {
-      if (saveTimeoutRef.current) {
-        clearTimeout(saveTimeoutRef.current);
-        saveTimeoutRef.current = null;
+    if (!readOnly) {
+      try {
+        if (saveTimeoutRef.current) {
+          clearTimeout(saveTimeoutRef.current);
+          saveTimeoutRef.current = null;
+        }
+        await saveAll();
+      } catch (e) {
+        console.error("Background save on back failed:", e);
       }
-      await saveAll();
-    } catch (e) {
-      console.error("Background save on back failed:", e);
-    } finally {
-      onBack();
     }
+    onBack();
   };
 
   const exportToWord = async () => {
@@ -628,56 +632,62 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
         </div>
 
         <div className="flex items-center gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="sm" className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                <Plus className="w-4 h-4 mr-2" />
-                Add Block
+          {!readOnly && (
+            <>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Add Block
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-card">
+                  <DropdownMenuItem onClick={() => addBlock("title")}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Title
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addBlock("text")}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Text
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addBlock("summary")}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Summary
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addBlock("mnemonic")}>
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    Mnemonic
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => addBlock("image")}>
+                    <FileText className="w-4 h-4 mr-2" />
+                    Image
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
+              <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                <Save className="w-4 h-4 mr-2" />
+                Save
               </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-card">
-              <DropdownMenuItem onClick={() => addBlock("title")}>
-                <FileText className="w-4 h-4 mr-2" />
-                Title
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addBlock("text")}>
-                <FileText className="w-4 h-4 mr-2" />
-                Text
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addBlock("summary")}>
-                <FileText className="w-4 h-4 mr-2" />
-                Summary
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addBlock("mnemonic")}>
-                <Lightbulb className="w-4 h-4 mr-2" />
-                Mnemonic
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => addBlock("image")}>
-                <FileText className="w-4 h-4 mr-2" />
-                Image
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+            </>
+          )}
           
           <Button size="sm" variant="outline" onClick={exportToWord}>
             <Download className="w-4 h-4 mr-2" />
             Export Word
           </Button>
-          
-          <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Save className="w-4 h-4 mr-2" />
-            Save
-          </Button>
         </div>
       </div>
 
-      {/* Global Fixed Toolbar - positioned below header */}
-      <div className="fixed top-[72px] left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
-        <FormattingToolbar onMarkHeading={markTextAsHeading} />
-      </div>
+      {/* Global Fixed Toolbar - positioned below header (only in edit mode) */}
+      {!readOnly && (
+        <div className="fixed top-[72px] left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
+          <FormattingToolbar onMarkHeading={markTextAsHeading} />
+        </div>
+      )}
 
       {/* Spacer to prevent content from hiding under fixed toolbar */}
-      <div className="h-[52px]" />
+      {!readOnly && <div className="h-[52px]" />}
 
       <Tabs defaultValue="full" className="flex-1 flex flex-col">
         <TabsList className="mx-4 mt-4 w-fit">
@@ -694,6 +704,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                   block={block}
                   onUpdate={updateBlock}
                   onDelete={deleteBlock}
+                  readOnly={readOnly}
                 />
               ))}
             </div>
@@ -724,7 +735,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               
               {headingNodes.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-sm text-muted-foreground mb-2">Headings (drag to reorder, click to edit):</p>
+                  <p className="text-sm text-muted-foreground mb-2">{readOnly ? "Headings:" : "Headings (drag to reorder, click to edit):"}</p>
                   <DndContext
                     sensors={sensors}
                     collisionDetection={closestCenter}
@@ -798,10 +809,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
               <RichTextEditor
                 value={summaryContent}
                 onChange={setSummaryContent}
-                onMarkHeading={markTextAsHeading}
+                onMarkHeading={readOnly ? undefined : markTextAsHeading}
                 placeholder="Write additional summary notes here... Key points, important concepts, main ideas..."
                 minHeight="200px"
                 className="text-lg p-4 bg-card/50 border-2 border-primary/20 rounded-md"
+                readOnly={readOnly}
               />
               {summaryBlocks.length > 0 && (
                 <div className="mt-4 space-y-3">
@@ -830,6 +842,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack }: TopicEditorProps) =
                 placeholder="Create memorable mnemonics here... Acronyms, rhymes, associations..."
                 minHeight="200px"
                 className="text-lg p-4 bg-card/50 border-2 border-secondary/20 rounded-md"
+                readOnly={readOnly}
               />
               {mnemonicBlocks.length > 0 && (
                 <div className="mt-4 space-y-3">
