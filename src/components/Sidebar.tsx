@@ -36,17 +36,18 @@ interface SidebarProps {
   onSubjectSelect: (id: string) => void;
   onChapterSelect: (id: string) => void;
   onTopicSelect: (id: string) => void;
-  onNewSubject: () => void;
-  onEditSubject: (id: string, name: string) => void;
-  onDeleteSubject: (id: string, name: string) => void;
-  onNewChapter: (subjectId: string) => void;
-  onEditChapter: (chapterId: string, name: string) => void;
-  onDeleteChapter: (chapterId: string, name: string) => void;
-  onMoveChapter: (chapterId: string, name: string) => void;
-  onMoveTopic: (topicId: string, topicTitle: string) => void;
-  onDeleteTopic: (topicId: string, topicTitle: string) => void;
+  onNewSubject?: () => void;
+  onEditSubject?: (id: string, name: string) => void;
+  onDeleteSubject?: (id: string, name: string) => void;
+  onNewChapter?: (subjectId: string) => void;
+  onEditChapter?: (chapterId: string, name: string) => void;
+  onDeleteChapter?: (chapterId: string, name: string) => void;
+  onMoveChapter?: (chapterId: string, name: string) => void;
+  onMoveTopic?: (topicId: string, topicTitle: string) => void;
+  onDeleteTopic?: (topicId: string, topicTitle: string) => void;
   onToggleSubject: (id: string) => void;
   onToggleChapter: (id: string) => void;
+  readOnly?: boolean;
 }
 export const Sidebar = ({
   subjects,
@@ -71,6 +72,7 @@ export const Sidebar = ({
   onDeleteTopic,
   onToggleSubject,
   onToggleChapter,
+  readOnly = false,
 }: SidebarProps) => {
   const navigate = useNavigate();
   
@@ -91,9 +93,11 @@ export const Sidebar = ({
         <div className="space-y-2">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-sm font-semibold text-muted-foreground uppercase">Subjects</h2>
-            <Button size="sm" variant="ghost" onClick={onNewSubject} className="hover:bg-primary/10">
-              <Plus className="w-4 h-4" />
-            </Button>
+            {!readOnly && onNewSubject && (
+              <Button size="sm" variant="ghost" onClick={onNewSubject} className="hover:bg-primary/10">
+                <Plus className="w-4 h-4" />
+              </Button>
+            )}
           </div>
 
           {subjects.length === 0 ? (
@@ -145,29 +149,33 @@ export const Sidebar = ({
                           {subject.name}
                         </span>
                       </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onDeleteSubject(subject.id, subject.name);
-                        }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/20 rounded"
-                        title="Delete subject"
-                      >
-                        <Trash2 className="w-3.5 h-3.5 text-destructive" />
-                      </button>
+                      {!readOnly && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteSubject?.(subject.id, subject.name);
+                          }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-destructive/20 rounded"
+                          title="Delete subject"
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-destructive" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {isExpanded && (
                     <div className="ml-3 mt-2 space-y-2">
-                      {/* Add Chapter Button */}
-                      <button
-                        onClick={() => onNewChapter(subject.id)}
-                        className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-md transition-colors"
-                      >
-                        <FolderPlus className="w-3.5 h-3.5" />
-                        Add Chapter
-                      </button>
+                      {/* Add Chapter Button - only show if not readOnly */}
+                      {!readOnly && onNewChapter && (
+                        <button
+                          onClick={() => onNewChapter(subject.id)}
+                          className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-muted-foreground hover:text-foreground hover:bg-sidebar-accent rounded-md transition-colors"
+                        >
+                          <FolderPlus className="w-3.5 h-3.5" />
+                          Add Chapter
+                        </button>
+                      )}
 
                       {/* Chapters */}
                       {subjectChapters.map((chapter) => {
@@ -190,6 +198,7 @@ export const Sidebar = ({
                             onMoveTopic={onMoveTopic}
                             onDeleteTopic={onDeleteTopic}
                             activeTopic={activeTopic}
+                            readOnly={readOnly}
                           />
                         );
                       })}
@@ -212,28 +221,30 @@ export const Sidebar = ({
                               >
                                 {topic.title}
                               </button>
-                              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 z-10 transition-opacity">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onMoveTopic(topic.id, topic.title);
-                                  }}
-                                  className="p-1 hover:bg-primary/20 rounded"
-                                  title="Move topic"
-                                >
-                                  <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
-                                </button>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    onDeleteTopic(topic.id, topic.title);
-                                  }}
-                                  className="p-1 hover:bg-destructive/20 rounded"
-                                  title="Delete topic"
-                                >
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </button>
-                              </div>
+                              {!readOnly && (
+                                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 z-10 transition-opacity">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onMoveTopic?.(topic.id, topic.title);
+                                    }}
+                                    className="p-1 hover:bg-primary/20 rounded"
+                                    title="Move topic"
+                                  >
+                                    <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
+                                  </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      onDeleteTopic?.(topic.id, topic.title);
+                                    }}
+                                    className="p-1 hover:bg-destructive/20 rounded"
+                                    title="Delete topic"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
@@ -248,28 +259,53 @@ export const Sidebar = ({
       </ScrollArea>
 
       <div className="p-4 border-t border-border space-y-2">
-        <Button 
-          variant="outline" 
-          className="w-full justify-start bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border-primary/20" 
-          size="sm"
-          onClick={() => navigate('/ai-chat')}
-        >
-          <MessageSquare className="w-4 h-4 mr-2" />
-          AI Study Assistant
-        </Button>
-        <Button 
-          variant="outline" 
-          className="w-full justify-start" 
-          size="sm"
-          onClick={() => window.open('/showcase', '_blank')}
-        >
-          <Sparkles className="w-4 h-4 mr-2" />
-          View Demo
-        </Button>
-        <Button variant="ghost" className="w-full justify-start" size="sm">
-          <Settings className="w-4 h-4 mr-2" />
-          Settings
-        </Button>
+        {readOnly ? (
+          <>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border-primary/20" 
+              size="sm"
+              onClick={() => window.open('https://lovable.dev', '_blank')}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Create Your Own
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              size="sm"
+              onClick={() => navigate('/auth')}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Admin Login
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border-primary/20" 
+              size="sm"
+              onClick={() => navigate('/ai-chat')}
+            >
+              <MessageSquare className="w-4 h-4 mr-2" />
+              AI Study Assistant
+            </Button>
+            <Button 
+              variant="outline" 
+              className="w-full justify-start" 
+              size="sm"
+              onClick={() => window.open('/showcase', '_blank')}
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              View Demo
+            </Button>
+            <Button variant="ghost" className="w-full justify-start" size="sm">
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
+          </>
+        )}
       </div>
     </div>;
 };

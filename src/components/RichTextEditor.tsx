@@ -9,6 +9,7 @@ interface RichTextEditorProps {
   className?: string;
   minHeight?: string;
   onMarkHeading?: (text: string) => void;
+  readOnly?: boolean;
 }
 
 interface EditorHistoryState {
@@ -22,7 +23,8 @@ export const RichTextEditor = ({
   placeholder = "Start typing...",
   className,
   minHeight = "150px",
-  onMarkHeading
+  onMarkHeading,
+  readOnly = false
 }: RichTextEditorProps) => {
   const editorRef = useRef<HTMLDivElement>(null);
   const historyStack = useRef<EditorHistoryState[]>([]);
@@ -206,21 +208,24 @@ export const RichTextEditor = ({
     <>
       <div
         ref={editorRef}
-        contentEditable
-        onInput={handleInput}
-        onPaste={handlePaste}
+        contentEditable={!readOnly}
+        onInput={readOnly ? undefined : handleInput}
+        onPaste={readOnly ? undefined : handlePaste}
         className={cn(
           "w-full rounded-md border-0 p-0 focus-visible:outline-none bg-transparent text-lg leading-relaxed",
-          "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
+          !readOnly && "empty:before:content-[attr(data-placeholder)] empty:before:text-muted-foreground empty:before:pointer-events-none",
+          readOnly && "cursor-default",
           className
         )}
         style={{ minHeight }}
         data-placeholder={placeholder}
         suppressContentEditableWarning
       />
-      <FloatingToolbar 
-        onMarkHeading={onMarkHeading} 
-      />
+      {!readOnly && (
+        <FloatingToolbar 
+          onMarkHeading={onMarkHeading} 
+        />
+      )}
     </>
   );
 };

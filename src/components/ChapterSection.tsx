@@ -23,13 +23,14 @@ interface ChapterSectionProps {
   isActive: boolean;
   onToggle: () => void;
   onChapterClick: (id: string) => void;
-  onEditChapter: (id: string, name: string) => void;
-  onDeleteChapter: (id: string, name: string) => void;
-  onMoveChapter: (id: string, name: string) => void;
+  onEditChapter?: (id: string, name: string) => void;
+  onDeleteChapter?: (id: string, name: string) => void;
+  onMoveChapter?: (id: string, name: string) => void;
   onTopicClick: (id: string) => void;
-  onMoveTopic: (topicId: string, topicTitle: string) => void;
-  onDeleteTopic: (id: string, name: string) => void;
+  onMoveTopic?: (topicId: string, topicTitle: string) => void;
+  onDeleteTopic?: (id: string, name: string) => void;
   activeTopic?: string | null;
+  readOnly?: boolean;
 }
 
 export const ChapterSection = ({
@@ -46,6 +47,7 @@ export const ChapterSection = ({
   onMoveTopic,
   onDeleteTopic,
   activeTopic,
+  readOnly = false,
 }: ChapterSectionProps) => {
   return (
     <div className="mb-2">
@@ -72,38 +74,40 @@ export const ChapterSection = ({
           >
             {chapter.name}
           </button>
-          <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onEditChapter(chapter.id, chapter.name);
-              }}
-              className="p-1 hover:bg-primary/20 rounded"
-              title="Edit chapter"
-            >
-              <Edit className="w-3 h-3 text-muted-foreground" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onMoveChapter(chapter.id, chapter.name);
-              }}
-              className="p-1 hover:bg-primary/20 rounded"
-              title="Move chapter"
-            >
-              <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onDeleteChapter(chapter.id, chapter.name);
-              }}
-              className="p-1 hover:bg-destructive/20 rounded"
-              title="Delete chapter"
-            >
-              <Trash2 className="w-3 h-3 text-destructive" />
-            </button>
-          </div>
+          {!readOnly && (
+            <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditChapter?.(chapter.id, chapter.name);
+                }}
+                className="p-1 hover:bg-primary/20 rounded"
+                title="Edit chapter"
+              >
+                <Edit className="w-3 h-3 text-muted-foreground" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveChapter?.(chapter.id, chapter.name);
+                }}
+                className="p-1 hover:bg-primary/20 rounded"
+                title="Move chapter"
+              >
+                <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDeleteChapter?.(chapter.id, chapter.name);
+                }}
+                className="p-1 hover:bg-destructive/20 rounded"
+                title="Delete chapter"
+              >
+                <Trash2 className="w-3 h-3 text-destructive" />
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -130,28 +134,30 @@ export const ChapterSection = ({
                 >
                   {topic.title}
                 </button>
-                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 z-10 transition-opacity">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onMoveTopic(topic.id, topic.title);
-                    }}
-                    className="p-1 hover:bg-primary/20 rounded"
-                    title="Move topic"
-                  >
-                    <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDeleteTopic(topic.id, topic.title);
-                    }}
-                    className="p-1 hover:bg-destructive/20 rounded"
-                    title="Delete topic"
-                  >
-                    <Trash2 className="w-3 h-3 text-destructive" />
-                  </button>
-                </div>
+                {!readOnly && (
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 md:opacity-0 md:group-hover:opacity-100 opacity-100 z-10 transition-opacity">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveTopic?.(topic.id, topic.title);
+                      }}
+                      className="p-1 hover:bg-primary/20 rounded"
+                      title="Move topic"
+                    >
+                      <MoveHorizontal className="w-3 h-3 text-muted-foreground" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDeleteTopic?.(topic.id, topic.title);
+                      }}
+                      className="p-1 hover:bg-destructive/20 rounded"
+                      title="Delete topic"
+                    >
+                      <Trash2 className="w-3 h-3 text-destructive" />
+                    </button>
+                  </div>
+                )}
               </div>
             ))
           )}

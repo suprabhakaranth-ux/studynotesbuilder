@@ -15,9 +15,10 @@ interface ContentBlockProps {
   };
   onUpdate: (id: string, content: string, headings?: string[]) => void;
   onDelete: (id: string) => void;
+  readOnly?: boolean;
 }
 
-export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) => {
+export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false }: ContentBlockProps) => {
   const [selectedText, setSelectedText] = useState("");
 
   const handleTextSelection = () => {
@@ -90,31 +91,39 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           <span className="text-lg">{getBlockIcon()}</span>
           {getBlockTitle()}
         </span>
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={() => onDelete(block.id)}
-          className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
-        >
-          <X className="w-4 h-4" />
-        </Button>
+        {!readOnly && (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => onDelete(block.id)}
+            className="opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10 hover:text-destructive"
+          >
+            <X className="w-4 h-4" />
+          </Button>
+        )}
       </div>
 
       {block.type === "title" ? (
-        <Input
-          value={block.content}
-          onChange={(e) => onUpdate(block.id, e.target.value)}
-          placeholder={getPlaceholder()}
-          className="text-3xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
-        />
-      ) : block.type === "image" ? (
-        <div className="space-y-3">
+        readOnly ? (
+          <h1 className="text-3xl font-bold">{block.content || "Untitled"}</h1>
+        ) : (
           <Input
             value={block.content}
             onChange={(e) => onUpdate(block.id, e.target.value)}
             placeholder={getPlaceholder()}
-            className="bg-muted/30"
+            className="text-3xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
           />
+        )
+      ) : block.type === "image" ? (
+        <div className="space-y-3">
+          {!readOnly && (
+            <Input
+              value={block.content}
+              onChange={(e) => onUpdate(block.id, e.target.value)}
+              placeholder={getPlaceholder()}
+              className="bg-muted/30"
+            />
+          )}
           {block.content && (
             <img
               src={block.content}
@@ -127,17 +136,18 @@ export const ContentBlock = ({ block, onUpdate, onDelete }: ContentBlockProps) =
           )}
         </div>
       ) : (
-        <div className="space-y-2" onMouseUp={handleTextSelection}>
+        <div className="space-y-2" onMouseUp={readOnly ? undefined : handleTextSelection}>
           <div data-block-id={block.id}>
             <RichTextEditor
               value={block.content}
               onChange={(value) => onUpdate(block.id, value)}
-              onMarkHeading={block.type === "text" ? markAsHeading : undefined}
+              onMarkHeading={block.type === "text" && !readOnly ? markAsHeading : undefined}
               placeholder={getPlaceholder()}
               className="min-h-[150px]"
+              readOnly={readOnly}
             />
           </div>
-          {selectedText && block.type === "text" && (
+          {selectedText && block.type === "text" && !readOnly && (
             <Button
               size="sm"
               onClick={() => markAsHeading()}

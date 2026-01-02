@@ -1,11 +1,9 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { BookOpen, ChevronDown, ChevronRight, FileText, GraduationCap, LogIn } from "lucide-react";
+import { Sidebar } from "@/components/Sidebar";
+import { TopicEditor } from "@/components/TopicEditor";
+import { BookOpen, Sparkles } from "lucide-react";
 
 interface Subject {
   id: string;
@@ -22,17 +20,23 @@ interface Chapter {
 
 interface Topic {
   id: string;
-  subject_id: string;
-  chapter_id: string | null;
+  subjectId: string;
   title: string;
+  chapterId?: string | null;
 }
 
+// The public owner ID for read-only access
+const PUBLIC_OWNER_ID = "b6dc6569-25ba-4ea0-a7bf-607219aa8daf";
+
 const PublicLibrary = () => {
-  const navigate = useNavigate();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [activeSubject, setActiveSubject] = useState<string | null>(null);
+  const [activeChapter, setActiveChapter] = useState<string | null>(null);
+  const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
 
@@ -41,9 +45,9 @@ const PublicLibrary = () => {
       setLoading(true);
 
       const [subjectsRes, chaptersRes, topicsRes] = await Promise.all([
-        supabase.from("subjects").select("*").order("created_at", { ascending: false }),
-        supabase.from("chapters").select("*").order("chapter_order", { ascending: true }),
-        supabase.from("topics").select("*").order("created_at", { ascending: false }),
+        supabase.from("subjects").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
+        supabase.from("chapters").select("*").eq("user_id", PUBLIC_OWNER_ID).order("chapter_order", { ascending: true }),
+        supabase.from("topics").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
       ]);
 
       if (subjectsRes.data) setSubjects(subjectsRes.data);
@@ -51,9 +55,9 @@ const PublicLibrary = () => {
       if (topicsRes.data) {
         setTopics(topicsRes.data.map(t => ({
           id: t.id,
-          subject_id: t.subject_id || "",
-          chapter_id: t.chapter_id,
+          subjectId: t.subject_id || "",
           title: t.title,
+          chapterId: t.chapter_id,
         })));
       }
 
@@ -63,38 +67,43 @@ const PublicLibrary = () => {
     loadData();
   }, []);
 
-  const toggleSubject = (subjectId: string) => {
+  const handleSubjectSelect = (id: string) => {
+    setActiveSubject(id);
+    setActiveChapter(null);
+    setActiveTopic(null);
+  };
+
+  const handleChapterSelect = (id: string) => {
+    setActiveChapter(id);
+    setActiveTopic(null);
+  };
+
+  const handleTopicSelect = (id: string) => {
+    setActiveTopic(id);
+  };
+
+  const handleToggleSubject = (id: string) => {
     setExpandedSubjects(prev => {
       const next = new Set(prev);
-      if (next.has(subjectId)) {
-        next.delete(subjectId);
-      } else {
-        next.add(subjectId);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const toggleChapter = (chapterId: string) => {
+  const handleToggleChapter = (id: string) => {
     setExpandedChapters(prev => {
       const next = new Set(prev);
-      if (next.has(chapterId)) {
-        next.delete(chapterId);
-      } else {
-        next.add(chapterId);
-      }
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
       return next;
     });
   };
 
-  const getSubjectChapters = (subjectId: string) => 
-    chapters.filter(c => c.subject_id === subjectId);
-
-  const getChapterTopics = (chapterId: string) => 
-    topics.filter(t => t.chapter_id === chapterId);
-
-  const getUnchapteredTopics = (subjectId: string) => 
-    topics.filter(t => t.subject_id === subjectId && !t.chapter_id);
+  const getActiveTopicTitle = () => {
+    const topic = topics.find(t => t.id === activeTopic);
+    return topic?.title || "";
+  };
 
   const totalTopics = topics.length;
 
@@ -109,170 +118,67 @@ const PublicLibrary = () => {
   return (
     <>
       <SEOHead 
-        title="Study Notes Library"
-        description={`Browse ${totalTopics} study notes organized by subjects and chapters. Free educational resources for students.`}
+        title="IGNOU MA Psychology Study Notes"
+        description={`Browse ${totalTopics} study notes organized by subjects and chapters. Free educational resources for IGNOU MA Psychology students.`}
       />
       
-      <div className="min-h-screen bg-background">
-        {/* Header */}
-        <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-          <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <GraduationCap className="h-8 w-8 text-primary" />
-              <h1 className="text-2xl font-bold">Study Notes Library</h1>
-            </div>
-            <Button variant="outline" onClick={() => navigate("/auth")} className="gap-2">
-              <LogIn className="h-4 w-4" />
-              Sign In
-            </Button>
-          </div>
-        </header>
+      <div className="flex min-h-screen w-full">
+        <Sidebar
+          subjects={subjects}
+          chapters={chapters}
+          topics={topics}
+          activeSubject={activeSubject}
+          activeChapter={activeChapter}
+          activeTopic={activeTopic}
+          expandedSubjects={expandedSubjects}
+          expandedChapters={expandedChapters}
+          onSubjectSelect={handleSubjectSelect}
+          onChapterSelect={handleChapterSelect}
+          onTopicSelect={handleTopicSelect}
+          onToggleSubject={handleToggleSubject}
+          onToggleChapter={handleToggleChapter}
+          readOnly={true}
+        />
 
-        {/* Main Content */}
-        <main className="container mx-auto px-4 py-8">
-          {subjects.length === 0 ? (
-            <Card className="max-w-md mx-auto text-center py-12">
-              <CardContent>
-                <BookOpen className="h-16 w-16 mx-auto mb-4 text-muted-foreground/50" />
-                <h2 className="text-xl font-semibold mb-2">No Notes Available</h2>
-                <p className="text-muted-foreground">
-                  Check back later for study materials.
-                </p>
-              </CardContent>
-            </Card>
+        <main className="flex-1 overflow-hidden">
+          {activeTopic ? (
+            <TopicEditor
+              topicId={activeTopic}
+              topicTitle={getActiveTopicTitle()}
+              onBack={() => setActiveTopic(null)}
+              readOnly={true}
+              userId={PUBLIC_OWNER_ID}
+            />
           ) : (
-            <div className="space-y-6">
-              <div className="text-center mb-8">
-                <p className="text-muted-foreground">
-                  Browse {totalTopics} study notes across {subjects.length} subjects
+            <div className="h-full flex flex-col items-center justify-center p-8 bg-gradient-to-br from-primary/5 via-background to-secondary/5">
+              <div className="text-center max-w-2xl">
+                <div className="p-4 bg-gradient-to-br from-primary to-secondary rounded-2xl inline-block mb-6">
+                  <BookOpen className="w-12 h-12 text-white" />
+                </div>
+                <h1 className="text-4xl font-bold mb-4 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                  IGNOU MA Psychology Study Notes
+                </h1>
+                <p className="text-lg text-muted-foreground mb-8">
+                  Browse {totalTopics} study notes across {subjects.length} subjects. 
+                  Select a topic from the sidebar to start reading.
                 </p>
-              </div>
-
-              <div className="grid gap-4">
-                {subjects.map(subject => {
-                  const subjectChapters = getSubjectChapters(subject.id);
-                  const unchapteredTopics = getUnchapteredTopics(subject.id);
-                  const isExpanded = expandedSubjects.has(subject.id);
-                  const subjectTopicCount = topics.filter(t => t.subject_id === subject.id).length;
-
-                  return (
-                    <Card key={subject.id} className="overflow-hidden">
-                      <Collapsible open={isExpanded} onOpenChange={() => toggleSubject(subject.id)}>
-                        <CollapsibleTrigger className="w-full">
-                          <CardHeader className="flex flex-row items-center gap-4 hover:bg-accent/50 transition-colors cursor-pointer">
-                            <div 
-                              className="w-4 h-4 rounded-full shrink-0"
-                              style={{ backgroundColor: subject.color }}
-                            />
-                            <CardTitle className="flex-1 text-left text-lg">
-                              {subject.name}
-                            </CardTitle>
-                            <span className="text-sm text-muted-foreground mr-2">
-                              {subjectTopicCount} topics
-                            </span>
-                            {isExpanded ? (
-                              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                            ) : (
-                              <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                            )}
-                          </CardHeader>
-                        </CollapsibleTrigger>
-                        
-                        <CollapsibleContent>
-                          <CardContent className="pt-0 space-y-4">
-                            {/* Chapters */}
-                            {subjectChapters.map(chapter => {
-                              const chapterTopics = getChapterTopics(chapter.id);
-                              const isChapterExpanded = expandedChapters.has(chapter.id);
-
-                              return (
-                                <Collapsible 
-                                  key={chapter.id} 
-                                  open={isChapterExpanded} 
-                                  onOpenChange={() => toggleChapter(chapter.id)}
-                                >
-                                  <CollapsibleTrigger className="w-full flex items-center gap-3 p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors cursor-pointer">
-                                    <BookOpen className="h-4 w-4 text-muted-foreground" />
-                                    <span className="font-medium flex-1 text-left">{chapter.name}</span>
-                                    <span className="text-sm text-muted-foreground">
-                                      {chapterTopics.length} topics
-                                    </span>
-                                    {isChapterExpanded ? (
-                                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                                    ) : (
-                                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                                    )}
-                                  </CollapsibleTrigger>
-                                  
-                                  <CollapsibleContent>
-                                    <div className="ml-7 mt-2 space-y-1">
-                                      {chapterTopics.map(topic => (
-                                        <button
-                                          key={topic.id}
-                                          onClick={() => navigate(`/library/topic/${topic.id}`)}
-                                          className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent transition-colors text-left"
-                                        >
-                                          <FileText className="h-4 w-4 text-muted-foreground" />
-                                          <span className="text-sm">{topic.title}</span>
-                                        </button>
-                                      ))}
-                                      {chapterTopics.length === 0 && (
-                                        <p className="text-sm text-muted-foreground py-2">
-                                          No topics in this chapter yet.
-                                        </p>
-                                      )}
-                                    </div>
-                                  </CollapsibleContent>
-                                </Collapsible>
-                              );
-                            })}
-
-                            {/* Unchaptered Topics */}
-                            {unchapteredTopics.length > 0 && (
-                              <div className="space-y-1">
-                                {subjectChapters.length > 0 && (
-                                  <p className="text-sm text-muted-foreground mb-2 font-medium">
-                                    Other Topics
-                                  </p>
-                                )}
-                                {unchapteredTopics.map(topic => (
-                                  <button
-                                    key={topic.id}
-                                    onClick={() => navigate(`/library/topic/${topic.id}`)}
-                                    className="w-full flex items-center gap-2 p-2 rounded-md hover:bg-accent transition-colors text-left"
-                                  >
-                                    <FileText className="h-4 w-4 text-muted-foreground" />
-                                    <span className="text-sm">{topic.title}</span>
-                                  </button>
-                                ))}
-                              </div>
-                            )}
-
-                            {subjectChapters.length === 0 && unchapteredTopics.length === 0 && (
-                              <p className="text-sm text-muted-foreground text-center py-4">
-                                No topics in this subject yet.
-                              </p>
-                            )}
-                          </CardContent>
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </Card>
-                  );
-                })}
+                
+                <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span>Want to create your own study notes?</span>
+                  <a 
+                    href="https://lovable.dev" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline font-medium"
+                  >
+                    Remix this app with Lovable
+                  </a>
+                </div>
               </div>
             </div>
           )}
         </main>
-
-        {/* Footer */}
-        <footer className="border-t bg-card/50 mt-12">
-          <div className="container mx-auto px-4 py-6 text-center text-sm text-muted-foreground">
-            <p>Want to create your own study notes?</p>
-            <Button variant="link" onClick={() => navigate("/auth")} className="text-primary">
-              Sign up for free
-            </Button>
-          </div>
-        </footer>
       </div>
     </>
   );
