@@ -12,7 +12,7 @@ import katex from "katex";
 export const renderMathInHTML = (html: string): string => {
   if (!html) return html;
   // Skip work if no delimiters at all
-  if (!/\$|\\(|\\[/.test(html)) return html;
+  if (!/\$|\\\(|\\\[/.test(html)) return html;
 
   const container = document.createElement("div");
   container.innerHTML = html;
