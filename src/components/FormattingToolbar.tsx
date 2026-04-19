@@ -424,6 +424,7 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
   };
 
   return (
+    <>
     <div 
       className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
       onMouseDown={(e) => e.preventDefault()}
@@ -696,5 +697,11 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
         <Redo className="w-3.5 h-3.5" />
       </Button>
     </div>
+    <MathInsertDialog
+      open={mathDialogOpen}
+      onOpenChange={setMathDialogOpen}
+      onInsert={handleInsertMath}
+    />
+    </>
   );
 };
