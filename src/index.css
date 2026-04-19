@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import "katex/dist/katex.min.css";
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -95,5 +97,26 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+
+  /* Math (KaTeX) rendering */
+  .math-display {
+    display: block;
+    text-align: center;
+    margin: 0.75em 0;
+    overflow-x: auto;
+  }
+  .math-inline {
+    display: inline-block;
+    vertical-align: middle;
+  }
+  [data-latex] {
+    cursor: default;
+    user-select: all;
+  }
+  /* Subtle hover hint that math is a single editable unit */
+  [contenteditable="true"] [data-latex]:hover {
+    outline: 1px dashed hsl(var(--primary) / 0.4);
+    border-radius: 2px;
   }
 }
