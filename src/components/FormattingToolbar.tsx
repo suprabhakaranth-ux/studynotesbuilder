@@ -47,8 +47,26 @@ const colorOptions = [
 
 export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingToolbarProps) => {
   const [formatPainterActive, setFormatPainterActive] = useState(false);
+  const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const copiedFormatRef = useRef<any>(null);
   const { toast } = useToast();
+
+  const handleInsertMath = (snippet: string) => {
+    // Find the focused editor and use its __insertContent helper (handles
+    // re-rendering math after insertion). Falls back to plain insertion.
+    const focused = document.activeElement;
+    let editable = focused?.closest('[contenteditable="true"]') as HTMLElement | null;
+    if (!editable) {
+      // Last resort: any contenteditable on the page
+      editable = document.querySelector('[contenteditable="true"]') as HTMLElement | null;
+    }
+    if (editable && typeof (editable as any).__insertContent === "function") {
+      editable.focus();
+      (editable as any).__insertContent(snippet);
+    } else {
+      insertContentAtCursor(snippet);
+    }
+  };
 
   const handlePasteSpecial = async (mode: "source" | "destination" | "text") => {
     try {
