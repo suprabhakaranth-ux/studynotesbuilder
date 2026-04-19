@@ -546,6 +546,16 @@ export const FormattingToolbar = ({ onMarkHeading, onUndo, onRedo }: FormattingT
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => setMathDialogOpen(true)}
+        className="h-8 w-8 p-0 hover:bg-primary/10"
+        title="Insert math formula (LaTeX, with image fallback)"
+      >
+        <Sigma className="w-3.5 h-3.5" />
+      </Button>
+
       <div className="w-px h-6 bg-border" />
 
       <Button
