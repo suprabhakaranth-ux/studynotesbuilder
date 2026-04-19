@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo, Paintbrush, ClipboardPaste } from "lucide-react";
+import { Bold, Italic, Underline, AlignLeft, AlignCenter, AlignRight, Strikethrough, Highlighter, List, ListOrdered, Indent, Outdent, Heading, Undo, Redo, Paintbrush, ClipboardPaste, Sigma } from "lucide-react";
+import { MathInsertDialog } from "./MathInsertDialog";
 import { Button } from "@/components/ui/button";
 import {
   Select,
