@@ -1,4 +1,5 @@
 import { Paragraph, TextRun, HeadingLevel, PageBreak } from "docx";
+import { restoreMathSource } from "@/utils/mathRenderer";
 
 /**
  * Convert CSS pixel values to twip (twentieth of a point)
@@ -101,8 +102,12 @@ const processInline = (
 export const parseHtmlToRuns = (html: string): TextRun[] => {
   if (!html) return [];
 
+  // Convert any rendered math nodes back to their LaTeX source so they
+  // export as readable text in Word.
+  const prepared = restoreMathSource(html);
+
   const root = document.createElement("div");
-  root.innerHTML = html;
+  root.innerHTML = prepared;
 
   // Temporarily attach to DOM for getComputedStyle to work
   root.style.position = "absolute";
@@ -122,8 +127,10 @@ export const parseHtmlToRuns = (html: string): TextRun[] => {
 export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
   if (!html) return [];
 
+  const prepared = restoreMathSource(html);
+
   const root = document.createElement("div");
-  root.innerHTML = html;
+  root.innerHTML = prepared;
 
   // Temporarily attach to DOM for getComputedStyle to work
   root.style.position = "absolute";
