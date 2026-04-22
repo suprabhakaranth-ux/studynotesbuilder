@@ -119,4 +119,14 @@ All colors MUST be HSL.
     outline: 1px dashed hsl(var(--primary) / 0.4);
     border-radius: 2px;
   }
+
+  /* Math insert dialog preview: let KaTeX block layout work naturally */
+  .math-preview .katex-display {
+    margin: 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .math-preview .katex-display > .katex {
+    white-space: nowrap;
+  }
 }

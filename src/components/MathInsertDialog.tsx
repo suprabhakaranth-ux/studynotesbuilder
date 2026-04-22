@@ -116,8 +116,6 @@ export const MathInsertDialog = ({
     if (formula) {
       setLatex(formula.latex);
       setMode("display");
-      // Reset picker so the same formula can be re-selected later
-      setTimeout(() => setPickerValue(""), 0);
     }
   };
 
@@ -152,17 +150,17 @@ export const MathInsertDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 pt-6 pb-2 shrink-0">
           <DialogTitle>Insert math formula</DialogTitle>
           <DialogDescription>
             Pick a formula from your booklet, click symbols to build one, or paste LaTeX.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 px-6 py-2 overflow-y-auto flex-1 min-w-0">
           {/* Formula library picker */}
-          <div>
+          <div className="min-w-0">
             <Label className="text-sm mb-1 block">Formula library (booklet)</Label>
             <Select value={pickerValue} onValueChange={handlePickFormula}>
               <SelectTrigger>
@@ -184,7 +182,7 @@ export const MathInsertDialog = ({
           </div>
 
           {/* Symbol palette */}
-          <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+          <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3 min-w-0">
             {SYMBOL_PALETTE.map((g) => (
               <div key={g.group}>
                 <div className="text-xs text-muted-foreground mb-1.5 font-medium">
@@ -209,7 +207,7 @@ export const MathInsertDialog = ({
             ))}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <Label htmlFor="latex-input" className="text-sm">LaTeX</Label>
             <Textarea
               id="latex-input"
@@ -225,7 +223,7 @@ export const MathInsertDialog = ({
             </p>
           </div>
 
-          <div>
+          <div className="min-w-0">
             <Label className="text-sm mb-2 block">Insert as</Label>
             <RadioGroup
               value={mode}
@@ -259,16 +257,16 @@ export const MathInsertDialog = ({
             )}
           </div>
 
-          <div>
+          <div className="min-w-0">
             <Label className="text-sm">Preview</Label>
             <div
-              className="mt-1 rounded-md border border-border bg-muted/30 p-4 min-h-[80px] flex items-center justify-center overflow-x-auto"
+              className="math-preview mt-1 rounded-md border border-border bg-muted/30 p-4 min-h-[80px] max-w-full overflow-x-auto"
               dangerouslySetInnerHTML={{ __html: previewHtml }}
             />
           </div>
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="px-6 py-4 border-t border-border bg-background shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
