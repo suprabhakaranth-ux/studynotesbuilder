@@ -116,8 +116,6 @@ export const MathInsertDialog = ({
     if (formula) {
       setLatex(formula.latex);
       setMode("display");
-      // Reset picker so the same formula can be re-selected later
-      setTimeout(() => setPickerValue(""), 0);
     }
   };
 
