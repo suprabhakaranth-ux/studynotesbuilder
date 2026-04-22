@@ -199,14 +199,6 @@ const findMatchingEnd = (
   return null;
 };
 
-// We only inserted HTML for the math segments; the rest of `text` is plain
-// text and must be HTML-escaped to keep angle brackets safe. But our
-// regex .replace() preserved the original text — since the source was a
-// text node (already plain), the only HTML we added is the <span>/<div>
-// for math, which uses safe characters. So no extra escaping needed
-// beyond what KaTeX produced. This helper exists if we ever need it.
-const escapePlainSegments = (s: string): string => s;
-
 const encodeAttr = (s: string): string =>
   s
     .replace(/&/g, "&amp;")
