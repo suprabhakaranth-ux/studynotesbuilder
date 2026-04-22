@@ -1,68 +1,49 @@
 
 
-## Strategy: One-click formula library + lightweight symbol palette
+## Fix the Math Insert dialog — preview, layout, and picker
 
-Based on your booklet, you have **~17 fixed formulas** you'll use repeatedly. The simplest, most reliable approach:
+Three issues to fix in `src/components/MathInsertDialog.tsx` (and a small CSS tweak):
 
-### 1. Pre-built Formula Library (the main solution — covers 95% of your needs)
+### Issue 1 — Preview renders broken/flat (no stacked fraction, square root running off)
 
-In the Math (Σ) dialog, add a categorised dropdown/grid of **every formula from your booklet**, ready to insert with one click. You never type LaTeX. You just pick "Pearson r" → it inserts the fully-formatted 2D fraction → done.
+**Cause:** The preview container uses `flex items-center justify-center overflow-x-auto`. The flex centering collapses KaTeX's `.katex-display` block layout, and `overflow-x-auto` lets the sqrt bar extend beyond the visible width instead of scaling/wrapping. The result is the broken layout in your screenshot.
 
-**Categories & formulas (exactly as in your booklet):**
+**Fix:**
+- Remove `flex items-center justify-center` from the preview wrapper. KaTeX's `.katex-display` already centers itself.
+- Keep `overflow-x: auto` but constrain the inner KaTeX block with a small CSS rule so very wide formulas (Pearson r full) shrink to fit on first view, with horizontal scroll only when truly needed.
+- Add a max-width constraint and proper padding so tall stacked fractions get vertical room.
 
-| Category | Formulas |
-|----------|----------|
-| **Standard Deviation** | SD master formula |
-| **Correlation** | Pearson r (short form via Cov), Pearson r (full computational form) |
-| **Regression** | Sₓ², Sy², Covₓy, Y = a + bX (with b, a), X = a + bY (with b, a) |
-| **One-Way ANOVA** | SSB, SSW, SST, MSB, MSW, F-ratio |
-| **Spearman ρ** | Untied ranks, Tied ranks |
-| **Kendall τ** | tau formula |
-| **Mann-Whitney** | U, U′, U + U′ identity |
-| **Chi-Square** | χ², Expected Frequency |
+### Issue 2 — Insert button off-screen, horizontal scroll inside dialog
 
-Click any → fully rendered stacked fraction inserted into the note.
+**Cause:** The wide preview content stretches the dialog body horizontally, pushing the footer (Insert/Cancel) out of view. The dialog uses `max-w-3xl max-h-[90vh] overflow-y-auto` — the whole content scrolls, including the footer.
 
-### 2. Symbol Palette (for the rare custom case)
+**Fix:**
+- Make the dialog body itself the scroll container, and pin `DialogFooter` to the bottom (sticky) so Insert/Cancel are always visible.
+- Add `overflow-x: hidden` on the dialog content and let only the preview pane scroll horizontally if needed.
+- Increase max width slightly (`max-w-4xl`) and constrain inner sections to `min-w-0` so flex children can shrink.
 
-A small grid above the LaTeX textarea — click to insert at cursor with caret pre-positioned inside the first `{}`:
+### Issue 3 — Picker selection clears itself / doesn't stay shown
 
-- **Structure:** `a/b` (frac), `√` (sqrt), `x²` (sup), `xₙ` (sub), `( )` (auto-paren)
-- **Operators:** Σ, ∏, ∫, ±, ×, ÷, ≤, ≥, ≠, ≈, ∞
-- **Greek:** α β μ σ ρ χ τ π θ λ
+**Cause:** `handlePickFormula` calls `setTimeout(() => setPickerValue(""), 0)` to reset the dropdown — that's why it snaps back to "Pick a formula…" placeholder even though the LaTeX loaded.
 
-This is the fallback for when you need to tweak a formula or build something not in the booklet.
+**Fix:**
+- Keep `pickerValue` set to the chosen formula so the dropdown shows what's loaded (e.g. "Pearson r (full computational)").
+- To allow re-picking the same formula, also re-trigger the load if the user re-selects the same item: track the last loaded value and reset on dialog open only.
 
-### 3. Live preview (already exists)
-
-You see the stacked 2D output as you build, exactly like the booklet.
-
-## Workflow you'll experience
-
-**Common case (95%):** Open Math dialog → click "Pearson r (full)" → see the perfect stacked fraction → click Insert. **3 clicks, zero typing.**
-
-**Custom case (5%):** Open Math dialog → click `a/b` button → type numerator → Tab → type denominator → Insert.
-
-## Files to modify
+### Files to modify
 
 | File | Change |
 |------|--------|
-| `src/data/formulaLibrary.ts` | **NEW** — all 17 booklet formulas as `{label, latex, category}` |
-| `src/components/MathInsertDialog.tsx` | Add categorised formula picker + symbol palette + smart cursor insert |
+| `src/components/MathInsertDialog.tsx` | Preview wrapper (no flex-center), sticky footer, wider dialog, `min-w-0` on flex children, picker keeps selection |
+| `src/index.css` | Add `.math-preview .katex-display { margin: 0; }` and ensure `.katex-display` inside the preview can scroll horizontally without stretching the parent |
 
-That's it — 1 new file + 1 modified file. The existing renderer, image fallback, and paste handling all stay as-is.
+### What stays the same
+- Formula library data (`formulaLibrary.ts`) — unchanged
+- Symbol palette, insert modes (Inline/Display/Image), KaTeX renderer, paste handling — all unchanged
+- The `$$S_x^2 = \dfrac{\sum x^2}{n} - \left(\dfrac{\sum x}{n}\right)^2$$` and Pearson r formulas you pasted are valid LaTeX and will render correctly once the preview wrapper is fixed.
 
-## Why this is the simplest path
-- **No new dependencies** — uses what we already built
-- **No keyboard remapping** — works with your normal keyboard
-- **No learning curve** — pick from a list, see the result
-- **Booklet-aligned** — every formula you'll ever need for this paper is one click away
-- **Extensible** — when your professor adds a new formula, I add one line to `formulaLibrary.ts`
-
-## Out of scope
-- Always-visible floating math keyboard in the editor (clutters the writing surface; the dialog is one click away)
-- Click-to-edit an inserted formula (still: delete + reinsert via dialog)
-- OCR/handwriting input
-
-Approve this plan and I'll build it.
+### Verification after fix
+- Open Math (Σ) → pick "Pearson r (full computational)" → dropdown shows the chosen label, preview shows a properly stacked fraction with horizontal sqrt bar correctly sized over the bracketed denominator, Insert button visible without horizontal scroll.
+- Insert → note shows the formula as a centered 2D stacked fraction (matching the booklet).
+- Re-open dialog and pick a different formula → switches cleanly.
 
