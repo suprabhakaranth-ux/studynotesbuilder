@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import katex from "katex";
 import {
   Dialog,
@@ -12,8 +12,18 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { latexToImage, buildFormulaImageHtml } from "@/utils/formulaToImage";
+import { FORMULA_LIBRARY, SYMBOL_PALETTE } from "@/data/formulaLibrary";
 
 type InsertMode = "inline" | "display" | "image";
 
@@ -25,13 +35,6 @@ interface MathInsertDialogProps {
   initialLatex?: string;
 }
 
-const EXAMPLES = [
-  { label: "Quadratic", latex: "x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}" },
-  { label: "Regression", latex: "b = \\frac{\\sum xy - \\frac{(\\sum x)(\\sum y)}{n}}{\\sum x^2 - \\frac{(\\sum x)^2}{n}}" },
-  { label: "Einstein", latex: "E = mc^2" },
-  { label: "Sum", latex: "\\sum_{i=1}^{n} x_i" },
-];
-
 export const MathInsertDialog = ({
   open,
   onOpenChange,
@@ -41,12 +44,15 @@ export const MathInsertDialog = ({
   const [latex, setLatex] = useState(initialLatex);
   const [mode, setMode] = useState<InsertMode>("display");
   const [busy, setBusy] = useState(false);
+  const [pickerValue, setPickerValue] = useState<string>("");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     if (open) {
       setLatex(initialLatex);
       setMode("display");
+      setPickerValue("");
     }
   }, [open, initialLatex]);
 
@@ -75,6 +81,45 @@ export const MathInsertDialog = ({
       return false;
     }
   }, [latex]);
+
+  /** Insert a snippet at the textarea cursor with optional caret placement. */
+  const insertAtCursor = (snippet: string, caretOffset?: number) => {
+    const ta = textareaRef.current;
+    if (!ta) {
+      setLatex((prev) => prev + snippet);
+      return;
+    }
+    const start = ta.selectionStart ?? latex.length;
+    const end = ta.selectionEnd ?? latex.length;
+    const before = latex.slice(0, start);
+    const after = latex.slice(end);
+    const next = before + snippet + after;
+    setLatex(next);
+
+    // Restore caret on next tick
+    requestAnimationFrame(() => {
+      const target = ta;
+      if (!target) return;
+      const caret =
+        caretOffset !== undefined
+          ? start + caretOffset
+          : start + snippet.length;
+      target.focus();
+      target.setSelectionRange(caret, caret);
+    });
+  };
+
+  const handlePickFormula = (value: string) => {
+    setPickerValue(value);
+    const [catIdx, formIdx] = value.split(":").map(Number);
+    const formula = FORMULA_LIBRARY[catIdx]?.formulas[formIdx];
+    if (formula) {
+      setLatex(formula.latex);
+      setMode("display");
+      // Reset picker so the same formula can be re-selected later
+      setTimeout(() => setPickerValue(""), 0);
+    }
+  };
 
   const handleInsert = async () => {
     const trimmed = latex.trim();
@@ -107,42 +152,77 @@ export const MathInsertDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Insert math formula</DialogTitle>
           <DialogDescription>
-            Paste LaTeX from ChatGPT, Claude, Wikipedia, or type your own.
-            Choose how it should be inserted.
+            Pick a formula from your booklet, click symbols to build one, or paste LaTeX.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
+          {/* Formula library picker */}
+          <div>
+            <Label className="text-sm mb-1 block">Formula library (booklet)</Label>
+            <Select value={pickerValue} onValueChange={handlePickFormula}>
+              <SelectTrigger>
+                <SelectValue placeholder="Pick a formula to insert…" />
+              </SelectTrigger>
+              <SelectContent className="max-h-[320px]">
+                {FORMULA_LIBRARY.map((cat, ci) => (
+                  <SelectGroup key={cat.category}>
+                    <SelectLabel>{cat.category}</SelectLabel>
+                    {cat.formulas.map((f, fi) => (
+                      <SelectItem key={`${ci}:${fi}`} value={`${ci}:${fi}`}>
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Symbol palette */}
+          <div className="rounded-md border border-border bg-muted/20 p-3 space-y-3">
+            {SYMBOL_PALETTE.map((g) => (
+              <div key={g.group}>
+                <div className="text-xs text-muted-foreground mb-1.5 font-medium">
+                  {g.group}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {g.symbols.map((s) => (
+                    <Button
+                      key={s.label + s.insert}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      title={s.title || s.insert}
+                      className="h-8 min-w-[2.25rem] px-2 text-sm font-serif"
+                      onClick={() => insertAtCursor(s.insert, s.caretOffset)}
+                    >
+                      {s.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
           <div>
             <Label htmlFor="latex-input" className="text-sm">LaTeX</Label>
             <Textarea
               id="latex-input"
+              ref={textareaRef}
               value={latex}
               onChange={(e) => setLatex(e.target.value)}
-              placeholder={"e.g.  x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}"}
+              placeholder={"Pick a formula above, click symbols, or paste LaTeX (e.g.  \\frac{a}{b})"}
               className="font-mono text-sm min-h-[100px] mt-1"
               autoFocus
             />
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <span className="text-xs text-muted-foreground self-center">Examples:</span>
-            {EXAMPLES.map((ex) => (
-              <Button
-                key={ex.label}
-                type="button"
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={() => setLatex(ex.latex)}
-              >
-                {ex.label}
-              </Button>
-            ))}
+            <p className="text-xs text-muted-foreground mt-1">
+              Tip: click <span className="font-mono">a⁄b</span> to insert an empty fraction, then type the numerator and denominator.
+            </p>
           </div>
 
           <div>
