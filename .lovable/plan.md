@@ -1,54 +1,68 @@
 
 
-## Plan: Add "Paste as Image" Fallback for Formulas
+## Strategy: One-click formula library + lightweight symbol palette
 
-### Goal
-When pasted LaTeX/formula content fails to render properly (or the user prefers an image), provide a one-click fallback that converts the formula to an image and inserts it into the notes.
+Based on your booklet, you have **~17 fixed formulas** you'll use repeatedly. The simplest, most reliable approach:
 
-### Approach
-Two complementary mechanisms:
+### 1. Pre-built Formula Library (the main solution — covers 95% of your needs)
 
-**1. Manual fallback (always available)**
-In the Math Insert Dialog (already planned), add an "Insert as Image" toggle alongside the existing "Inline / Display" toggle. When chosen, KaTeX renders the LaTeX → we convert the rendered DOM to a PNG via `html-to-image` (already a lightweight option) → insert as an `<img>` block.
+In the Math (Σ) dialog, add a categorised dropdown/grid of **every formula from your booklet**, ready to insert with one click. You never type LaTeX. You just pick "Pearson r" → it inserts the fully-formatted 2D fraction → done.
 
-**2. Automatic fallback on paste**
-When the editor detects a `$...$` or `$$...$$` paste and KaTeX throws a parse error (invalid LaTeX), instead of showing the error, we:
-- Show a small inline prompt: *"Couldn't render this formula. Insert as image instead?"*
-- On confirm: render whatever we can (or the raw text in a styled box) → snapshot to PNG → insert as image
+**Categories & formulas (exactly as in your booklet):**
 
-### Implementation Details
+| Category | Formulas |
+|----------|----------|
+| **Standard Deviation** | SD master formula |
+| **Correlation** | Pearson r (short form via Cov), Pearson r (full computational form) |
+| **Regression** | Sₓ², Sy², Covₓy, Y = a + bX (with b, a), X = a + bY (with b, a) |
+| **One-Way ANOVA** | SSB, SSW, SST, MSB, MSW, F-ratio |
+| **Spearman ρ** | Untied ranks, Tied ranks |
+| **Kendall τ** | tau formula |
+| **Mann-Whitney** | U, U′, U + U′ identity |
+| **Chi-Square** | χ², Expected Frequency |
 
-**New dependency:** `html-to-image` (~15KB, no canvas/server needed)
+Click any → fully rendered stacked fraction inserted into the note.
 
-**New file: `src/utils/formulaToImage.ts`**
-- `latexToImage(latex, displayMode)`: renders LaTeX into a hidden offscreen div with KaTeX → uses `html-to-image` `toPng()` → returns a base64 PNG data URL
-- Handles styling (white background, padding, 2x scale for retina sharpness)
+### 2. Symbol Palette (for the rare custom case)
 
-**Modify `src/components/MathInsertDialog.tsx`** (the planned new dialog)
-- Add a third option in the insert mode: **Inline / Display / Image**
-- "Image" mode shows the same live preview but inserts as `<img src="data:image/png;...">` instead of `$...$`
+A small grid above the LaTeX textarea — click to insert at cursor with caret pre-positioned inside the first `{}`:
 
-**Modify `src/components/RichTextEditor.tsx`**
-- When paste contains `$...$`/`$$...$$` and KaTeX render throws → show toast: *"Formula couldn't be rendered. [Insert as image] [Cancel]"*
-- "Insert as image" calls `latexToImage()` and inserts the resulting `<img>` at cursor
+- **Structure:** `a/b` (frac), `√` (sqrt), `x²` (sup), `xₙ` (sub), `( )` (auto-paren)
+- **Operators:** Σ, ∏, ∫, ±, ×, ÷, ≤, ≥, ≠, ≈, ∞
+- **Greek:** α β μ σ ρ χ τ π θ λ
 
-**Modify `src/utils/wordExport.ts`**
-- Already handles `<img>` tags → no changes needed; image-mode formulas export to Word natively
+This is the fallback for when you need to tweak a formula or build something not in the booklet.
 
-### Files to Create / Modify
+### 3. Live preview (already exists)
+
+You see the stacked 2D output as you build, exactly like the booklet.
+
+## Workflow you'll experience
+
+**Common case (95%):** Open Math dialog → click "Pearson r (full)" → see the perfect stacked fraction → click Insert. **3 clicks, zero typing.**
+
+**Custom case (5%):** Open Math dialog → click `a/b` button → type numerator → Tab → type denominator → Insert.
+
+## Files to modify
 
 | File | Change |
 |------|--------|
-| `package.json` | Add `html-to-image` dependency |
-| `src/utils/formulaToImage.ts` | **NEW** — LaTeX → PNG data URL |
-| `src/components/MathInsertDialog.tsx` | Add "Image" insert mode (alongside Inline/Display) |
-| `src/components/RichTextEditor.tsx` | Auto-fallback prompt when KaTeX parse fails on paste |
+| `src/data/formulaLibrary.ts` | **NEW** — all 17 booklet formulas as `{label, latex, category}` |
+| `src/components/MathInsertDialog.tsx` | Add categorised formula picker + symbol palette + smart cursor insert |
 
-### When to use which mode
-- **Text mode (`$...$`)** — default, editable, lightweight, scales with font size
-- **Image mode** — use when: formula is very complex, you want pixel-perfect appearance, or LaTeX can't be parsed
+That's it — 1 new file + 1 modified file. The existing renderer, image fallback, and paste handling all stay as-is.
 
-### Out of scope
-- Editing the formula after it's inserted as an image (you'd delete + reinsert)
-- Server-side rendering (everything happens in-browser)
+## Why this is the simplest path
+- **No new dependencies** — uses what we already built
+- **No keyboard remapping** — works with your normal keyboard
+- **No learning curve** — pick from a list, see the result
+- **Booklet-aligned** — every formula you'll ever need for this paper is one click away
+- **Extensible** — when your professor adds a new formula, I add one line to `formulaLibrary.ts`
+
+## Out of scope
+- Always-visible floating math keyboard in the editor (clutters the writing surface; the dialog is one click away)
+- Click-to-edit an inserted formula (still: delete + reinsert via dialog)
+- OCR/handwriting input
+
+Approve this plan and I'll build it.
 
