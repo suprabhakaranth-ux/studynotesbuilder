@@ -2,8 +2,6 @@
 @tailwind components;
 @tailwind utilities;
 
-@import "katex/dist/katex.min.css";
-
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
@@ -110,6 +108,24 @@ All colors MUST be HSL.
     display: inline-block;
     vertical-align: middle;
   }
+  .math-inline .katex,
+  .math-display .katex,
+  .math-preview .katex {
+    font-size: 1.05em;
+  }
+  .math-inline .katex .msupsub,
+  .math-display .katex .msupsub,
+  .math-preview .katex .msupsub {
+    text-align: left;
+  }
+  .math-inline .katex sup,
+  .math-inline .katex sub,
+  .math-display .katex sup,
+  .math-display .katex sub,
+  .math-preview .katex sup,
+  .math-preview .katex sub {
+    font-size: inherit;
+  }
   [data-latex] {
     cursor: default;
     user-select: all;
@@ -125,8 +141,11 @@ All colors MUST be HSL.
     margin: 0;
     overflow-x: auto;
     overflow-y: hidden;
+    padding: 0.25rem 0;
   }
   .math-preview .katex-display > .katex {
     white-space: nowrap;
+    display: inline-block;
+    min-width: 0;
   }
 }

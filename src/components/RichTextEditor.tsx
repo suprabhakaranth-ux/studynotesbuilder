@@ -140,7 +140,10 @@ export const RichTextEditor = ({
       (editorRef.current as any).__performRedo = performRedo;
       // Expose insertContent for the math dialog to use
       (editorRef.current as any).__insertContent = (snippet: string) => {
-        insertHtmlAtCursor(snippet);
+        const contentToInsert = containsMath(snippet)
+          ? renderMathInHTML(snippet)
+          : snippet;
+        insertHtmlAtCursor(contentToInsert);
         emitChange();
       };
     }
