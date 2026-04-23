@@ -177,14 +177,23 @@ export const RichTextEditor = ({
       (editorRef.current as any).__performRedo = performRedo;
       // Expose insertContent for the math dialog to use
       (editorRef.current as any).__insertContent = (snippet: string) => {
+        clearMathSelection();
         const contentToInsert = containsMath(snippet)
           ? renderMathInHTML(snippet)
           : snippet;
         insertHtmlAtCursor(contentToInsert);
+        const insertedMath = editorRef.current?.querySelector<HTMLElement>(".math-node:last-of-type");
+        if (insertedMath?.classList.contains("math-display")) {
+          const editableLine = ensureEditableLineAfter(insertedMath);
+          if (editableLine) placeCursorAfter(editableLine);
+        } else if (insertedMath?.classList.contains("math-inline")) {
+          insertedMath.after(document.createTextNode(" "));
+          placeCursorAfter(insertedMath.nextSibling || insertedMath);
+        }
         emitChange();
       };
     }
-  }, [performUndo, performRedo, emitChange]);
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, performUndo, performRedo, placeCursorAfter]);
 
   // Insert HTML at the current cursor position inside the editor
   const insertHtmlAtCursor = (html: string) => {
