@@ -80,7 +80,7 @@ const replaceMathInText = (text: string): string | null => {
           output: "html",
         });
         const tag = token.display ? "div" : "span";
-        const cls = token.display ? "math-display" : "math-inline";
+        const cls = token.display ? "math-display math-node" : "math-inline math-node";
         const encoded = encodeAttr(token.latex);
         return `<${tag} class="${cls}" data-latex="${encoded}" data-display="${token.display}" contenteditable="false">${rendered}</${tag}>`;
       } catch {
