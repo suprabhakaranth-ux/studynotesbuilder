@@ -181,8 +181,8 @@ export const RichTextEditor = ({
         const contentToInsert = containsMath(snippet)
           ? renderMathInHTML(snippet)
           : snippet;
-        insertHtmlAtCursor(contentToInsert);
-        const insertedMath = editorRef.current?.querySelector<HTMLElement>(".math-node:last-of-type");
+        const insertedNodes = insertHtmlAtCursor(contentToInsert);
+        const insertedMath = insertedNodes.at(-1);
         if (insertedMath?.classList.contains("math-display")) {
           const editableLine = ensureEditableLineAfter(insertedMath);
           if (editableLine) placeCursorAfter(editableLine);
@@ -196,34 +196,40 @@ export const RichTextEditor = ({
   }, [clearMathSelection, emitChange, ensureEditableLineAfter, performUndo, performRedo, placeCursorAfter]);
 
   // Insert HTML at the current cursor position inside the editor
-  const insertHtmlAtCursor = (html: string) => {
-    if (!editorRef.current) return;
+  const insertHtmlAtCursor = (html: string): HTMLElement[] => {
+    if (!editorRef.current) return [];
     editorRef.current.focus();
+    const buildFragment = () => {
+      const fragment = document.createDocumentFragment();
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      while (div.firstChild) fragment.appendChild(div.firstChild);
+      return fragment;
+    };
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
       // Append to end if no selection
-      const div = document.createElement("div");
-      div.innerHTML = html;
-      while (div.firstChild) editorRef.current.appendChild(div.firstChild);
-      return;
+      const fragment = buildFragment();
+      const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
+      editorRef.current.appendChild(fragment);
+      return mathNodes;
     }
     const range = selection.getRangeAt(0);
     // Make sure cursor is inside this editor
     if (!editorRef.current.contains(range.commonAncestorContainer)) {
-      const div = document.createElement("div");
-      div.innerHTML = html;
-      while (div.firstChild) editorRef.current.appendChild(div.firstChild);
-      return;
+      const fragment = buildFragment();
+      const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
+      editorRef.current.appendChild(fragment);
+      return mathNodes;
     }
     range.deleteContents();
-    const fragment = document.createDocumentFragment();
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    while (div.firstChild) fragment.appendChild(div.firstChild);
+    const fragment = buildFragment();
+    const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
     range.insertNode(fragment);
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+    return mathNodes;
   };
 
   // Detect formulas in pasted text, validate, and prompt image fallback if invalid
