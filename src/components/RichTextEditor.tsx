@@ -123,6 +123,17 @@ export const RichTextEditor = ({
     editorRef.current.focus();
   }, []);
 
+  const placeCursorInsideEnd = useCallback((node: Node) => {
+    const selection = window.getSelection();
+    if (!selection || !editorRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editorRef.current.focus();
+  }, []);
+
   const ensureEditableLineAfter = useCallback((node: HTMLElement) => {
     if (!node.classList.contains("math-display")) return node.nextSibling;
     const next = node.nextSibling;
@@ -139,9 +150,13 @@ export const RichTextEditor = ({
     const target = ensureEditableLineAfter(node) || node.previousSibling || editorRef.current;
     node.remove();
     clearMathSelection();
-    if (target) placeCursorAfter(target);
+    if (target instanceof HTMLElement && !target.classList.contains("math-node")) {
+      placeCursorInsideEnd(target);
+    } else if (target) {
+      placeCursorAfter(target);
+    }
     emitChange();
-  }, [clearMathSelection, emitChange, ensureEditableLineAfter, placeCursorAfter]);
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, placeCursorAfter, placeCursorInsideEnd]);
 
   const performUndo = useCallback(() => {
     if (historyPosition.current <= 0) return;
