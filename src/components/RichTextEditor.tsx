@@ -176,7 +176,12 @@ export const RichTextEditor = ({
     const sibling = direction === "before"
       ? container.childNodes[offset - 1]
       : container.childNodes[offset];
-    return sibling instanceof HTMLElement && sibling.classList.contains("math-node") ? sibling : null;
+    if (sibling instanceof HTMLElement && sibling.classList.contains("math-node")) return sibling;
+
+    const outerSibling = direction === "before"
+      ? container.previousSibling
+      : container.nextSibling;
+    return outerSibling instanceof HTMLElement && outerSibling.classList.contains("math-node") ? outerSibling : null;
   }, []);
 
   const handleEditorClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -239,7 +244,7 @@ export const RichTextEditor = ({
           ? renderMathInHTML(snippet)
           : snippet;
         const insertedNodes = insertHtmlAtCursor(contentToInsert);
-        const insertedMath = insertedNodes.at(-1);
+        const insertedMath = insertedNodes[insertedNodes.length - 1];
         if (insertedMath?.classList.contains("math-display")) {
           const editableLine = ensureEditableLineAfter(insertedMath);
           if (editableLine) placeCursorInsideEnd(editableLine);
