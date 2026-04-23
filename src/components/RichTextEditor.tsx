@@ -46,6 +46,7 @@ export const RichTextEditor = ({
   const lastSavedContent = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
+  const selectedMathNode = useRef<HTMLElement | null>(null);
 
   // Fallback prompt state when math fails to render
   const [fallbackPrompt, setFallbackPrompt] = useState<{
@@ -106,6 +107,104 @@ export const RichTextEditor = ({
 
   const handleInput = () => emitChange();
 
+  const clearMathSelection = useCallback(() => {
+    selectedMathNode.current?.classList.remove("math-node-selected");
+    selectedMathNode.current = null;
+  }, []);
+
+  const placeCursorAfter = useCallback((node: Node) => {
+    const selection = window.getSelection();
+    if (!selection || !editorRef.current) return;
+    const range = document.createRange();
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editorRef.current.focus();
+  }, []);
+
+  const placeCursorInsideEnd = useCallback((node: Node) => {
+    const selection = window.getSelection();
+    if (!selection || !editorRef.current) return;
+    const range = document.createRange();
+    range.selectNodeContents(node);
+    range.collapse(false);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editorRef.current.focus();
+  }, []);
+
+  const ensureEditableLineAfter = useCallback((node: HTMLElement) => {
+    if (!node.classList.contains("math-display")) return node.nextSibling;
+    const next = node.nextSibling;
+    if (next instanceof HTMLElement && next.matches("p, div") && !next.classList.contains("math-node")) {
+      return next;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.innerHTML = "<br>";
+    node.after(paragraph);
+    return paragraph;
+  }, []);
+
+  const removeMathNode = useCallback((node: HTMLElement) => {
+    const target = ensureEditableLineAfter(node) || node.previousSibling || editorRef.current;
+    node.remove();
+    clearMathSelection();
+    if (target instanceof HTMLElement && !target.classList.contains("math-node")) {
+      placeCursorInsideEnd(target);
+    } else if (target) {
+      placeCursorAfter(target);
+    }
+    emitChange();
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, placeCursorAfter, placeCursorInsideEnd]);
+
+  const getAdjacentMathNode = useCallback((direction: "before" | "after") => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return null;
+    const range = selection.getRangeAt(0);
+    if (!editorRef.current?.contains(range.commonAncestorContainer)) return null;
+
+    let container: Node = range.startContainer;
+    let offset = range.startOffset;
+    if (container.nodeType === Node.TEXT_NODE) {
+      if (direction === "before" && offset > 0) return null;
+      if (direction === "after" && offset < (container.textContent || "").length) return null;
+      offset = Array.prototype.indexOf.call(container.parentNode?.childNodes || [], container) + (direction === "after" ? 1 : 0);
+      container = container.parentNode || container;
+    }
+
+    const sibling = direction === "before"
+      ? container.childNodes[offset - 1]
+      : container.childNodes[offset];
+    if (sibling instanceof HTMLElement && sibling.classList.contains("math-node")) return sibling;
+
+    const outerSibling = direction === "before"
+      ? container.previousSibling
+      : container.nextSibling;
+    return outerSibling instanceof HTMLElement && outerSibling.classList.contains("math-node") ? outerSibling : null;
+  }, []);
+
+  const handleEditorClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const node = (event.target as HTMLElement).closest<HTMLElement>(".math-node");
+    if (!node || !editorRef.current?.contains(node)) {
+      clearMathSelection();
+      return;
+    }
+    event.preventDefault();
+    clearMathSelection();
+    node.classList.add("math-node-selected");
+    selectedMathNode.current = node;
+  }, [clearMathSelection]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Backspace" && event.key !== "Delete") return;
+    const selected = selectedMathNode.current;
+    const adjacent = selected || getAdjacentMathNode(event.key === "Backspace" ? "before" : "after");
+    if (!adjacent) return;
+    event.preventDefault();
+    removeMathNode(adjacent);
+  }, [getAdjacentMathNode, removeMathNode]);
+
   const performUndo = useCallback(() => {
     if (historyPosition.current <= 0) return;
     historyPosition.current--;
@@ -140,44 +239,59 @@ export const RichTextEditor = ({
       (editorRef.current as any).__performRedo = performRedo;
       // Expose insertContent for the math dialog to use
       (editorRef.current as any).__insertContent = (snippet: string) => {
+        clearMathSelection();
         const contentToInsert = containsMath(snippet)
           ? renderMathInHTML(snippet)
           : snippet;
-        insertHtmlAtCursor(contentToInsert);
+        const insertedNodes = insertHtmlAtCursor(contentToInsert);
+        const insertedMath = insertedNodes[insertedNodes.length - 1];
+        if (insertedMath?.classList.contains("math-display")) {
+          const editableLine = ensureEditableLineAfter(insertedMath);
+          if (editableLine) placeCursorInsideEnd(editableLine);
+        } else if (insertedMath?.classList.contains("math-inline")) {
+          insertedMath.after(document.createTextNode(" "));
+          placeCursorAfter(insertedMath.nextSibling || insertedMath);
+        }
         emitChange();
       };
     }
-  }, [performUndo, performRedo, emitChange]);
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, performUndo, performRedo, placeCursorAfter, placeCursorInsideEnd]);
 
   // Insert HTML at the current cursor position inside the editor
-  const insertHtmlAtCursor = (html: string) => {
-    if (!editorRef.current) return;
+  const insertHtmlAtCursor = (html: string): HTMLElement[] => {
+    if (!editorRef.current) return [];
     editorRef.current.focus();
+    const buildFragment = () => {
+      const fragment = document.createDocumentFragment();
+      const div = document.createElement("div");
+      div.innerHTML = html;
+      while (div.firstChild) fragment.appendChild(div.firstChild);
+      return fragment;
+    };
     const selection = window.getSelection();
     if (!selection || selection.rangeCount === 0) {
       // Append to end if no selection
-      const div = document.createElement("div");
-      div.innerHTML = html;
-      while (div.firstChild) editorRef.current.appendChild(div.firstChild);
-      return;
+      const fragment = buildFragment();
+      const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
+      editorRef.current.appendChild(fragment);
+      return mathNodes;
     }
     const range = selection.getRangeAt(0);
     // Make sure cursor is inside this editor
     if (!editorRef.current.contains(range.commonAncestorContainer)) {
-      const div = document.createElement("div");
-      div.innerHTML = html;
-      while (div.firstChild) editorRef.current.appendChild(div.firstChild);
-      return;
+      const fragment = buildFragment();
+      const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
+      editorRef.current.appendChild(fragment);
+      return mathNodes;
     }
     range.deleteContents();
-    const fragment = document.createDocumentFragment();
-    const div = document.createElement("div");
-    div.innerHTML = html;
-    while (div.firstChild) fragment.appendChild(div.firstChild);
+    const fragment = buildFragment();
+    const mathNodes = Array.from(fragment.querySelectorAll<HTMLElement>(".math-node"));
     range.insertNode(fragment);
     range.collapse(false);
     selection.removeAllRanges();
     selection.addRange(range);
+    return mathNodes;
   };
 
   // Detect formulas in pasted text, validate, and prompt image fallback if invalid
@@ -316,6 +430,8 @@ export const RichTextEditor = ({
       <div
         ref={editorRef}
         contentEditable={!readOnly}
+        onClick={readOnly ? undefined : handleEditorClick}
+        onKeyDown={readOnly ? undefined : handleKeyDown}
         onInput={readOnly ? undefined : handleInput}
         onPaste={readOnly ? undefined : handlePaste}
         className={cn(

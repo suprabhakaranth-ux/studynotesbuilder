@@ -126,7 +126,7 @@ All colors MUST be HSL.
   .math-preview .katex sub {
     font-size: inherit;
   }
-  [data-latex] {
+  .math-node {
     cursor: default;
     user-select: all;
   }
@@ -134,6 +134,11 @@ All colors MUST be HSL.
   [contenteditable="true"] [data-latex]:hover {
     outline: 1px dashed hsl(var(--primary) / 0.4);
     border-radius: 2px;
+  }
+  [contenteditable="true"] .math-node.math-node-selected {
+    outline: 2px solid hsl(var(--primary) / 0.75);
+    border-radius: 3px;
+    background: hsl(var(--primary) / 0.08);
   }
 
   /* Math insert dialog preview: let KaTeX block layout work naturally */
