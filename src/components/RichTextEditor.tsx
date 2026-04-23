@@ -46,6 +46,7 @@ export const RichTextEditor = ({
   const lastSavedContent = useRef<string>("");
   const saveTimeoutRef = useRef<NodeJS.Timeout>();
   const { toast } = useToast();
+  const selectedMathNode = useRef<HTMLElement | null>(null);
 
   // Fallback prompt state when math fails to render
   const [fallbackPrompt, setFallbackPrompt] = useState<{
@@ -105,6 +106,42 @@ export const RichTextEditor = ({
   }, [onChange, saveToHistory]);
 
   const handleInput = () => emitChange();
+
+  const clearMathSelection = useCallback(() => {
+    selectedMathNode.current?.classList.remove("math-node-selected");
+    selectedMathNode.current = null;
+  }, []);
+
+  const placeCursorAfter = useCallback((node: Node) => {
+    const selection = window.getSelection();
+    if (!selection || !editorRef.current) return;
+    const range = document.createRange();
+    range.setStartAfter(node);
+    range.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    editorRef.current.focus();
+  }, []);
+
+  const ensureEditableLineAfter = useCallback((node: HTMLElement) => {
+    if (!node.classList.contains("math-display")) return node.nextSibling;
+    const next = node.nextSibling;
+    if (next instanceof HTMLElement && next.matches("p, div") && !next.classList.contains("math-node")) {
+      return next;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.innerHTML = "<br>";
+    node.after(paragraph);
+    return paragraph;
+  }, []);
+
+  const removeMathNode = useCallback((node: HTMLElement) => {
+    const target = ensureEditableLineAfter(node) || node.previousSibling || editorRef.current;
+    node.remove();
+    clearMathSelection();
+    if (target) placeCursorAfter(target);
+    emitChange();
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, placeCursorAfter]);
 
   const performUndo = useCallback(() => {
     if (historyPosition.current <= 0) return;
