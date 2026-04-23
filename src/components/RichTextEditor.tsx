@@ -425,6 +425,8 @@ export const RichTextEditor = ({
       <div
         ref={editorRef}
         contentEditable={!readOnly}
+        onClick={readOnly ? undefined : handleEditorClick}
+        onKeyDown={readOnly ? undefined : handleKeyDown}
         onInput={readOnly ? undefined : handleInput}
         onPaste={readOnly ? undefined : handlePaste}
         className={cn(
