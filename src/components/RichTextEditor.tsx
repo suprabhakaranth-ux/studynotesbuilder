@@ -158,6 +158,48 @@ export const RichTextEditor = ({
     emitChange();
   }, [clearMathSelection, emitChange, ensureEditableLineAfter, placeCursorAfter, placeCursorInsideEnd]);
 
+  const getAdjacentMathNode = useCallback((direction: "before" | "after") => {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0 || !selection.isCollapsed) return null;
+    const range = selection.getRangeAt(0);
+    if (!editorRef.current?.contains(range.commonAncestorContainer)) return null;
+
+    let container: Node = range.startContainer;
+    let offset = range.startOffset;
+    if (container.nodeType === Node.TEXT_NODE) {
+      if (direction === "before" && offset > 0) return null;
+      if (direction === "after" && offset < (container.textContent || "").length) return null;
+      offset = Array.prototype.indexOf.call(container.parentNode?.childNodes || [], container) + (direction === "after" ? 1 : 0);
+      container = container.parentNode || container;
+    }
+
+    const sibling = direction === "before"
+      ? container.childNodes[offset - 1]
+      : container.childNodes[offset];
+    return sibling instanceof HTMLElement && sibling.classList.contains("math-node") ? sibling : null;
+  }, []);
+
+  const handleEditorClick = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
+    const node = (event.target as HTMLElement).closest<HTMLElement>(".math-node");
+    if (!node || !editorRef.current?.contains(node)) {
+      clearMathSelection();
+      return;
+    }
+    event.preventDefault();
+    clearMathSelection();
+    node.classList.add("math-node-selected");
+    selectedMathNode.current = node;
+  }, [clearMathSelection]);
+
+  const handleKeyDown = useCallback((event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (event.key !== "Backspace" && event.key !== "Delete") return;
+    const selected = selectedMathNode.current;
+    const adjacent = selected || getAdjacentMathNode(event.key === "Backspace" ? "before" : "after");
+    if (!adjacent) return;
+    event.preventDefault();
+    removeMathNode(adjacent);
+  }, [getAdjacentMathNode, removeMathNode]);
+
   const performUndo = useCallback(() => {
     if (historyPosition.current <= 0) return;
     historyPosition.current--;
