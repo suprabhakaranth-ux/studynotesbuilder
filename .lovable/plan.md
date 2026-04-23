@@ -1,49 +1,123 @@
 
 
-## Fix the Math Insert dialog — preview, layout, and picker
+## Plan: Make inserted formulas deletable and keep typing usable
 
-Three issues to fix in `src/components/MathInsertDialog.tsx` (and a small CSS tweak):
+The formula rendering is now visually correct, so the next fix is editor behaviour after insertion.
 
-### Issue 1 — Preview renders broken/flat (no stacked fraction, square root running off)
+### What is going wrong
 
-**Cause:** The preview container uses `flex items-center justify-center overflow-x-auto`. The flex centering collapses KaTeX's `.katex-display` block layout, and `overflow-x-auto` lets the sqrt bar extend beyond the visible width instead of scaling/wrapping. The result is the broken layout in your screenshot.
+Inserted formulas are currently rendered as non-editable KaTeX blocks:
 
-**Fix:**
-- Remove `flex items-center justify-center` from the preview wrapper. KaTeX's `.katex-display` already centers itself.
-- Keep `overflow-x: auto` but constrain the inner KaTeX block with a small CSS rule so very wide formulas (Pearson r full) shrink to fit on first view, with horizontal scroll only when truly needed.
-- Add a max-width constraint and proper padding so tall stacked fractions get vertical room.
+```html
+<div class="math-display" contenteditable="false">...</div>
+```
 
-### Issue 2 — Insert button off-screen, horizontal scroll inside dialog
+That protects the formula from being accidentally corrupted, but it also creates two usability problems in a `contenteditable` editor:
 
-**Cause:** The wide preview content stretches the dialog body horizontally, pushing the footer (Insert/Cancel) out of view. The dialog uses `max-w-3xl max-h-[90vh] overflow-y-auto` — the whole content scrolls, including the footer.
+1. The cursor can get stuck before/inside/after the formula block.
+2. Browser deletion behaviour around `contenteditable="false"` blocks is inconsistent, so Backspace/Delete may not remove the formula cleanly.
+3. After insertion, no editable empty line is guaranteed after the formula, so you cannot immediately continue writing notes.
 
-**Fix:**
-- Make the dialog body itself the scroll container, and pin `DialogFooter` to the bottom (sticky) so Insert/Cancel are always visible.
-- Add `overflow-x: hidden` on the dialog content and let only the preview pane scroll horizontally if needed.
-- Increase max width slightly (`max-w-4xl`) and constrain inner sections to `min-w-0` so flex children can shrink.
+### Fix 1 — Insert formulas as removable “math blocks”
 
-### Issue 3 — Picker selection clears itself / doesn't stay shown
+Update the math renderer so rendered formulas are treated as single editor objects:
 
-**Cause:** `handlePickFormula` calls `setTimeout(() => setPickerValue(""), 0)` to reset the dropdown — that's why it snaps back to "Pick a formula…" placeholder even though the LaTeX loaded.
+- Inline formulas remain inline chips.
+- Display formulas remain centered block formulas.
+- Both receive clear attributes/classes, for example:
 
-**Fix:**
-- Keep `pickerValue` set to the chosen formula so the dropdown shows what's loaded (e.g. "Pearson r (full computational)").
-- To allow re-picking the same formula, also re-trigger the load if the user re-selects the same item: track the last loaded value and reset on dialog open only.
+```html
+<span class="math-inline math-node" data-latex="..." data-display="false" contenteditable="false">...</span>
+
+<div class="math-display math-node" data-latex="..." data-display="true" contenteditable="false">...</div>
+```
+
+This keeps formulas protected visually but makes them easy for the editor logic to identify and remove.
+
+### Fix 2 — Always add an editable line after inserted display formulas
+
+When inserting a display formula from the Math dialog, the editor should insert:
+
+```html
+<div class="math-display math-node" ...>formula</div>
+<p><br></p>
+```
+
+Then move the cursor into the empty paragraph after the formula.
+
+Result:
+
+- Insert formula.
+- Cursor automatically appears on the next blank line.
+- You can immediately type normal notes/content.
+- The formula does not trap the cursor.
+
+For inline formulas, the editor should insert a normal trailing space after the formula so typing can continue naturally.
+
+### Fix 3 — Add reliable keyboard deletion for formulas
+
+Add editor-level keyboard handling in `src/components/RichTextEditor.tsx`:
+
+- If the formula is selected and the user presses Backspace/Delete, remove it.
+- If the cursor is immediately after a formula and the user presses Backspace, remove that formula.
+- If the cursor is immediately before a formula and the user presses Delete, remove that formula.
+- After deleting a display formula, ensure the editor still has a valid editable paragraph so typing can continue.
+
+This makes formulas behave like images or embedded objects in a document editor.
+
+### Fix 4 — Make formulas selectable with one click
+
+Add a simple click handler:
+
+- Clicking a formula selects/highlights the whole formula object.
+- Pressing Backspace/Delete removes it.
+- Clicking elsewhere returns to normal typing.
+
+This avoids needing to drag-select complex KaTeX output.
+
+### Fix 5 — Keep saved content editable
+
+The database should still store formulas as source text:
+
+```text
+$$r = ...$$
+```
+
+not raw KaTeX HTML.
+
+So `restoreMathSource()` will continue converting rendered formula nodes back to their original LaTeX before saving.
+
+This means formulas remain portable and can still be re-rendered correctly when reopening the note.
+
+### Fix 6 — Prepare for your exact formula pages
+
+Once you provide the exact pages from the booklet, I will update `src/data/formulaLibrary.ts` with:
+
+- All required formulas from those pages.
+- Correct category grouping.
+- Clear naming convention matching your paper/booklet.
+- Correct LaTeX for each formula.
+- Preview-safe formatting for long formulas.
 
 ### Files to modify
 
 | File | Change |
-|------|--------|
-| `src/components/MathInsertDialog.tsx` | Preview wrapper (no flex-center), sticky footer, wider dialog, `min-w-0` on flex children, picker keeps selection |
-| `src/index.css` | Add `.math-preview .katex-display { margin: 0; }` and ensure `.katex-display` inside the preview can scroll horizontally without stretching the parent |
+|---|---|
+| `src/components/RichTextEditor.tsx` | Add smart formula insertion, cursor placement after formulas, click selection, Backspace/Delete handling |
+| `src/utils/mathRenderer.ts` | Add stable `math-node` class/attributes for rendered formulas |
+| `src/index.css` | Add selected formula styling and improve cursor/selection behaviour around formulas |
+| `src/data/formulaLibrary.ts` | Later update with exact formulas once you provide the pages |
 
-### What stays the same
-- Formula library data (`formulaLibrary.ts`) — unchanged
-- Symbol palette, insert modes (Inline/Display/Image), KaTeX renderer, paste handling — all unchanged
-- The `$$S_x^2 = \dfrac{\sum x^2}{n} - \left(\dfrac{\sum x}{n}\right)^2$$` and Pearson r formulas you pasted are valid LaTeX and will render correctly once the preview wrapper is fixed.
+### Expected result
 
-### Verification after fix
-- Open Math (Σ) → pick "Pearson r (full computational)" → dropdown shows the chosen label, preview shows a properly stacked fraction with horizontal sqrt bar correctly sized over the bracketed denominator, Insert button visible without horizontal scroll.
-- Insert → note shows the formula as a centered 2D stacked fraction (matching the booklet).
-- Re-open dialog and pick a different formula → switches cleanly.
+After the fix:
+
+1. Pick a formula from the Math dialog.
+2. Click Insert.
+3. Formula appears correctly.
+4. Cursor lands on the next blank line.
+5. You can immediately type your explanation/content.
+6. Clicking a formula selects it.
+7. Pressing Backspace/Delete removes it cleanly.
+8. Saved notes still preserve the original formula source.
 
