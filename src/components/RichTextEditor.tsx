@@ -200,7 +200,7 @@ export const RichTextEditor = ({
         const insertedMath = insertedNodes.at(-1);
         if (insertedMath?.classList.contains("math-display")) {
           const editableLine = ensureEditableLineAfter(insertedMath);
-          if (editableLine) placeCursorAfter(editableLine);
+          if (editableLine) placeCursorInsideEnd(editableLine);
         } else if (insertedMath?.classList.contains("math-inline")) {
           insertedMath.after(document.createTextNode(" "));
           placeCursorAfter(insertedMath.nextSibling || insertedMath);
@@ -208,7 +208,7 @@ export const RichTextEditor = ({
         emitChange();
       };
     }
-  }, [clearMathSelection, emitChange, ensureEditableLineAfter, performUndo, performRedo, placeCursorAfter]);
+  }, [clearMathSelection, emitChange, ensureEditableLineAfter, performUndo, performRedo, placeCursorAfter, placeCursorInsideEnd]);
 
   // Insert HTML at the current cursor position inside the editor
   const insertHtmlAtCursor = (html: string): HTMLElement[] => {
