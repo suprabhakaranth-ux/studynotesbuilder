@@ -56,6 +56,7 @@ interface Topic {
   summary?: string;
   chapterId?: string | null;
   studied?: boolean;
+  slug?: string;
 }
 
 const Index = () => {
