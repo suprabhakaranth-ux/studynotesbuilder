@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 
 interface Subject {
   id: string;
@@ -56,12 +56,14 @@ interface Topic {
   summary?: string;
   chapterId?: string | null;
   studied?: boolean;
+  slug?: string;
 }
 
 const Index = () => {
   const { toast } = useToast();
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { topicSlug: routeTopicSlug } = useParams<{ topicSlug?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
@@ -164,6 +166,7 @@ const Index = () => {
           title: t.title,
           chapterId: t.chapter_id,
           studied: t.studied || false,
+          slug: (t as any).slug,
         }));
         setTopics(mappedTopics);
       }
@@ -171,6 +174,30 @@ const Index = () => {
 
     loadData();
   }, [user]);
+
+  // Open topic from URL slug (/app/t/:topicSlug)
+  useEffect(() => {
+    if (!routeTopicSlug || topics.length === 0) return;
+    if (editingTopic) {
+      const t = topics.find(x => x.id === editingTopic);
+      if (t?.slug === routeTopicSlug) return;
+    }
+    const match = topics.find(t => t.slug === routeTopicSlug);
+    if (match) setEditingTopic(match.id);
+  }, [routeTopicSlug, topics]);
+
+  // Sync URL with active topic
+  useEffect(() => {
+    if (!user) return;
+    if (editingTopic) {
+      const t = topics.find(x => x.id === editingTopic);
+      if (t?.slug && routeTopicSlug !== t.slug) {
+        navigate(`/app/t/${t.slug}`, { replace: true });
+      }
+    } else if (routeTopicSlug) {
+      navigate(`/app`, { replace: true });
+    }
+  }, [editingTopic, topics, user]);
 
 
   const handleNewSubject = async () => {

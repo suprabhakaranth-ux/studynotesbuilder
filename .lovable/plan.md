@@ -1,123 +1,97 @@
+## Plan: Hierarchical slug-based URLs (Phase 1 — URL shape only)
 
+Per your decision: build the **full hierarchy** first. Per-topic publish toggle will come in Phase 2 (security).
 
-## Plan: Make inserted formulas deletable and keep typing usable
+### New URL shape
 
-The formula rendering is now visually correct, so the next fix is editor behaviour after insertion.
-
-### What is going wrong
-
-Inserted formulas are currently rendered as non-editable KaTeX blocks:
-
-```html
-<div class="math-display" contenteditable="false">...</div>
+Public (read-only library):
+```
+/library                                              → all subjects
+/library/:subjectSlug                                 → chapters in subject
+/library/:subjectSlug/:chapterSlug                    → topics in chapter
+/library/:subjectSlug/:chapterSlug/:topicSlug         → read-only topic page
+/library/topic/:topicId                               → kept as permanent redirect (back-compat)
 ```
 
-That protects the formula from being accidentally corrupted, but it also creates two usability problems in a `contenteditable` editor:
-
-1. The cursor can get stuck before/inside/after the formula block.
-2. Browser deletion behaviour around `contenteditable="false"` blocks is inconsistent, so Backspace/Delete may not remove the formula cleanly.
-3. After insertion, no editable empty line is guaranteed after the formula, so you cannot immediately continue writing notes.
-
-### Fix 1 — Insert formulas as removable “math blocks”
-
-Update the math renderer so rendered formulas are treated as single editor objects:
-
-- Inline formulas remain inline chips.
-- Display formulas remain centered block formulas.
-- Both receive clear attributes/classes, for example:
-
-```html
-<span class="math-inline math-node" data-latex="..." data-display="false" contenteditable="false">...</span>
-
-<div class="math-display math-node" data-latex="..." data-display="true" contenteditable="false">...</div>
+Editor (private):
+```
+/app                                                  → editor home
+/app/t/:topicSlug                                     → editor with that topic open (URL syncs as you click topics)
 ```
 
-This keeps formulas protected visually but makes them easy for the editor logic to identify and remove.
+### Database changes (migration)
 
-### Fix 2 — Always add an editable line after inserted display formulas
+Add `slug text` to `subjects`, `chapters`, `topics`:
 
-When inserting a display formula from the Math dialog, the editor should insert:
+- Backfill from existing `name`/`title` using a slugify function (lowercase, strip diacritics, replace non-alphanumerics with `-`, collapse, trim).
+- Uniqueness scope:
+  - `subjects.slug` unique per `user_id`
+  - `chapters.slug` unique per `(user_id, subject_id)`
+  - `topics.slug` unique per `(user_id, chapter_id)` (chapter_id may be null → unique per `(user_id, subject_id, coalesce(chapter_id, '00000000-...'))`)
+- A trigger auto-generates a slug on INSERT/UPDATE if missing or if name/title changes, appending `-2`, `-3`, … on collision.
+- Partial unique indexes enforce the rules above.
 
-```html
-<div class="math-display math-node" ...>formula</div>
-<p><br></p>
+`src/integrations/supabase/types.ts` will regenerate automatically.
+
+### Routing changes (`src/App.tsx`)
+
+Replace the single `/library` and `/library/topic/:topicId` routes with:
+
+```tsx
+<Route path="/library" element={<PublicLibrary />} />
+<Route path="/library/:subjectSlug" element={<PublicLibrary />} />
+<Route path="/library/:subjectSlug/:chapterSlug" element={<PublicLibrary />} />
+<Route path="/library/:subjectSlug/:chapterSlug/:topicSlug" element={<PublicTopic />} />
+<Route path="/library/topic/:topicId" element={<PublicTopicLegacyRedirect />} />
+<Route path="/app" element={<Index />} />
+<Route path="/app/t/:topicSlug" element={<Index />} />
 ```
 
-Then move the cursor into the empty paragraph after the formula.
+### Page changes
 
-Result:
+**`src/pages/PublicLibrary.tsx`**
+- Read params; show subjects / chapters / topics list at the matching level.
+- Links use the new slug paths.
 
-- Insert formula.
-- Cursor automatically appears on the next blank line.
-- You can immediately type normal notes/content.
-- The formula does not trap the cursor.
+**`src/pages/PublicTopic.tsx`**
+- Look up topic by `(subjectSlug, chapterSlug, topicSlug)` instead of `topicId`.
+- Pass canonical URL to `SEOHead`.
 
-For inline formulas, the editor should insert a normal trailing space after the formula so typing can continue naturally.
+**`PublicTopicLegacyRedirect`** (tiny new component)
+- Resolves `topicId` → slugs → 301 redirect via `<Navigate replace>`.
 
-### Fix 3 — Add reliable keyboard deletion for formulas
+**`src/pages/Index.tsx` / `TopicEditor.tsx`**
+- When a topic becomes active, `navigate('/app/t/' + topicSlug, { replace: true })`.
+- On mount, if `:topicSlug` present, resolve and select that topic.
+- Add a "Share" button on the editor toolbar that copies the public URL `/library/<subject>/<chapter>/<topic>` (Phase 2 will hide this when topic isn't published).
 
-Add editor-level keyboard handling in `src/components/RichTextEditor.tsx`:
+**`src/components/SEOHead.tsx`**
+- Accept optional `canonicalUrl` and emit `<link rel="canonical">`.
 
-- If the formula is selected and the user presses Backspace/Delete, remove it.
-- If the cursor is immediately after a formula and the user presses Backspace, remove that formula.
-- If the cursor is immediately before a formula and the user presses Delete, remove that formula.
-- After deleting a display formula, ensure the editor still has a valid editable paragraph so typing can continue.
+### SEO
 
-This makes formulas behave like images or embedded objects in a document editor.
-
-### Fix 4 — Make formulas selectable with one click
-
-Add a simple click handler:
-
-- Clicking a formula selects/highlights the whole formula object.
-- Pressing Backspace/Delete removes it.
-- Clicking elsewhere returns to normal typing.
-
-This avoids needing to drag-select complex KaTeX output.
-
-### Fix 5 — Keep saved content editable
-
-The database should still store formulas as source text:
-
-```text
-$$r = ...$$
-```
-
-not raw KaTeX HTML.
-
-So `restoreMathSource()` will continue converting rendered formula nodes back to their original LaTeX before saving.
-
-This means formulas remain portable and can still be re-rendered correctly when reopening the note.
-
-### Fix 6 — Prepare for your exact formula pages
-
-Once you provide the exact pages from the booklet, I will update `src/data/formulaLibrary.ts` with:
-
-- All required formulas from those pages.
-- Correct category grouping.
-- Clear naming convention matching your paper/booklet.
-- Correct LaTeX for each formula.
-- Preview-safe formatting for long formulas.
+- `public/robots.txt`: allow `/library/*`, disallow `/app`, `/auth`, `/ai-chat`.
+- New edge function `supabase/functions/sitemap` returns dynamic `sitemap.xml` listing every public topic at its hierarchical URL (filtered to the demo `user_id` for now; Phase 2 will switch to `is_public = true`).
 
 ### Files to modify
 
 | File | Change |
 |---|---|
-| `src/components/RichTextEditor.tsx` | Add smart formula insertion, cursor placement after formulas, click selection, Backspace/Delete handling |
-| `src/utils/mathRenderer.ts` | Add stable `math-node` class/attributes for rendered formulas |
-| `src/index.css` | Add selected formula styling and improve cursor/selection behaviour around formulas |
-| `src/data/formulaLibrary.ts` | Later update with exact formulas once you provide the pages |
+| migration | add slug columns + backfill + trigger + indexes |
+| `src/App.tsx` | new nested routes + legacy redirect |
+| `src/pages/PublicLibrary.tsx` | render by URL level, slug links |
+| `src/pages/PublicTopic.tsx` | resolve by slugs, canonical URL |
+| `src/pages/Index.tsx` / `TopicEditor.tsx` | URL ↔ active topic sync, Share button |
+| `src/components/SEOHead.tsx` | canonical URL support |
+| `public/robots.txt` | allow library, disallow app/auth |
+| `supabase/functions/sitemap/index.ts` | new dynamic sitemap |
 
-### Expected result
+### Result after Phase 1
 
-After the fix:
+- Each topic has a clean shareable URL like
+  `studynotesbuilder.lovable.app/library/research-methodology/descriptive-statistics/pearson-correlation`.
+- Opening it in the editor updates the address bar to `/app/t/pearson-correlation`.
+- Old `/library/topic/<uuid>` links keep working via redirect.
+- Search engines get a sitemap and clean canonical URLs.
 
-1. Pick a formula from the Math dialog.
-2. Click Insert.
-3. Formula appears correctly.
-4. Cursor lands on the next blank line.
-5. You can immediately type your explanation/content.
-6. Clicking a formula selects it.
-7. Pressing Backspace/Delete removes it cleanly.
-8. Saved notes still preserve the original formula source.
-
+After this lands and looks good, Phase 2 will add the per-topic **Publish** toggle so only completed topics appear in `/library` and the sitemap.

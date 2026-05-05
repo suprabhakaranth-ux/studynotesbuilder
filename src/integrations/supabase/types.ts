@@ -61,6 +61,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          slug: string | null
           studied: boolean
           subject_id: string
           updated_at: string
@@ -71,6 +72,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          slug?: string | null
           studied?: boolean
           subject_id: string
           updated_at?: string
@@ -81,6 +83,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          slug?: string | null
           studied?: boolean
           subject_id?: string
           updated_at?: string
@@ -292,6 +295,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          slug: string | null
           updated_at: string
           user_id: string
         }
@@ -300,6 +304,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          slug?: string | null
           updated_at?: string
           user_id: string
         }
@@ -308,6 +313,7 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          slug?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -353,6 +359,7 @@ export type Database = {
           chapter_id: string | null
           created_at: string | null
           id: string
+          slug: string | null
           studied: boolean
           subject_id: string | null
           title: string
@@ -363,6 +370,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string | null
           id?: string
+          slug?: string | null
           studied?: boolean
           subject_id?: string | null
           title: string
@@ -373,6 +381,7 @@ export type Database = {
           chapter_id?: string | null
           created_at?: string | null
           id?: string
+          slug?: string | null
           studied?: boolean
           subject_id?: string | null
           title?: string
@@ -401,7 +410,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      slugify: { Args: { input: string }; Returns: string }
+      unaccent: { Args: { "": string }; Returns: string }
     }
     Enums: {
       [_ in never]: never
