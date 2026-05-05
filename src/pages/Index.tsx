@@ -166,6 +166,7 @@ const Index = () => {
           title: t.title,
           chapterId: t.chapter_id,
           studied: t.studied || false,
+          slug: (t as any).slug,
         }));
         setTopics(mappedTopics);
       }
