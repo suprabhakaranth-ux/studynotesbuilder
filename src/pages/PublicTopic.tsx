@@ -19,85 +19,68 @@ interface Topic {
   title: string;
   subject_id: string | null;
   chapter_id: string | null;
+  slug: string;
 }
 
-interface Subject {
-  id: string;
-  name: string;
-}
+interface Subject { id: string; name: string; slug: string }
+interface Chapter { id: string; name: string; slug: string }
 
-interface Chapter {
-  id: string;
-  name: string;
-}
+const PUBLIC_OWNER_ID = "b6dc6569-25ba-4ea0-a7bf-607219aa8daf";
+const NO_CHAPTER = "_";
 
 const PublicTopic = () => {
-  const { topicId } = useParams<{ topicId: string }>();
+  const { subjectSlug, chapterSlug, topicSlug } = useParams<{
+    subjectSlug: string; chapterSlug: string; topicSlug: string;
+  }>();
   const navigate = useNavigate();
   const [topic, setTopic] = useState<Topic | null>(null);
   const [subject, setSubject] = useState<Subject | null>(null);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [summary, setSummary] = useState("");
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
     const loadData = async () => {
-      if (!topicId) return;
+      if (!subjectSlug || !topicSlug) return;
       setLoading(true);
+      setNotFound(false);
 
-      // Load topic
-      const { data: topicData } = await supabase
-        .from("topics")
-        .select("*")
-        .eq("id", topicId)
-        .maybeSingle();
+      const { data: subj } = await supabase
+        .from("subjects").select("*")
+        .eq("user_id", PUBLIC_OWNER_ID).eq("slug", subjectSlug).maybeSingle();
 
-      if (topicData) {
-        setTopic({
-          id: topicData.id,
-          title: topicData.title,
-          subject_id: topicData.subject_id,
-          chapter_id: topicData.chapter_id,
-        });
+      if (!subj) { setNotFound(true); setLoading(false); return; }
+      setSubject(subj as any);
 
-        // Load subject
-        if (topicData.subject_id) {
-          const { data: subjectData } = await supabase
-            .from("subjects")
-            .select("*")
-            .eq("id", topicData.subject_id)
-            .maybeSingle();
-          if (subjectData) setSubject(subjectData);
-        }
-
-        // Load chapter
-        if (topicData.chapter_id) {
-          const { data: chapterData } = await supabase
-            .from("chapters")
-            .select("*")
-            .eq("id", topicData.chapter_id)
-            .maybeSingle();
-          if (chapterData) setChapter(chapterData);
-        }
-
-        // Load summary for SEO description
-        const { data: summaryData } = await supabase
-          .from("summaries")
-          .select("content")
-          .eq("topic_id", topicId)
-          .maybeSingle();
-        if (summaryData?.content) {
-          // Strip HTML and truncate for meta description
-          const text = summaryData.content.replace(/<[^>]*>/g, '').trim();
-          setSummary(text.substring(0, 155) + (text.length > 155 ? '...' : ''));
-        }
+      let chap: any = null;
+      if (chapterSlug && chapterSlug !== NO_CHAPTER) {
+        const { data } = await supabase
+          .from("chapters").select("*")
+          .eq("user_id", PUBLIC_OWNER_ID).eq("subject_id", subj.id).eq("slug", chapterSlug).maybeSingle();
+        chap = data;
+        if (chap) setChapter(chap as any);
       }
 
+      let q = supabase
+        .from("topics").select("*")
+        .eq("user_id", PUBLIC_OWNER_ID).eq("subject_id", subj.id).eq("slug", topicSlug);
+      q = chap ? q.eq("chapter_id", chap.id) : q.is("chapter_id", null);
+      const { data: topicData } = await q.maybeSingle();
+
+      if (!topicData) { setNotFound(true); setLoading(false); return; }
+      setTopic(topicData as any);
+
+      const { data: summaryData } = await supabase
+        .from("summaries").select("content").eq("topic_id", topicData.id).maybeSingle();
+      if (summaryData?.content) {
+        const text = summaryData.content.replace(/<[^>]*>/g, '').trim();
+        setSummary(text.substring(0, 155) + (text.length > 155 ? '...' : ''));
+      }
       setLoading(false);
     };
-
     loadData();
-  }, [topicId]);
+  }, [subjectSlug, chapterSlug, topicSlug]);
 
   if (loading) {
     return (
@@ -107,31 +90,32 @@ const PublicTopic = () => {
     );
   }
 
-  if (!topic) {
+  if (notFound || !topic) {
     return (
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <h1 className="text-2xl font-bold">Topic Not Found</h1>
         <p className="text-muted-foreground">This topic doesn't exist or is not publicly available.</p>
-        <Button onClick={() => navigate("/library")}>
-          Back to Library
-        </Button>
+        <Button onClick={() => navigate("/library")}>Back to Library</Button>
       </div>
     );
   }
 
+  const canonical = typeof window !== "undefined"
+    ? `${window.location.origin}${window.location.pathname}`
+    : undefined;
+
   return (
     <>
-      <SEOHead 
+      <SEOHead
         title={topic.title}
         description={summary || `Study notes for ${topic.title}. Learn more about ${subject?.name || 'this topic'}.`}
         type="article"
+        canonicalUrl={canonical}
       />
-      
       <div className="min-h-screen bg-background">
-        {/* Header */}
         <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
           <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 cursor-pointer" onClick={() => navigate("/library")}>
               <GraduationCap className="h-8 w-8 text-primary" />
               <span className="text-xl font-bold hidden sm:inline">Study Notes Library</span>
             </div>
@@ -142,42 +126,29 @@ const PublicTopic = () => {
           </div>
         </header>
 
-        {/* Main Content */}
         <main className="container mx-auto px-4 py-6">
-          {/* Navigation */}
-          <div className="mb-6 flex items-center gap-4">
-            <Button variant="ghost" size="sm" onClick={() => navigate("/library")} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back
+          <div className="mb-6 flex items-center gap-4 flex-wrap">
+            <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="gap-2">
+              <ArrowLeft className="h-4 w-4" /> Back
             </Button>
-            
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbLink 
-                    onClick={() => navigate("/library")} 
-                    className="cursor-pointer hover:text-primary"
-                  >
-                    Library
-                  </BreadcrumbLink>
+                  <BreadcrumbLink onClick={() => navigate("/library")} className="cursor-pointer hover:text-primary">Library</BreadcrumbLink>
                 </BreadcrumbItem>
                 {subject && (
                   <>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                      <BreadcrumbLink className="cursor-default">
-                        {subject.name}
-                      </BreadcrumbLink>
+                      <BreadcrumbLink onClick={() => navigate(`/library/${subject.slug}`)} className="cursor-pointer hover:text-primary">{subject.name}</BreadcrumbLink>
                     </BreadcrumbItem>
                   </>
                 )}
-                {chapter && (
+                {chapter && subject && (
                   <>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
-                      <BreadcrumbLink className="cursor-default">
-                        {chapter.name}
-                      </BreadcrumbLink>
+                      <BreadcrumbLink onClick={() => navigate(`/library/${subject.slug}/${chapter.slug}`)} className="cursor-pointer hover:text-primary">{chapter.name}</BreadcrumbLink>
                     </BreadcrumbItem>
                   </>
                 )}
@@ -189,23 +160,15 @@ const PublicTopic = () => {
             </Breadcrumb>
           </div>
 
-          {/* Topic Title */}
           <h1 className="text-3xl font-bold mb-8">{topic.title}</h1>
-
-          {/* Topic Content */}
           <PublicTopicViewer topicId={topic.id} />
         </main>
 
-        {/* Footer CTA */}
         <footer className="border-t bg-card/50 mt-12">
           <div className="container mx-auto px-4 py-8 text-center">
             <h2 className="text-lg font-semibold mb-2">Want to create your own study notes?</h2>
-            <p className="text-muted-foreground mb-4">
-              Sign up for free and start organizing your learning materials.
-            </p>
-            <Button onClick={() => navigate("/auth")}>
-              Get Started Free
-            </Button>
+            <p className="text-muted-foreground mb-4">Sign up for free and start organizing your learning materials.</p>
+            <Button onClick={() => navigate("/auth")}>Get Started Free</Button>
           </div>
         </footer>
       </div>
