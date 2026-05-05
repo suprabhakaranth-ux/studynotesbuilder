@@ -62,6 +62,7 @@ const Index = () => {
   const { toast } = useToast();
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
+  const { topicSlug: routeTopicSlug } = useParams<{ topicSlug?: string }>();
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
