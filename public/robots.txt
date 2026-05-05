@@ -5,4 +5,4 @@ Disallow: /app
 Disallow: /auth
 Disallow: /ai-chat
 
-Sitemap: https://studynotesbuilder.lovable.app/sitemap.xml
+Sitemap: https://zfqdoaurorvvazaaoiii.supabase.co/functions/v1/sitemap
