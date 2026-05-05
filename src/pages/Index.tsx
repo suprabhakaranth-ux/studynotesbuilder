@@ -175,6 +175,30 @@ const Index = () => {
     loadData();
   }, [user]);
 
+  // Open topic from URL slug (/app/t/:topicSlug)
+  useEffect(() => {
+    if (!routeTopicSlug || topics.length === 0) return;
+    if (editingTopic) {
+      const t = topics.find(x => x.id === editingTopic);
+      if (t?.slug === routeTopicSlug) return;
+    }
+    const match = topics.find(t => t.slug === routeTopicSlug);
+    if (match) setEditingTopic(match.id);
+  }, [routeTopicSlug, topics]);
+
+  // Sync URL with active topic
+  useEffect(() => {
+    if (!user) return;
+    if (editingTopic) {
+      const t = topics.find(x => x.id === editingTopic);
+      if (t?.slug && routeTopicSlug !== t.slug) {
+        navigate(`/app/t/${t.slug}`, { replace: true });
+      }
+    } else if (routeTopicSlug) {
+      navigate(`/app`, { replace: true });
+    }
+  }, [editingTopic, topics, user]);
+
 
   const handleNewSubject = async () => {
     if (!newSubjectName.trim() || !user) return;
