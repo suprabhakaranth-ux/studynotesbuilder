@@ -122,7 +122,7 @@ export const TiptapEditor = ({
     if (value === lastEmitted.current) return;
     const current = serializeMathPlaceholders(editor.getHTML());
     if (current === value) return;
-    editor.commands.setContent(normalizeHtmlForTiptap(value || ""), false);
+    editor.commands.setContent(normalizeHtmlForTiptap(value || ""), { emitUpdate: false });
   }, [value, editor]);
 
   // Update editable when readOnly toggles
