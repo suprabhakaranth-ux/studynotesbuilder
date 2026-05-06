@@ -12,6 +12,7 @@ import { FontFamily } from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
 
 import { cn } from "@/lib/utils";
+import { FloatingToolbar } from "../FloatingToolbar";
 import { MathInline } from "./extensions/MathInline";
 import { MathDisplay } from "./extensions/MathDisplay";
 import { FontSize } from "./extensions/FontSize";
@@ -163,6 +164,7 @@ export const TiptapEditor = ({
   return (
     <div className="tiptap-wrapper">
       <EditorContent editor={editor} />
+      {!readOnly && <FloatingToolbar onMarkHeading={onMarkHeading} />}
     </div>
   );
 };

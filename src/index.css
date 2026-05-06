@@ -153,4 +153,28 @@ All colors MUST be HSL.
     display: inline-block;
     min-width: 0;
   }
+
+  /* Tiptap / ProseMirror editor */
+  .ProseMirror {
+    outline: none;
+  }
+  .ProseMirror p.is-editor-empty:first-child::before {
+    content: attr(data-placeholder);
+    float: left;
+    color: hsl(var(--muted-foreground));
+    pointer-events: none;
+    height: 0;
+  }
+  .ProseMirror ul,
+  .ProseMirror ol {
+    padding-left: 1.5rem;
+  }
+  .ProseMirror ul { list-style: disc; }
+  .ProseMirror ol { list-style: decimal; }
+  .ProseMirror .math-display.ProseMirror-selectednode,
+  .ProseMirror .math-inline.ProseMirror-selectednode {
+    outline: 2px solid hsl(var(--primary) / 0.75);
+    border-radius: 3px;
+    background: hsl(var(--primary) / 0.08);
+  }
 }
