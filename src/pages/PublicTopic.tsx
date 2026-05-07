@@ -37,6 +37,8 @@ const PublicTopic = () => {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [summary, setSummary] = useState("");
+  const [wordCount, setWordCount] = useState(0);
+  const [topicMeta, setTopicMeta] = useState<{ created_at?: string; updated_at?: string }>({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -70,13 +72,21 @@ const PublicTopic = () => {
 
       if (!topicData) { setNotFound(true); setLoading(false); return; }
       setTopic(topicData as any);
+      setTopicMeta({ created_at: (topicData as any).created_at, updated_at: (topicData as any).updated_at });
 
       const { data: summaryData } = await supabase
         .from("summaries").select("content").eq("topic_id", topicData.id).maybeSingle();
-      if (summaryData?.content) {
-        const text = summaryData.content.replace(/<[^>]*>/g, '').trim();
-        setSummary(text.substring(0, 155) + (text.length > 155 ? '...' : ''));
-      }
+      const { data: blocksData } = await supabase
+        .from("blocks").select("content").eq("topic_id", topicData.id);
+
+      const summaryText = (summaryData?.content || "").replace(/<[^>]*>/g, '').trim();
+      const blocksText = (blocksData || []).map(b => (b.content || "").replace(/<[^>]*>/g, ' ')).join(' ');
+      const combined = `${summaryText} ${blocksText}`.replace(/\s+/g, ' ').trim();
+      const words = combined ? combined.split(/\s+/).length : 0;
+      setWordCount(words);
+
+      const descSource = summaryText || blocksText.trim() || topicData.title;
+      setSummary(descSource.substring(0, 155) + (descSource.length > 155 ? '...' : ''));
       setLoading(false);
     };
     loadData();
