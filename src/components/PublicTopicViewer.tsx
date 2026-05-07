@@ -237,9 +237,7 @@ const HeadingNodeView = ({ node, level }: { node: HeadingNode; level: number }) 
         
         <CollapsibleContent>
           {hasNotes && (
-            <div 
             <ArticleProse html={node.notes} className="ml-6 mt-2" />
-            />
           )}
           {hasChildren && (
             <div className="mt-2">
