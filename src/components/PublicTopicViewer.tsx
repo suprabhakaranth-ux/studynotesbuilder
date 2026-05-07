@@ -183,10 +183,7 @@ export const PublicTopicViewer = ({ topicId }: PublicTopicViewerProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div 
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: summaryContent }}
-              />
+              <ArticleProse html={summaryContent} />
             </CardContent>
           </Card>
         )}
@@ -200,10 +197,7 @@ export const PublicTopicViewer = ({ topicId }: PublicTopicViewerProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div 
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: mnemonicContent }}
-              />
+              <ArticleProse html={mnemonicContent} />
             </CardContent>
           </Card>
         )}
@@ -244,8 +238,7 @@ const HeadingNodeView = ({ node, level }: { node: HeadingNode; level: number }) 
         <CollapsibleContent>
           {hasNotes && (
             <div 
-              className="prose prose-sm max-w-none dark:prose-invert ml-6 mt-2 text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: node.notes }}
+            <ArticleProse html={node.notes} className="ml-6 mt-2" />
             />
           )}
           {hasChildren && (
