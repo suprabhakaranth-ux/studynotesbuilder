@@ -37,6 +37,8 @@ const PublicTopic = () => {
   const [subject, setSubject] = useState<Subject | null>(null);
   const [chapter, setChapter] = useState<Chapter | null>(null);
   const [summary, setSummary] = useState("");
+  const [wordCount, setWordCount] = useState(0);
+  const [topicMeta, setTopicMeta] = useState<{ created_at?: string; updated_at?: string }>({});
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
 
@@ -70,13 +72,21 @@ const PublicTopic = () => {
 
       if (!topicData) { setNotFound(true); setLoading(false); return; }
       setTopic(topicData as any);
+      setTopicMeta({ created_at: (topicData as any).created_at, updated_at: (topicData as any).updated_at });
 
       const { data: summaryData } = await supabase
         .from("summaries").select("content").eq("topic_id", topicData.id).maybeSingle();
-      if (summaryData?.content) {
-        const text = summaryData.content.replace(/<[^>]*>/g, '').trim();
-        setSummary(text.substring(0, 155) + (text.length > 155 ? '...' : ''));
-      }
+      const { data: blocksData } = await supabase
+        .from("blocks").select("content").eq("topic_id", topicData.id);
+
+      const summaryText = (summaryData?.content || "").replace(/<[^>]*>/g, '').trim();
+      const blocksText = (blocksData || []).map(b => (b.content || "").replace(/<[^>]*>/g, ' ')).join(' ');
+      const combined = `${summaryText} ${blocksText}`.replace(/\s+/g, ' ').trim();
+      const words = combined ? combined.split(/\s+/).length : 0;
+      setWordCount(words);
+
+      const descSource = summaryText || blocksText.trim() || topicData.title;
+      setSummary(descSource.substring(0, 155) + (descSource.length > 155 ? '...' : ''));
       setLoading(false);
     };
     loadData();
@@ -111,6 +121,10 @@ const PublicTopic = () => {
         description={summary || `Study notes for ${topic.title}. Learn more about ${subject?.name || 'this topic'}.`}
         type="article"
         canonicalUrl={canonical}
+        publishedTime={topicMeta.created_at}
+        modifiedTime={topicMeta.updated_at}
+        section={subject?.name}
+        keywords={[subject?.name, chapter?.name].filter(Boolean).join(", ") || undefined}
       />
       <div className="min-h-screen bg-background">
         <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-50">
@@ -160,8 +174,21 @@ const PublicTopic = () => {
             </Breadcrumb>
           </div>
 
-          <h1 className="text-3xl font-bold mb-8">{topic.title}</h1>
-          <PublicTopicViewer topicId={topic.id} />
+          <article itemScope itemType="https://schema.org/Article">
+            <h1 className="text-3xl md:text-4xl font-bold mb-3 leading-tight" itemProp="headline">{topic.title}</h1>
+            <div className="mb-8 text-sm text-muted-foreground flex flex-wrap items-center gap-x-2">
+              {subject && <span>{subject.name}</span>}
+              {subject && chapter && <span aria-hidden="true">•</span>}
+              {chapter && <span>{chapter.name}</span>}
+              {wordCount > 0 && (
+                <>
+                  {(subject || chapter) && <span aria-hidden="true">•</span>}
+                  <span>{Math.max(1, Math.round(wordCount / 220))} min read</span>
+                </>
+              )}
+            </div>
+            <PublicTopicViewer topicId={topic.id} />
+          </article>
         </main>
 
         <footer className="border-t bg-card/50 mt-12">

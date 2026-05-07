@@ -5,47 +5,84 @@ interface SEOHeadProps {
   description?: string;
   type?: 'website' | 'article';
   canonicalUrl?: string;
+  publishedTime?: string;
+  modifiedTime?: string;
+  section?: string;
+  keywords?: string;
+  author?: string;
 }
 
-export const SEOHead = ({ 
-  title, 
+export const SEOHead = ({
+  title,
   description = "Study notes and educational content organized by subjects and chapters.",
   type = 'website',
-  canonicalUrl
+  canonicalUrl,
+  publishedTime,
+  modifiedTime,
+  section,
+  keywords,
+  author = "Study Notes Library",
 }: SEOHeadProps) => {
-  const siteName = "StudyBuilder Library";
+  const siteName = "Study Notes Library";
   const fullTitle = `${title} | ${siteName}`;
-  
+
+  const jsonLd = type === 'article'
+    ? {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "description": description,
+        ...(publishedTime && { "datePublished": publishedTime }),
+        ...(modifiedTime && { "dateModified": modifiedTime }),
+        "author": { "@type": "Person", "name": author },
+        "publisher": {
+          "@type": "Organization",
+          "name": siteName,
+        },
+        ...(canonicalUrl && { "mainEntityOfPage": canonicalUrl }),
+        ...(section && { "articleSection": section }),
+        ...(keywords && { "keywords": keywords }),
+      }
+    : {
+        "@context": "https://schema.org",
+        "@type": "LearningResource",
+        "name": title,
+        "description": description,
+        "provider": { "@type": "Organization", "name": siteName },
+      };
+
   return (
     <Helmet>
       <title>{fullTitle}</title>
       <meta name="description" content={description} />
-      
-      {/* Open Graph / Facebook */}
+      <meta name="robots" content="index,follow,max-image-preview:large" />
+      {keywords && <meta name="keywords" content={keywords} />}
+      {author && <meta name="author" content={author} />}
+
       <meta property="og:type" content={type} />
       <meta property="og:title" content={fullTitle} />
       <meta property="og:description" content={description} />
       <meta property="og:site_name" content={siteName} />
-      
-      {/* Twitter */}
-      <meta name="twitter:card" content="summary" />
+      {canonicalUrl && <meta property="og:url" content={canonicalUrl} />}
+
+      {type === 'article' && publishedTime && (
+        <meta property="article:published_time" content={publishedTime} />
+      )}
+      {type === 'article' && modifiedTime && (
+        <meta property="article:modified_time" content={modifiedTime} />
+      )}
+      {type === 'article' && section && (
+        <meta property="article:section" content={section} />
+      )}
+
+      <meta name="twitter:card" content="summary_large_image" />
       <meta name="twitter:title" content={fullTitle} />
       <meta name="twitter:description" content={description} />
-      
+
       {canonicalUrl && <link rel="canonical" href={canonicalUrl} />}
-      
-      {/* Structured Data for Educational Content */}
+
       <script type="application/ld+json">
-        {JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "LearningResource",
-          "name": title,
-          "description": description,
-          "provider": {
-            "@type": "Organization",
-            "name": siteName
-          }
-        })}
+        {JSON.stringify(jsonLd)}
       </script>
     </Helmet>
   );

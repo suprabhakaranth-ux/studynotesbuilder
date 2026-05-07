@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Lightbulb, List, ChevronDown, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { ArticleProse } from "@/components/ArticleProse";
 
 interface Block {
   id: string;
@@ -151,10 +152,7 @@ export const PublicTopicViewer = ({ topicId }: PublicTopicViewerProps) => {
           block.content && (
             <Card key={block.id} className="overflow-hidden">
               <CardContent className="pt-6">
-                <div 
-                  className="prose prose-sm max-w-none dark:prose-invert"
-                  dangerouslySetInnerHTML={{ __html: block.content }}
-                />
+                <ArticleProse html={block.content} />
               </CardContent>
             </Card>
           )
@@ -185,10 +183,7 @@ export const PublicTopicViewer = ({ topicId }: PublicTopicViewerProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div 
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: summaryContent }}
-              />
+              <ArticleProse html={summaryContent} />
             </CardContent>
           </Card>
         )}
@@ -202,10 +197,7 @@ export const PublicTopicViewer = ({ topicId }: PublicTopicViewerProps) => {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div 
-                className="prose prose-sm max-w-none dark:prose-invert"
-                dangerouslySetInnerHTML={{ __html: mnemonicContent }}
-              />
+              <ArticleProse html={mnemonicContent} />
             </CardContent>
           </Card>
         )}
@@ -245,10 +237,7 @@ const HeadingNodeView = ({ node, level }: { node: HeadingNode; level: number }) 
         
         <CollapsibleContent>
           {hasNotes && (
-            <div 
-              className="prose prose-sm max-w-none dark:prose-invert ml-6 mt-2 text-muted-foreground"
-              dangerouslySetInnerHTML={{ __html: node.notes }}
-            />
+            <ArticleProse html={node.notes} className="ml-6 mt-2" />
           )}
           {hasChildren && (
             <div className="mt-2">
