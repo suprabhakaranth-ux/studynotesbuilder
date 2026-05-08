@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { Sidebar } from "@/components/Sidebar";
-import { BookOpen, Sparkles, FolderOpen, BookMarked, FileText } from "lucide-react";
+import { BookOpen, Sparkles, FolderOpen, BookMarked, FileText, Presentation as PresentationIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import {
   Breadcrumb,
