@@ -55,14 +55,16 @@ const PublicLibrary = () => {
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const [subjectsRes, chaptersRes, topicsRes] = await Promise.all([
+      const [subjectsRes, chaptersRes, topicsRes, presRes] = await Promise.all([
         supabase.from("subjects").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
         supabase.from("chapters").select("*").eq("user_id", PUBLIC_OWNER_ID).order("chapter_order", { ascending: true }),
         supabase.from("topics").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
+        supabase.from("presentations").select("id, subject_id, title, slug, page_count").eq("user_id", PUBLIC_OWNER_ID).order("presentation_order"),
       ]);
 
       if (subjectsRes.data) setSubjects(subjectsRes.data as any);
       if (chaptersRes.data) setChapters(chaptersRes.data as any);
+      if (presRes.data) setPresentations(presRes.data as any);
       if (topicsRes.data) {
         setTopics(topicsRes.data.map((t: any) => ({
           id: t.id,
