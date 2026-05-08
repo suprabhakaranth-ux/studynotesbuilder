@@ -169,6 +169,7 @@ export type Database = {
           item_name: string
           item_type: string
           mnemonics_data: Json | null
+          presentations_data: Json | null
           subject_data: Json | null
           summaries_data: Json | null
           topic_data: Json | null
@@ -184,6 +185,7 @@ export type Database = {
           item_name: string
           item_type: string
           mnemonics_data?: Json | null
+          presentations_data?: Json | null
           subject_data?: Json | null
           summaries_data?: Json | null
           topic_data?: Json | null
@@ -199,6 +201,7 @@ export type Database = {
           item_name?: string
           item_type?: string
           mnemonics_data?: Json | null
+          presentations_data?: Json | null
           subject_data?: Json | null
           summaries_data?: Json | null
           topic_data?: Json | null
@@ -288,6 +291,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      presentations: {
+        Row: {
+          created_at: string
+          file_path: string | null
+          file_size: number | null
+          id: string
+          page_count: number | null
+          presentation_order: number
+          slug: string | null
+          subject_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          page_count?: number | null
+          presentation_order?: number
+          slug?: string | null
+          subject_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string | null
+          file_size?: number | null
+          id?: string
+          page_count?: number | null
+          presentation_order?: number
+          slug?: string | null
+          subject_id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       subjects: {
         Row: {

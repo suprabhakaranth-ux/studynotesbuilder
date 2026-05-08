@@ -20,6 +20,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PresentationsTab } from "@/components/PresentationsTab";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -1381,34 +1383,47 @@ const Index = () => {
                 </div>
               )
             ) : (
-              // Display chapters when a subject is selected
-              chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
-                <div className="text-center py-16">
-                  <p className="text-muted-foreground mb-4">No chapters yet</p>
-                  <Button variant="outline" onClick={() => handleNewChapter(activeSubject!)}>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create your first chapter
-                  </Button>
-                </div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {chapters
-                    .filter(c => c.subject_id === activeSubject)
-                    .sort((a, b) => a.chapter_order - b.chapter_order)
-                    .map((chapter) => (
-                      <ChapterCard
-                        key={chapter.id}
-                        chapter={chapter}
-                        onClick={() => setActiveChapter(chapter.id)}
-                        onDelete={handleDeleteChapter}
-                        onMove={handleMoveChapter}
-                        onEdit={handleEditChapter}
-                        onExport={handleExportChapter}
-                        onToggleStudied={handleToggleChapterStudied}
-                      />
-                    ))}
-                </div>
-              )
+              // Subject-level view: tabs for Chapters and Presentations
+              <Tabs defaultValue="chapters" className="w-full">
+                <TabsList>
+                  <TabsTrigger value="chapters">Chapters</TabsTrigger>
+                  <TabsTrigger value="presentations">Presentations</TabsTrigger>
+                </TabsList>
+                <TabsContent value="chapters" className="mt-6">
+                  {chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
+                    <div className="text-center py-16">
+                      <p className="text-muted-foreground mb-4">No chapters yet</p>
+                      <Button variant="outline" onClick={() => handleNewChapter(activeSubject!)}>
+                        <Plus className="w-4 h-4 mr-2" />
+                        Create your first chapter
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {chapters
+                        .filter(c => c.subject_id === activeSubject)
+                        .sort((a, b) => a.chapter_order - b.chapter_order)
+                        .map((chapter) => (
+                          <ChapterCard
+                            key={chapter.id}
+                            chapter={chapter}
+                            onClick={() => setActiveChapter(chapter.id)}
+                            onDelete={handleDeleteChapter}
+                            onMove={handleMoveChapter}
+                            onEdit={handleEditChapter}
+                            onExport={handleExportChapter}
+                            onToggleStudied={handleToggleChapterStudied}
+                          />
+                        ))}
+                    </div>
+                  )}
+                </TabsContent>
+                <TabsContent value="presentations" className="mt-6">
+                  {user && activeSubject && (
+                    <PresentationsTab userId={user.id} subjectId={activeSubject} />
+                  )}
+                </TabsContent>
+              </Tabs>
             )}
           </div>
         ) : (
