@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Plus, Trash2, GripVertical, ExternalLink, FileText, Pencil, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,11 +85,19 @@ const Row = ({ p, onRename, onDelete, subjectSlug }: { p: Presentation; onRename
   );
 };
 
-export const PresentationsTab = ({ userId, subjectId, subjectSlug }: Props) => {
+export const PresentationsTab = ({ userId, subjectId, subjectSlug: subjectSlugProp }: Props) => {
   const { toast } = useToast();
   const { items, refresh, setItems } = usePresentations(subjectId, userId);
   const [uploadOpen, setUploadOpen] = useState(false);
+  const [subjectSlug, setSubjectSlug] = useState<string | undefined>(subjectSlugProp);
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+
+  useEffect(() => {
+    if (subjectSlugProp) { setSubjectSlug(subjectSlugProp); return; }
+    supabase.from("subjects").select("slug").eq("id", subjectId).maybeSingle().then(({ data }) => {
+      if (data?.slug) setSubjectSlug(data.slug);
+    });
+  }, [subjectId, subjectSlugProp]);
 
   const handleDragEnd = async (e: DragEndEvent) => {
     const { active, over } = e;
