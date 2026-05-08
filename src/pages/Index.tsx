@@ -20,6 +20,8 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { PresentationsTab } from "@/components/PresentationsTab";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
