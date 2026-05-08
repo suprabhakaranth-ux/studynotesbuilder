@@ -246,30 +246,62 @@ const PublicLibrary = () => {
                   </div>
                 )
               ) : (
-                chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
-                  <div className="text-center py-16"><p className="text-muted-foreground">No chapters in this subject yet.</p></div>
-                ) : (
-                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {chapters.filter(c => c.subject_id === activeSubject).sort((a, b) => a.chapter_order - b.chapter_order).map(chapter => (
-                      <Card key={chapter.id} className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group cursor-pointer" onClick={() => navigate(`/library/${activeSubjectData.slug}/${chapter.slug}`)}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
-                              <BookMarked className="w-7 h-7 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-xl text-foreground truncate">{chapter.name}</h3>
-                              <div className="flex items-center gap-2 mt-4 text-xs text-primary font-medium">
-                                <span>{topics.filter(t => t.chapterId === chapter.id).length} topics</span>
-                                <span>•</span><span>Click to view</span>
+                <>
+                  {(() => {
+                    const subjectPres = presentations.filter(p => p.subject_id === activeSubject);
+                    if (subjectPres.length === 0) return null;
+                    return (
+                      <div className="mb-8">
+                        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+                          <PresentationIcon className="w-5 h-5 text-primary" /> Presentations
+                        </h2>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {subjectPres.map(p => (
+                            <Card key={p.id} className="hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 cursor-pointer" onClick={() => navigate(`/library/${activeSubjectData.slug}/presentations/${p.slug}`)}>
+                              <CardContent className="p-6">
+                                <div className="flex items-start gap-4">
+                                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                    <PresentationIcon className="w-7 h-7 text-primary" />
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <h3 className="font-bold text-lg text-foreground line-clamp-2">{p.title}</h3>
+                                    <p className="text-xs text-muted-foreground mt-2">
+                                      {p.page_count ? `${p.page_count} pages` : "PDF deck"}
+                                    </p>
+                                  </div>
+                                </div>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                  {chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
+                    <div className="text-center py-16"><p className="text-muted-foreground">No chapters in this subject yet.</p></div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {chapters.filter(c => c.subject_id === activeSubject).sort((a, b) => a.chapter_order - b.chapter_order).map(chapter => (
+                        <Card key={chapter.id} className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group cursor-pointer" onClick={() => navigate(`/library/${activeSubjectData.slug}/${chapter.slug}`)}>
+                          <CardContent className="p-6">
+                            <div className="flex items-start gap-4">
+                              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
+                                <BookMarked className="w-7 h-7 text-primary" />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <h3 className="font-bold text-xl text-foreground truncate">{chapter.name}</h3>
+                                <div className="flex items-center gap-2 mt-4 text-xs text-primary font-medium">
+                                  <span>{topics.filter(t => t.chapterId === chapter.id).length} topics</span>
+                                  <span>•</span><span>Click to view</span>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                )
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
+                </>
               )}
             </div>
           ) : (
