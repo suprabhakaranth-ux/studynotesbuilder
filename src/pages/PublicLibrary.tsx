@@ -46,6 +46,7 @@ const PublicLibrary = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
+  const [presentations, setPresentations] = useState<{ id: string; subject_id: string; title: string; slug: string; page_count: number | null }[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
