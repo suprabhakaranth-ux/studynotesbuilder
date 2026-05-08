@@ -13,6 +13,7 @@ import AIChat from "./pages/AIChat";
 import Showcase from "./pages/Showcase";
 import PublicLibrary from "./pages/PublicLibrary";
 import PublicTopic from "./pages/PublicTopic";
+import PublicPresentation from "./pages/PublicPresentation";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,7 @@ const App = () => (
             <Route path="/library/:subjectSlug" element={<PublicLibrary />} />
             <Route path="/library/:subjectSlug/:chapterSlug" element={<PublicLibrary />} />
             <Route path="/library/:subjectSlug/:chapterSlug/:topicSlug" element={<PublicTopic />} />
+            <Route path="/library/:subjectSlug/presentations/:presentationSlug" element={<PublicPresentation />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
