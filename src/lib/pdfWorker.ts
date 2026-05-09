@@ -1,8 +1,11 @@
 import { pdfjs } from "react-pdf";
-// Vite-friendly worker URL
-// eslint-disable-next-line import/no-unresolved
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-pdfjs.GlobalWorkerOptions.workerSrc = workerUrl as unknown as string;
+// Pin worker to the exact installed pdfjs-dist version using Vite's
+// new URL(..., import.meta.url) pattern. This avoids `?url` plugin quirks
+// and guarantees the API and Worker versions match.
+pdfjs.GlobalWorkerOptions.workerSrc = new URL(
+  "pdfjs-dist/build/pdf.worker.min.mjs",
+  import.meta.url,
+).toString();
 
 export { pdfjs };

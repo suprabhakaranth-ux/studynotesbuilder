@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Document, Page } from "react-pdf";
 import { useInView } from "react-intersection-observer";
 import "@/lib/pdfWorker";
@@ -50,6 +50,7 @@ export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewe
   const [width, setWidth] = useState(MAX_PAGE_WIDTH);
   const [numPages, setNumPages] = useState(0);
   const [currentPage, setCurrentPage] = useState(1);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     const update = () => {
@@ -80,19 +81,40 @@ export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewe
     return () => window.removeEventListener("keydown", onKey);
   }, [currentPage, numPages]);
 
+  // Stable file + options refs so react-pdf doesn't re-fetch on every render
+  const fileProp = useMemo(
+    () => ({ url: fileUrl, withCredentials: false }),
+    [fileUrl],
+  );
+  const docOptions = useMemo(
+    () => ({ disableRange: true, disableStream: true, isEvalSupported: false }),
+    [],
+  );
+
   return (
     <div ref={containerRef} className="w-full">
       <Document
-        file={fileUrl}
+        file={fileProp}
+        options={docOptions}
         onLoadSuccess={({ numPages: n }) => {
+          setLoadError(null);
           setNumPages(n);
           onLoadSuccess?.(n);
+        }}
+        onLoadError={(err) => {
+          console.error("PDF load error:", err);
+          setLoadError(err?.message || String(err));
         }}
         loading={
           <div className="text-center py-16 text-muted-foreground text-sm">Loading deck…</div>
         }
         error={
-          <div className="text-center py-16 text-destructive text-sm">Failed to load PDF.</div>
+          <div className="text-center py-16 text-destructive text-sm space-y-2">
+            <p>Failed to load PDF.</p>
+            {loadError && (
+              <p className="text-xs text-muted-foreground max-w-md mx-auto break-words">{loadError}</p>
+            )}
+          </div>
         }
       >
         <div className="flex flex-col gap-6 py-6">
