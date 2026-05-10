@@ -1,46 +1,36 @@
+## Root cause
 
-# Fix: "Failed to load PDF" in presentation viewer
+The failure is happening in the PDF viewer worker setup, not in upload or storage.
 
-## What's happening
+`react-pdf@10.4.1` imports `pdfjs-dist@5.4.296` internally, so the runtime PDF API version is `5.4.296`.
 
-Upload works (file is in storage, row updated), but the public viewer at `/library/:subject/presentations/:slug` shows "Failed to load PDF." The most likely cause is the **pdf.js worker** failing to load — react-pdf 10 + pdfjs-dist 5 require a module worker URL set up in a Vite-friendly way, and the current `?url` import + `workerSrc` assignment is fragile (typical failure mode: blank/error with no obvious console clue, or "API version does not match Worker version").
+The app also has a direct dependency on `pdfjs-dist@5.7.284`, and `src/lib/pdfWorker.ts` points the worker at that root package:
 
-A secondary suspect is a **CORS / Range-request** issue when `<Document file={publicUrl} />` fetches the PDF directly from Supabase Storage — pdf.js issues `Range` requests and some setups break on it.
+```ts
+new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url)
+```
+
+That creates this exact mismatch:
+
+```text
+API version:    5.4.296  // used by react-pdf
+Worker version: 5.7.284  // loaded by our workerSrc
+```
 
 ## Plan
 
-### 1. Make the worker setup robust (`src/lib/pdfWorker.ts`)
-Replace the `?url` import with the official Vite pattern that pins the worker to the exact installed pdfjs version:
+1. **Pin the app-level `pdfjs-dist` dependency to React PDF’s exact version**
+   - Change `package.json` from `pdfjs-dist: ^5.7.284` to `pdfjs-dist: 5.4.296`.
+   - Refresh the lockfile so there is no root `5.7.284` worker available for Vite to pick up.
 
-```ts
-import { pdfjs } from "react-pdf";
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
-```
+2. **Keep the worker setup pattern, but make it resolve to the aligned version**
+   - Leave `src/lib/pdfWorker.ts` using the Vite `new URL(..., import.meta.url)` worker pattern.
+   - After dependency alignment, that path will resolve to `pdfjs-dist@5.4.296`, matching `react-pdf`.
 
-This avoids the `?url` plugin path issues and guarantees version match.
+3. **Verify the actual installed versions before calling it fixed**
+   - Check that root `pdfjs-dist` and `react-pdf`’s internal `pdfjs-dist` both resolve to `5.4.296`.
+   - Reload the viewer and confirm the mismatch error disappears.
 
-### 2. Harden the `<Document>` load (`src/components/PresentationViewer.tsx`)
-- Pass `file` as `{ url: fileUrl, withCredentials: false }` so pdf.js does not send auth headers (Supabase public bucket rejects `Authorization` for anon).
-- Add `onLoadError` handler that captures the real error message and shows it in the UI (instead of the generic "Failed to load PDF.") — this turns a silent failure into actionable info if anything still goes wrong.
-- Disable Range requests as a safety net: `options={{ disableRange: true, disableStream: true }}` (downloads the file once, then renders — fine for ≤100 MB decks).
-
-### 3. Verify the public URL shape
-`getPresentationPublicUrl` already calls `supabase.storage.from('presentations').getPublicUrl(path)`. Bucket is confirmed public. Add a quick sanity check: if the URL doesn't contain `/object/public/`, fall back to constructing it manually from `VITE_SUPABASE_URL`.
-
-### 4. Quick QA
-After the fix, reload the failed deck (`Frued's Psychoanalytic Theory`) and confirm:
-- Pages render
-- Page counter shows N / N
-- Keyboard arrows scroll page-by-page
-
-## Out of scope
-- Re-architecting upload flow (it's working)
-- Switching PDF viewer libraries
-- Generating thumbnails / page count on upload (separate task)
-
-## Files changed
-- `src/lib/pdfWorker.ts` — robust worker URL
-- `src/components/PresentationViewer.tsx` — better error surface, disable range/stream, explicit file object
+4. **Only if the package manager still keeps two mismatched copies**
+   - Add a Vite alias so `pdfjs-dist` always resolves to the same physical package used by `react-pdf`.
+   - This is the fallback, not the first choice, because dependency alignment is cleaner.
