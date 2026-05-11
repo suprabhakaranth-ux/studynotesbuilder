@@ -286,7 +286,7 @@ export const Sidebar = ({
               variant="outline" 
               className="w-full justify-start bg-gradient-to-r from-primary/10 to-secondary/10 hover:from-primary/20 hover:to-secondary/20 border-primary/20" 
               size="sm"
-              onClick={() => navigate('/ai-chat')}
+              onClick={() => navigate('/assistant')}
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               AI Study Assistant

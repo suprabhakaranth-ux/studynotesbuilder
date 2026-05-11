@@ -10,6 +10,7 @@ import Landing from "./pages/Landing";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import AIChat from "./pages/AIChat";
+import AssistantWorkspace from "./pages/AssistantWorkspace";
 import Showcase from "./pages/Showcase";
 import PublicLibrary from "./pages/PublicLibrary";
 import PublicTopic from "./pages/PublicTopic";
@@ -75,6 +76,7 @@ const App = () => (
             <Route path="/app/t/:topicSlug" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/ai-chat" element={<AIChat />} />
+            <Route path="/assistant" element={<AssistantWorkspace />} />
             <Route path="/showcase" element={<Showcase />} />
             <Route path="/library" element={<PublicLibrary />} />
             <Route path="/library/topic/:topicId" element={<LegacyTopicRedirect />} />
