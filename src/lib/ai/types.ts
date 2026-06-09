@@ -18,7 +18,7 @@ export interface StreamChatParams {
   onToken: (delta: string) => void;
 }
 
-export type PingResult = { ok: true; baseUrl: string } | { ok: false; error: string };
+export type PingResult = { ok: boolean; baseUrl?: string; error?: string };
 
 export interface AIService {
   name: string;
