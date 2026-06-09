@@ -18,10 +18,14 @@ export interface StreamChatParams {
   onToken: (delta: string) => void;
 }
 
+export type PingResult = { ok: boolean; baseUrl?: string; error?: string };
+
 export interface AIService {
   name: string;
   /** Returns the full assistant text once streaming completes. */
   streamChat: (params: StreamChatParams) => Promise<string>;
   /** Quick liveness check. */
   ping: () => Promise<boolean>;
+  /** Liveness check with the underlying error message when it fails. */
+  pingDetailed: () => Promise<PingResult>;
 }
