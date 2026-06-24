@@ -1,0 +1,261 @@
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, Download, Package } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { ExportTree } from "@/components/export/ExportTree";
+import { ExportProgressDialog } from "@/components/export/ExportProgressDialog";
+import { fetchHierarchy } from "@/lib/export/fetchStudyData";
+import { generateStudyPack } from "@/lib/export/zipStudyPack";
+import type {
+  ExportSubject,
+  ExportChapter,
+  ExportTopic,
+  ExportOptions,
+  ProgressEvent,
+} from "@/lib/export/types";
+
+export default function ExportCenter() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [subjects, setSubjects] = useState<ExportSubject[]>([]);
+  const [chapters, setChapters] = useState<ExportChapter[]>([]);
+  const [topics, setTopics] = useState<ExportTopic[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const [opts, setOpts] = useState<ExportOptions>({
+    paper: "a4",
+    includeSummary: true,
+    includeMnemonic: true,
+    includeOutline: true,
+  });
+
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<ProgressEvent[]>([]);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/auth");
+      return;
+    }
+    (async () => {
+      try {
+        const h = await fetchHierarchy(user.id);
+        setSubjects(h.subjects);
+        setChapters(h.chapters);
+        setTopics(h.topics);
+      } catch (e: any) {
+        toast({
+          title: "Failed to load",
+          description: e?.message || "Could not load hierarchy.",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [user, navigate, toast]);
+
+  const allTopicIds = useMemo(() => topics.map((t) => t.id), [topics]);
+  const selectAll = () => setSelected(new Set(allTopicIds));
+  const deselectAll = () => setSelected(new Set());
+
+  const selectedCount = selected.size;
+  const selectedChapterCount = useMemo(() => {
+    const chSet = new Set<string>();
+    topics.forEach((t) => {
+      if (selected.has(t.id) && t.chapter_id) chSet.add(t.chapter_id);
+    });
+    return chSet.size;
+  }, [selected, topics]);
+  const selectedSubjectCount = useMemo(() => {
+    const sSet = new Set<string>();
+    topics.forEach((t) => {
+      if (selected.has(t.id) && t.subject_id) sSet.add(t.subject_id);
+    });
+    return sSet.size;
+  }, [selected, topics]);
+
+  // Page estimate: cover (1) + TOC (~1 per 40 topics) + topics * 2 avg
+  const estimatedPages = selectedCount === 0
+    ? 0
+    : 1 + Math.max(1, Math.ceil(selectedCount / 40)) + selectedCount * 2;
+
+  const onGenerate = async () => {
+    if (!user || selected.size === 0) return;
+    setRunning(true);
+    setProgress([]);
+    setDone(false);
+    setError(null);
+    setDialogOpen(true);
+    try {
+      await generateStudyPack({
+        topicIds: Array.from(selected),
+        userId: user.id,
+        opts,
+        onProgress: (e) => setProgress((p) => [...p, e]),
+      });
+      setDone(true);
+      toast({
+        title: "Study Pack downloaded",
+        description: `${selected.size} topic${selected.size === 1 ? "" : "s"} packaged.`,
+      });
+    } catch (e: any) {
+      console.error("Study Pack failed:", e);
+      setError(e?.message || "Unknown error.");
+    } finally {
+      setRunning(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="max-w-4xl mx-auto p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="sm" onClick={() => navigate("/app")}>
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <div className="flex items-center gap-2">
+            <Package className="w-6 h-6 text-primary" />
+            <h1 className="text-2xl font-bold">Export Center</h1>
+          </div>
+        </div>
+
+        <p className="text-sm text-muted-foreground mb-6 max-w-2xl">
+          Generate a self-contained <strong>Study Pack</strong> — a single ZIP
+          containing PDF, Word, and standalone HTML versions of your notes.
+          Designed as a long-term offline backup that stays usable even without
+          this application.
+        </p>
+
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card className="md:col-span-2 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-semibold">Select what to export</h2>
+              <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={selectAll} disabled={loading}>
+                  Select all
+                </Button>
+                <Button size="sm" variant="outline" onClick={deselectAll} disabled={loading}>
+                  Deselect all
+                </Button>
+              </div>
+            </div>
+            {loading ? (
+              <div className="text-sm text-muted-foreground p-4">Loading hierarchy…</div>
+            ) : (
+              <div className="max-h-[60vh] overflow-y-auto">
+                <ExportTree
+                  subjects={subjects}
+                  chapters={chapters}
+                  topics={topics}
+                  selectedTopicIds={selected}
+                  onChange={setSelected}
+                />
+              </div>
+            )}
+          </Card>
+
+          <Card className="p-4 space-y-4 h-fit sticky top-4">
+            <div>
+              <h2 className="font-semibold mb-2">Summary</h2>
+              <div className="text-sm space-y-1">
+                <div>{selectedSubjectCount} subject{selectedSubjectCount === 1 ? "" : "s"}</div>
+                <div>{selectedChapterCount} chapter{selectedChapterCount === 1 ? "" : "s"}</div>
+                <div className="font-medium">
+                  {selectedCount} topic{selectedCount === 1 ? "" : "s"} selected
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  ≈ {estimatedPages} pages
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <h3 className="font-semibold text-sm">Options</h3>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="paper" className="text-sm">Paper</Label>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant={opts.paper === "a4" ? "default" : "outline"}
+                    onClick={() => setOpts({ ...opts, paper: "a4" })}
+                  >
+                    A4
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={opts.paper === "letter" ? "default" : "outline"}
+                    onClick={() => setOpts({ ...opts, paper: "letter" })}
+                  >
+                    Letter
+                  </Button>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="outline" className="text-sm">Include outline</Label>
+                <Switch
+                  id="outline"
+                  checked={opts.includeOutline}
+                  onCheckedChange={(c) => setOpts({ ...opts, includeOutline: c })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="summary" className="text-sm">Include Summary tab</Label>
+                <Switch
+                  id="summary"
+                  checked={opts.includeSummary}
+                  onCheckedChange={(c) => setOpts({ ...opts, includeSummary: c })}
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="mnemonic" className="text-sm">Include Mnemonic tab</Label>
+                <Switch
+                  id="mnemonic"
+                  checked={opts.includeMnemonic}
+                  onCheckedChange={(c) => setOpts({ ...opts, includeMnemonic: c })}
+                />
+              </div>
+            </div>
+
+            <Button
+              className="w-full"
+              disabled={selectedCount === 0 || running}
+              onClick={onGenerate}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              {running ? "Generating…" : "Generate Study Pack"}
+            </Button>
+
+            <p className="text-[11px] text-muted-foreground">
+              Large packs may take a minute or two. Keep this tab open.
+            </p>
+          </Card>
+        </div>
+      </div>
+
+      <ExportProgressDialog
+        open={dialogOpen}
+        events={progress}
+        done={done}
+        error={error}
+        onClose={() => setDialogOpen(false)}
+      />
+    </div>
+  );
+}
