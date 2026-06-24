@@ -1,4 +1,4 @@
-import { Plus, BookOpen, Settings, Sparkles, Trash2, FolderPlus, ChevronDown, ChevronRight, MoveHorizontal, MessageSquare } from "lucide-react";
+import { Plus, BookOpen, Settings, Sparkles, Trash2, FolderPlus, ChevronDown, ChevronRight, MoveHorizontal, MessageSquare, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChapterSection } from "@/components/ChapterSection";
@@ -290,6 +290,15 @@ export const Sidebar = ({
             >
               <MessageSquare className="w-4 h-4 mr-2" />
               AI Study Assistant
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              size="sm"
+              onClick={() => navigate('/export')}
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Export Center
             </Button>
             <Button 
               variant="outline" 

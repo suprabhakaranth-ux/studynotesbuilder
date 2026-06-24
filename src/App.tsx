@@ -16,6 +16,7 @@ import PublicLibrary from "./pages/PublicLibrary";
 import PublicTopic from "./pages/PublicTopic";
 import PublicPresentation from "./pages/PublicPresentation";
 import NotFound from "./pages/NotFound";
+import ExportCenter from "./pages/ExportCenter";
 
 const queryClient = new QueryClient();
 
@@ -78,6 +79,7 @@ const App = () => (
             <Route path="/ai-chat" element={<AIChat />} />
             <Route path="/assistant" element={<AssistantWorkspace />} />
             <Route path="/showcase" element={<Showcase />} />
+            <Route path="/export" element={<ExportCenter />} />
             <Route path="/library" element={<PublicLibrary />} />
             <Route path="/library/topic/:topicId" element={<LegacyTopicRedirect />} />
             <Route path="/library/:subjectSlug" element={<PublicLibrary />} />
