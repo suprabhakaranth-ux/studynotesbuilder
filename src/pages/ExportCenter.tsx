@@ -140,31 +140,46 @@ export default function ExportCenter() {
         </p>
 
         <div className="grid md:grid-cols-3 gap-6">
-          <Card className="md:col-span-2 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="font-semibold">Select what to export</h2>
-              <div className="flex gap-2">
+          <Card className="md:col-span-2 p-0 overflow-hidden">
+            <div className="sticky top-0 z-10 flex flex-wrap items-center gap-2 p-3 border-b bg-card/95 backdrop-blur">
+              <h2 className="font-semibold mr-2">Select what to export</h2>
+              <span className="text-sm text-muted-foreground">
+                {selectedCount === 0
+                  ? "Select at least one topic to enable export"
+                  : `${selectedCount} topic${selectedCount === 1 ? "" : "s"} selected`}
+              </span>
+              <div className="flex gap-2 ml-auto">
                 <Button size="sm" variant="outline" onClick={selectAll} disabled={loading}>
                   Select all
                 </Button>
                 <Button size="sm" variant="outline" onClick={deselectAll} disabled={loading}>
                   Deselect all
                 </Button>
+                <Button
+                  size="sm"
+                  disabled={selectedCount === 0 || running}
+                  onClick={onGenerate}
+                >
+                  <Download className="w-4 h-4 mr-1.5" />
+                  {running ? "Generating…" : "Generate Study Pack"}
+                </Button>
               </div>
             </div>
-            {loading ? (
-              <div className="text-sm text-muted-foreground p-4">Loading hierarchy…</div>
-            ) : (
-              <div className="max-h-[60vh] overflow-y-auto">
-                <ExportTree
-                  subjects={subjects}
-                  chapters={chapters}
-                  topics={topics}
-                  selectedTopicIds={selected}
-                  onChange={setSelected}
-                />
-              </div>
-            )}
+            <div className="p-4">
+              {loading ? (
+                <div className="text-sm text-muted-foreground p-4">Loading hierarchy…</div>
+              ) : (
+                <div className="max-h-[60vh] overflow-y-auto">
+                  <ExportTree
+                    subjects={subjects}
+                    chapters={chapters}
+                    topics={topics}
+                    selectedTopicIds={selected}
+                    onChange={setSelected}
+                  />
+                </div>
+              )}
+            </div>
           </Card>
 
           <Card className="p-4 space-y-4 h-fit sticky top-4">
