@@ -28,7 +28,7 @@ export async function generateStudyPack(args: {
   const html = await buildArchiveHtml(bundles, opts, { exportedAt });
 
   onProgress?.({ stage: "pdf", message: "Building PDF…" });
-  const pdfBlob = await buildArchivePdf({ html, opts, onProgress });
+  const pdfBlob = await buildArchivePdf({ bundles, opts, meta: { exportedAt }, onProgress });
 
   onProgress?.({ stage: "docx", message: "Building Word document…" });
   const docxBlob = await buildArchiveDocx(bundles, opts, { exportedAt }, onProgress);
