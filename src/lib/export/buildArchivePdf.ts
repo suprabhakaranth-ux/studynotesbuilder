@@ -518,161 +518,143 @@ export async function buildArchivePdf(input: PdfInput): Promise<Blob> {
     }
   }
 
-  // ─── Build Index pages and insert them right after the cover (page 1) ───
-  onProgress?.({ stage: "pdf", message: "Building index…", percent: 78 });
+  // ─── Build Index pages at the END, then move them after the cover ───
+  onProgress?.({ stage: "pdf", message: "Building index…", percent: 80 });
 
-  // Render the index into a scratch pdf so we know its page count, then
-  // insert that many blank pages and copy content over.
-  const indexPages: Array<() => void> = [];
-  {
-    // Use a virtual writer that just measures by counting line-breaks against the same layout
-    // but renders directly into the live pdf on temporary trailing pages, then we move them.
-    const startPage = pdf.getNumberOfPages();
-    newPage(writer);
-    const indexStart = writer.page;
+  type LinkRec = {
+    onPage: number;
+    rect: { x: number; y: number; w: number; h: number };
+    toTopicId: string;
+  };
+  const linkRecords: LinkRec[] = [];
 
-    // Heading
-    pdf.setTextColor(20);
-    setFont(pdf, 22, true);
-    pdf.text("Index", margin, writer.y + 22);
-    writer.y += 36;
+  newPage(writer);
+  const indexStartPage = writer.page;
 
-    let lastSubject = "";
-    let lastChapter = "";
+  pdf.setTextColor(20);
+  setFont(pdf, 22, true);
+  pdf.text("Index", margin, writer.y + 22);
+  writer.y += 40;
 
-    for (const b of bundles) {
-      if (b.subject.name !== lastSubject) {
-        ensureSpace(writer, 28);
-        writer.y += 8;
-        setFont(pdf, 13, true);
-        pdf.setTextColor(30);
-        pdf.text(b.subject.name, margin, writer.y + 12);
-        writer.y += 20;
-        lastSubject = b.subject.name;
-        lastChapter = "";
-      }
-      const chap = b.chapter?.name || "Unfiled";
-      if (chap !== lastChapter) {
-        ensureSpace(writer, 18);
-        setFont(pdf, 10.5, false, true);
-        pdf.setTextColor(110);
-        pdf.text(chap, margin + 14, writer.y + 10);
-        writer.y += 16;
-        lastChapter = chap;
-      }
+  let lastSubject = "";
+  let lastChapter = "";
 
-      ensureSpace(writer, 16);
-      const targetPage =
-        (topicPage.get(b.topic.id) || 0) + 0; // adjusted later for inserted index pages
-      const yLine = writer.y + 11;
-      const xStart = margin + 28;
-      const pageLabel = String(targetPage);
-      setFont(pdf, 11);
-      pdf.setTextColor(20, 60, 160);
-      const titleText = b.topic.title;
-      const titleWidth = Math.min(
-        pdf.getTextWidth(titleText),
-        layout.contentW - 28 - 40
-      );
-      // Truncate title if too long
-      let drawnTitle = titleText;
-      while (
-        pdf.getTextWidth(drawnTitle) > layout.contentW - 28 - 50 &&
-        drawnTitle.length > 4
-      ) {
-        drawnTitle = drawnTitle.slice(0, -2);
-      }
-      if (drawnTitle !== titleText) drawnTitle = drawnTitle.replace(/\s?\S*$/, "") + "…";
-      pdf.text(drawnTitle, xStart, yLine);
-      const tw = pdf.getTextWidth(drawnTitle);
-      // dot leader
-      const pageW2 = pdf.getTextWidth(pageLabel);
-      const xPageNum = margin + layout.contentW - pageW2;
-      const dotStart = xStart + tw + 4;
-      const dotEnd = xPageNum - 4;
-      if (dotEnd > dotStart) {
-        pdf.setTextColor(180);
-        const dot = ".";
-        const dw = pdf.getTextWidth(". ");
-        const count = Math.max(0, Math.floor((dotEnd - dotStart) / dw));
-        pdf.text(". ".repeat(count), dotStart, yLine);
-      }
-      pdf.setTextColor(20, 60, 160);
-      pdf.text(pageLabel, xPageNum, yLine);
-
-      // Record link region (page + rect) — fixed up after we reshuffle pages.
-      indexPages.push(() => {
-        const curPage = pdf.getNumberOfPages();
-        // We'll re-attach links in the post-shuffle pass.
-        void curPage;
-      });
-
-      // Save link metadata for post-pass
-      linkRecords.push({
-        onPage: writer.page,
-        rect: {
-          x: margin,
-          y: writer.y,
-          w: layout.contentW,
-          h: 14,
-        },
-        toTopicId: b.topic.id,
-      });
-
+  for (const b of bundles) {
+    if (b.subject.name !== lastSubject) {
+      ensureSpace(writer, 28);
+      writer.y += 8;
+      setFont(pdf, 13, true);
+      pdf.setTextColor(30);
+      pdf.text(b.subject.name, margin, writer.y + 12);
+      writer.y += 20;
+      lastSubject = b.subject.name;
+      lastChapter = "";
+    }
+    const chap = b.chapter?.name || "Unfiled";
+    if (chap !== lastChapter) {
+      ensureSpace(writer, 18);
+      setFont(pdf, 10.5, false, true);
+      pdf.setTextColor(110);
+      pdf.text(chap, margin + 14, writer.y + 10);
       writer.y += 16;
+      lastChapter = chap;
     }
 
-    const indexEnd = writer.page;
-    indexCount = indexEnd - indexStart + 1;
-    indexStartPage = indexStart;
-    void startPage;
+    ensureSpace(writer, 16);
+    const rowY = writer.y;
+    const yLine = rowY + 11;
+    const xStart = margin + 28;
+
+    // Truncate title if necessary
+    setFont(pdf, 11);
+    let drawnTitle = b.topic.title;
+    const maxTitleWidth = layout.contentW - 28 - 60;
+    while (
+      pdf.getTextWidth(drawnTitle) > maxTitleWidth &&
+      drawnTitle.length > 4
+    ) {
+      drawnTitle = drawnTitle.slice(0, -2);
+    }
+    if (drawnTitle !== b.topic.title) drawnTitle = drawnTitle.replace(/\s?\S*$/, "") + "…";
+
+    pdf.setTextColor(20, 60, 160);
+    pdf.text(drawnTitle, xStart, yLine);
+
+    linkRecords.push({
+      onPage: writer.page,
+      rect: { x: margin, y: rowY, w: layout.contentW, h: 14 },
+      toTopicId: b.topic.id,
+    });
+
+    writer.y += 16;
   }
 
-  // ─── Move the index pages from the end to position 2 (right after cover) ───
-  // jsPDF page numbering is 1-based. We rendered cover=1, topics=2..N, index=N+1..N+indexCount.
-  const totalBefore = pdf.getNumberOfPages();
-  const topicsStart = 2;
-  const topicsEnd = indexStartPage - 1; // last topic page
-  // movePage(from, to) — move each index page in order to immediately after cover.
+  const indexEndPage = writer.page;
+  const indexCount = indexEndPage - indexStartPage + 1;
+
+  // Move each index page to position 2..1+indexCount
   for (let k = 0; k < indexCount; k++) {
-    // After previous moves, the next index page is at totalBefore (it shifts down by k? actually movePage rewires)
-    // Simpler: move the page currently numbered (topicsEnd + 1) — which is always the next index page after each shift —
-    // to position 2 + k.
-    pdf.movePage(topicsEnd + 1, 2 + k);
+    // The next un-moved index page now sits at (indexStartPage + k) after k moves
+    // (because moving from later → earlier shifts everything between down by 1,
+    // so the next source page in the original sequence stays at the same absolute number).
+    pdf.movePage(indexStartPage + k, 2 + k);
   }
 
-  // After moving:
-  //   page 1     = cover
-  //   pages 2..1+indexCount     = index
-  //   pages 2+indexCount..total = topics (shifted by indexCount)
-  // Adjust topicPage and index-rendered page labels.
-  topicPage.forEach((p, id) => topicPage.set(id, p + indexCount));
+  // Adjust topic page numbers: every topic page that was 2..(indexStartPage-1)
+  // is now shifted down by indexCount.
+  topicPage.forEach((p, id) => {
+    if (p >= 2 && p < indexStartPage) topicPage.set(id, p + indexCount);
+  });
 
-  // Re-stamp page numbers on the index lines (they were drawn with pre-shift numbers).
-  // We do this by clearing the page-number region on each index line and reprinting.
-  // To keep the implementation small, we redraw the page numbers as an overlay using
-  // the link records (which carry the row position).
+  // Stamp page numbers, dot leaders, and link annotations onto each index row.
   for (const lr of linkRecords) {
-    const newPageNum = (topicPage.get(lr.toTopicId) || 0);
-    if (!newPageNum) continue;
-    // The index pages were originally rendered on pages [indexStartPage..indexStartPage+indexCount-1],
-    // and after movePage they now occupy [2..1+indexCount] in the same relative order.
+    const targetPageNum = topicPage.get(lr.toTopicId);
+    if (!targetPageNum) continue;
+    // New index page = original rendering page minus indexStartPage + 2
     const newIndexPage = lr.onPage - indexStartPage + 2;
     pdf.setPage(newIndexPage);
 
-    // Cover the old (stale) number with a white rectangle, then redraw.
-    const rightX = layout.margin + layout.contentW;
-    pdf.setFillColor(255, 255, 255);
-    pdf.rect(rightX - 50, lr.rect.y, 50, lr.rect.h, "F");
+    const yLine = lr.rect.y + 11;
+    const xStart = margin + 28;
     setFont(pdf, 11);
-    pdf.setTextColor(20, 60, 160);
-    const label = String(newPageNum);
-    const lw = pdf.getTextWidth(label);
-    pdf.text(label, rightX - lw, lr.rect.y + 11);
 
-    // Add a clickable link covering the whole row.
+    // Measure the already-drawn title from the link rect width minus the right page area
+    // We need the title width to know where to start dots — re-read from the original
+    // drawn title (which we no longer have). Approximation: redraw using stored bundle.
+    // Simpler: redraw a dot leader from xStart + estimatedTitleWidth to (right - pageWidth).
+    const pageLabel = String(targetPageNum);
+    const pageLabelW = pdf.getTextWidth(pageLabel);
+    const rightX = layout.margin + layout.contentW;
+    const xPageNum = rightX - pageLabelW;
+
+    // Find this topic's drawn title width by re-measuring it the same way as render pass
+    const bundle = bundles.find((b) => b.topic.id === lr.toTopicId);
+    let titleW = 0;
+    if (bundle) {
+      let t = bundle.topic.title;
+      const maxTitleWidth = layout.contentW - 28 - 60;
+      while (pdf.getTextWidth(t) > maxTitleWidth && t.length > 4) t = t.slice(0, -2);
+      if (t !== bundle.topic.title) t = t.replace(/\s?\S*$/, "") + "…";
+      titleW = pdf.getTextWidth(t);
+    }
+
+    // Dot leader
+    const dotStart = xStart + titleW + 6;
+    const dotEnd = xPageNum - 6;
+    if (dotEnd > dotStart) {
+      pdf.setTextColor(190);
+      const dwUnit = pdf.getTextWidth(". ");
+      const count = Math.max(0, Math.floor((dotEnd - dotStart) / dwUnit));
+      pdf.text(". ".repeat(count), dotStart, yLine);
+    }
+
+    // Page number
+    pdf.setTextColor(20, 60, 160);
+    pdf.text(pageLabel, xPageNum, yLine);
+
+    // Clickable link covering the whole row
     pdf.link(lr.rect.x, lr.rect.y - 2, lr.rect.w, lr.rect.h + 2, {
-      pageNumber: newPageNum,
+      pageNumber: targetPageNum,
     });
   }
 
@@ -687,15 +669,6 @@ export async function buildArchivePdf(input: PdfInput): Promise<Blob> {
   }
 
   onProgress?.({ stage: "pdf", message: "Finalizing PDF…", percent: 100 });
-  void totalBefore;
   return pdf.output("blob");
 }
 
-// shared state for the index pass (module-local closures above)
-const linkRecords: Array<{
-  onPage: number;
-  rect: { x: number; y: number; w: number; h: number };
-  toTopicId: string;
-}> = [];
-let indexCount = 0;
-let indexStartPage = 0;
