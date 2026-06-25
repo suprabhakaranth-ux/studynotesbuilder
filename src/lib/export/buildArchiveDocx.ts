@@ -456,6 +456,3 @@ export async function buildArchiveDocx(
 
   return await Packer.toBlob(doc);
 }
-
-// keep import side effect for tree-shaker friendliness
-void supabase;
