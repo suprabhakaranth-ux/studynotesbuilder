@@ -21,7 +21,7 @@ import {
 } from "docx";
 import type { TopicBundle, ExportOptions, ProgressCallback } from "./types";
 import { parseHtmlToParagraphs, createPageBreak } from "@/utils/wordExport";
-import { supabase } from "@/integrations/supabase/client";
+
 
 const PAGE_SIZES = {
   a4: { width: 11906, height: 16838 },
