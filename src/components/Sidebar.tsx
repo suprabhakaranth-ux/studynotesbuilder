@@ -47,6 +47,7 @@ interface SidebarProps {
   onDeleteTopic?: (topicId: string, topicTitle: string) => void;
   onToggleSubject: (id: string) => void;
   onToggleChapter: (id: string) => void;
+  onExportCenter?: () => void;
   readOnly?: boolean;
 }
 export const Sidebar = ({
@@ -72,6 +73,7 @@ export const Sidebar = ({
   onDeleteTopic,
   onToggleSubject,
   onToggleChapter,
+  onExportCenter,
   readOnly = false,
 }: SidebarProps) => {
   const navigate = useNavigate();
@@ -295,7 +297,7 @@ export const Sidebar = ({
               variant="outline"
               className="w-full justify-start"
               size="sm"
-              onClick={() => navigate('/export')}
+              onClick={() => (onExportCenter ? onExportCenter() : navigate('/export'))}
             >
               <Package className="w-4 h-4 mr-2" />
               Export Center

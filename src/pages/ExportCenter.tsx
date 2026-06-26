@@ -19,8 +19,13 @@ import type {
   ProgressEvent,
 } from "@/lib/export/types";
 
-export default function ExportCenter() {
-  const { user } = useAuth();
+interface ExportCenterProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+export default function ExportCenter({ embedded = false, onBack }: ExportCenterProps) {
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -44,6 +49,7 @@ export default function ExportCenter() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       navigate("/auth");
       return;
@@ -64,7 +70,7 @@ export default function ExportCenter() {
         setLoading(false);
       }
     })();
-  }, [user, navigate, toast]);
+  }, [user, authLoading, navigate, toast]);
 
   const allTopicIds = useMemo(() => topics.map((t) => t.id), [topics]);
   const selectAll = () => setSelected(new Set(allTopicIds));
@@ -119,10 +125,10 @@ export default function ExportCenter() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6">
+    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+      <div className={embedded ? "p-8" : "max-w-4xl mx-auto p-6"}>
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/app")}>
+          <Button variant="ghost" size="sm" onClick={() => (embedded ? onBack?.() : navigate("/app"))}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>

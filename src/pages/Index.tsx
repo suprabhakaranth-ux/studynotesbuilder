@@ -12,6 +12,7 @@ import { SubjectDialog } from "@/components/SubjectDialog";
 import { TopicDialog } from "@/components/TopicDialog";
 import { MoveTopicDialog } from "@/components/MoveTopicDialog";
 import { MoveChapterDialog } from "@/components/MoveChapterDialog";
+import ExportCenter from "@/pages/ExportCenter";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -73,6 +74,7 @@ const Index = () => {
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
+  const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [newSubjectName, setNewSubjectName] = useState("");
@@ -1278,10 +1280,17 @@ const Index = () => {
         onDeleteTopic={handleDeleteTopic}
         onToggleSubject={handleToggleSubject}
         onToggleChapter={handleToggleChapter}
+        onExportCenter={() => {
+          setEditingTopic(null);
+          setRecycleBinOpen(false);
+          setShowExportCenter(true);
+        }}
       />
 
       <div className="flex-1 overflow-auto">
-        {activeSubject ? (
+        {showExportCenter ? (
+          <ExportCenter embedded onBack={() => setShowExportCenter(false)} />
+        ) : activeSubject ? (
           <div className="p-8">
             {/* Breadcrumb Navigation */}
             <Breadcrumb className="mb-6">
