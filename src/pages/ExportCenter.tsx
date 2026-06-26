@@ -25,7 +25,7 @@ interface ExportCenterProps {
 }
 
 export default function ExportCenter({ embedded = false, onBack }: ExportCenterProps) {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -49,6 +49,7 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   const [dialogOpen, setDialogOpen] = useState(false);
 
   useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       navigate("/auth");
       return;
@@ -69,7 +70,7 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
         setLoading(false);
       }
     })();
-  }, [user, navigate, toast]);
+  }, [user, authLoading, navigate, toast]);
 
   const allTopicIds = useMemo(() => topics.map((t) => t.id), [topics]);
   const selectAll = () => setSelected(new Set(allTopicIds));
