@@ -19,7 +19,12 @@ import type {
   ProgressEvent,
 } from "@/lib/export/types";
 
-export default function ExportCenter() {
+interface ExportCenterProps {
+  embedded?: boolean;
+  onBack?: () => void;
+}
+
+export default function ExportCenter({ embedded = false, onBack }: ExportCenterProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -119,10 +124,10 @@ export default function ExportCenter() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6">
+    <div className={embedded ? "bg-background" : "min-h-screen bg-background"}>
+      <div className={embedded ? "p-8" : "max-w-4xl mx-auto p-6"}>
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="sm" onClick={() => navigate("/app")}>
+          <Button variant="ghost" size="sm" onClick={() => (embedded ? onBack?.() : navigate("/app"))}>
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
