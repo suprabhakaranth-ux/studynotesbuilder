@@ -257,3 +257,39 @@ All colors MUST be HSL.
 .article-prose > *:first-child { margin-top: 0; }
 .article-prose > *:last-child { margin-bottom: 0; }
 
+/* ---- Tables inside the Tiptap editor ---- */
+.ProseMirror table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  table-layout: fixed;
+  overflow: hidden;
+}
+.ProseMirror table td,
+.ProseMirror table th {
+  border: 1px solid hsl(var(--border));
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+  position: relative;
+  min-width: 4em;
+}
+.ProseMirror table th {
+  background: hsl(var(--muted));
+  font-weight: 600;
+  text-align: left;
+}
+.ProseMirror table .selectedCell {
+  background: hsl(var(--primary) / 0.12);
+}
+.ProseMirror table .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: hsl(var(--primary) / 0.4);
+  pointer-events: none;
+}
+.ProseMirror .tableWrapper { overflow-x: auto; }
+
+

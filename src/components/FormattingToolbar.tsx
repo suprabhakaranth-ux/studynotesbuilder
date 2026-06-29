@@ -18,6 +18,7 @@ import {
   Paintbrush,
   ClipboardPaste,
   Sigma,
+  Table as TableIcon,
 } from "lucide-react";
 import { Editor } from "@tiptap/react";
 import { MathInsertDialog } from "./MathInsertDialog";
