@@ -9,6 +9,11 @@ export const cleanPastedHtml = (html: string): string => {
   const container = document.createElement("div");
   container.innerHTML = html;
 
+  // Convert "fake" tables (CSS display:table / display:grid built from divs,
+  // as produced by Gemini, Claude, ChatGPT, and some PDF exports) into real
+  // <table> markup so Tiptap's Table schema preserves them.
+  convertFakeTables(container);
+
   // Remove dangerous / chrome elements
   container
     .querySelectorAll(
@@ -110,3 +115,77 @@ export const cleanPastedHtml = (html: string): string => {
 
   return container.innerHTML;
 };
+
+/* ---------------- fake-table → real-table conversion ---------------- */
+
+const getStyle = (el: Element, prop: string): string => {
+  const s = (el as HTMLElement).style?.[prop as any] as string | undefined;
+  if (s) return s.toLowerCase();
+  const attr = el.getAttribute("style") || "";
+  const m = new RegExp(`(?:^|;)\\s*${prop}\\s*:\\s*([^;]+)`, "i").exec(attr);
+  return m ? m[1].trim().toLowerCase() : "";
+};
+
+const replaceTag = (el: Element, tag: string): HTMLElement => {
+  const next = document.createElement(tag);
+  while (el.firstChild) next.appendChild(el.firstChild);
+  el.replaceWith(next);
+  return next;
+};
+
+/**
+ * Walk the tree and convert div-based "tables" into real HTML tables.
+ * Handles two common patterns:
+ *  (A) CSS table model: display:table / table-row / table-cell on divs.
+ *  (B) CSS grid: a container with display:grid + grid-template-columns of N
+ *      tracks, whose direct children are cells laid out row-major.
+ */
+function convertFakeTables(root: HTMLElement) {
+  // Pattern A: display:table
+  const tableLikes = Array.from(root.querySelectorAll<HTMLElement>("div, section")).filter(
+    (el) => getStyle(el, "display") === "table"
+  );
+  for (const el of tableLikes) {
+    el.querySelectorAll<HTMLElement>("*").forEach((d) => {
+      const disp = getStyle(d, "display");
+      if (disp === "table-row") replaceTag(d, "tr");
+      else if (disp === "table-cell") replaceTag(d, "td");
+      else if (disp === "table-header-group") replaceTag(d, "thead");
+      else if (disp === "table-row-group") replaceTag(d, "tbody");
+    });
+    replaceTag(el, "table");
+  }
+
+  // Pattern B: display:grid with a fixed column count
+  const gridLikes = Array.from(root.querySelectorAll<HTMLElement>("div, section")).filter(
+    (el) => getStyle(el, "display") === "grid"
+  );
+  for (const el of gridLikes) {
+    const cols = getStyle(el, "grid-template-columns");
+    if (!cols) continue;
+    // Count tracks (handles "1fr 1fr 1fr", "repeat(3, 1fr)", "120px 1fr 1fr", etc.)
+    const repeatMatch = /repeat\(\s*(\d+)\s*,/.exec(cols);
+    const colCount = repeatMatch
+      ? parseInt(repeatMatch[1], 10)
+      : cols.replace(/\([^)]*\)/g, "").trim().split(/\s+/).filter(Boolean).length;
+    if (colCount < 2) continue;
+
+    const cells = Array.from(el.children);
+    if (cells.length < colCount) continue;
+
+    const table = document.createElement("table");
+    const tbody = document.createElement("tbody");
+    for (let i = 0; i < cells.length; i += colCount) {
+      const tr = document.createElement("tr");
+      for (let j = 0; j < colCount && i + j < cells.length; j++) {
+        const td = document.createElement("td");
+        const cell = cells[i + j];
+        while (cell.firstChild) td.appendChild(cell.firstChild);
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.appendChild(tbody);
+    el.replaceWith(table);
+  }
+}
