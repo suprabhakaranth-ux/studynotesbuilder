@@ -416,7 +416,47 @@ export const FormattingToolbar = ({
           <Sigma className="w-3.5 h-3.5" />
         </Button>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button size="sm" variant="ghost" className="h-8 w-8 p-0 hover:bg-primary/10" title="Table">
+              <TableIcon className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent className="bg-card z-50">
+            <DropdownMenuItem
+              onClick={() =>
+                withEditor((e) =>
+                  e.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+                )
+              }
+            >
+              Insert 3 × 3 table
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().addRowAfter().run())}>
+              Add row below
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().addColumnAfter().run())}>
+              Add column right
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().deleteRow().run())}>
+              Delete row
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().deleteColumn().run())}>
+              Delete column
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().toggleHeaderRow().run())}>
+              Toggle header row
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={() => withEditor((e) => e.chain().focus().deleteTable().run())}>
+              Delete table
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
         <div className="w-px h-6 bg-border" />
+
 
         <Button size="sm" variant="ghost" onClick={tBullet} className="h-8 w-8 p-0 hover:bg-primary/10" title="Bullet List">
           <List className="w-3.5 h-3.5" />
