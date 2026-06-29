@@ -10,10 +10,10 @@ import Link from "@tiptap/extension-link";
 import Image from "@tiptap/extension-image";
 import { FontFamily } from "@tiptap/extension-font-family";
 import Placeholder from "@tiptap/extension-placeholder";
-import Table from "@tiptap/extension-table";
-import TableRow from "@tiptap/extension-table-row";
-import TableHeader from "@tiptap/extension-table-header";
-import TableCell from "@tiptap/extension-table-cell";
+import { Table } from "@tiptap/extension-table";
+import { TableRow } from "@tiptap/extension-table-row";
+import { TableHeader } from "@tiptap/extension-table-header";
+import { TableCell } from "@tiptap/extension-table-cell";
 
 import { cn } from "@/lib/utils";
 import { FloatingToolbar } from "../FloatingToolbar";
@@ -72,6 +72,10 @@ const buildExtensions = (placeholder: string) => [
   IndentParagraph,
   MathInline,
   MathDisplay,
+  Table.configure({ resizable: true, allowTableNodeSelection: true, HTMLAttributes: { class: "tiptap-table" } }),
+  TableRow,
+  TableHeader,
+  TableCell,
   Placeholder.configure({ placeholder }),
 ];
 
