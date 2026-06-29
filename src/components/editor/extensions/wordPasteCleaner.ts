@@ -9,6 +9,11 @@ export const cleanPastedHtml = (html: string): string => {
   const container = document.createElement("div");
   container.innerHTML = html;
 
+  // Convert "fake" tables (CSS display:table / display:grid built from divs,
+  // as produced by Gemini, Claude, ChatGPT, and some PDF exports) into real
+  // <table> markup so Tiptap's Table schema preserves them.
+  convertFakeTables(container);
+
   // Remove dangerous / chrome elements
   container
     .querySelectorAll(
