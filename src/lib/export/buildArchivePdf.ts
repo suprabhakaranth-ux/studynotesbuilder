@@ -31,7 +31,8 @@ type Block =
   | { kind: "li"; runs: Run[]; ordered: boolean; index: number; depth: number }
   | { kind: "img"; src: string }
   | { kind: "hr" }
-  | { kind: "space"; pt: number };
+  | { kind: "space"; pt: number }
+  | { kind: "table"; rows: Run[][][]; hasHeader: boolean };
 
 const esc = (s: string) => s.replace(/\s+/g, " ");
 
@@ -103,6 +104,7 @@ function parseHtmlToBlocks(html: string): Block[] {
     if (tag === "p" || tag === "blockquote") {
       const runs = inlineRuns(el, { text: "" });
       if (runs.some((r) => r.text.trim())) blocks.push({ kind: "p", runs });
+      else blocks.push({ kind: "space", pt: 8 });
       return;
     }
     if (tag === "ul") return walkList(el, false, 0);
@@ -119,14 +121,19 @@ function parseHtmlToBlocks(html: string): Block[] {
       return;
     }
     if (tag === "table") {
-      // Flatten table rows to plain paragraphs to keep text selectable.
-      Array.from(el.querySelectorAll("tr")).forEach((tr) => {
-        const cells = Array.from(tr.querySelectorAll("th,td")).map(
-          (c) => (c as HTMLElement).innerText.replace(/\s+/g, " ").trim()
+      const trs = Array.from(el.querySelectorAll("tr"));
+      const rows: Run[][][] = trs.map((tr) =>
+        Array.from(tr.querySelectorAll("th,td")).map((c) =>
+          inlineRuns(c as HTMLElement, { text: "" })
+        )
+      );
+      const firstRowCells = trs[0]?.querySelectorAll("th,td") ?? [];
+      const hasHeader =
+        firstRowCells.length > 0 &&
+        Array.from(firstRowCells).every(
+          (c) => c.tagName.toLowerCase() === "th"
         );
-        const text = cells.join("   |   ");
-        if (text) blocks.push({ kind: "p", runs: [{ text }] });
-      });
+      if (rows.length) blocks.push({ kind: "table", rows, hasHeader });
       blocks.push({ kind: "space", pt: 6 });
       return;
     }
@@ -369,10 +376,128 @@ async function drawBlock(w: Writer, b: Block) {
       w.y += drawH + 8;
       break;
     }
+    case "table": {
+      drawTable(w, b.rows, b.hasHeader);
+      break;
+    }
   }
 }
 
-// ─────────────────────── Top-level pipeline ───────────────────────
+/**
+ * Wrap runs into an array of visual lines that fit within maxW.
+ * Returns lines as arrays of runs so bold/italic survive.
+ */
+function wrapRunsToLines(
+  pdf: jsPDF,
+  runs: Run[],
+  size: number,
+  maxW: number
+): Run[][] {
+  const lines: Run[][] = [[]];
+  const pushToken = (tok: Run) => {
+    lines[lines.length - 1].push(tok);
+  };
+  const lineWidth = (line: Run[]) => {
+    let w = 0;
+    for (const r of line) {
+      setFont(pdf, size, !!r.bold, !!r.italic);
+      w += pdf.getTextWidth(r.text);
+    }
+    return w;
+  };
+
+  for (const r of runs) {
+    if (!r.text) continue;
+    const segments = r.text.split(/(\n)/);
+    for (const seg of segments) {
+      if (seg === "\n") {
+        lines.push([]);
+        continue;
+      }
+      const words = seg.split(/(\s+)/).filter((s) => s.length);
+      for (const wd of words) {
+        const tok: Run = { ...r, text: wd };
+        const candidate = [...lines[lines.length - 1], tok];
+        if (lineWidth(candidate) > maxW && lines[lines.length - 1].length) {
+          if (/^\s+$/.test(wd)) continue;
+          lines.push([tok]);
+        } else {
+          pushToken(tok);
+        }
+      }
+    }
+  }
+  // Strip trailing whitespace tokens
+  return lines.map((ln) => {
+    while (ln.length && /^\s+$/.test(ln[ln.length - 1].text)) ln.pop();
+    return ln;
+  });
+}
+
+function drawTable(w: Writer, rows: Run[][][], hasHeader: boolean) {
+  const { pdf, layout } = w;
+  const colCount = Math.max(1, ...rows.map((r) => r.length));
+  const colW = layout.contentW / colCount;
+  const size = 10;
+  const lineH = size * 1.3;
+  const padX = 4;
+  const padY = 4;
+
+  const drawRow = (
+    cells: Run[][],
+    isHeader: boolean
+  ): void => {
+    // Wrap each cell
+    const wrapped = Array.from({ length: colCount }, (_, i) => {
+      const cellRuns = cells[i] ?? [];
+      const shaped = isHeader
+        ? cellRuns.map((r) => ({ ...r, bold: true }))
+        : cellRuns;
+      return wrapRunsToLines(pdf, shaped, size, colW - padX * 2);
+    });
+    const maxLines = Math.max(1, ...wrapped.map((l) => l.length || 1));
+    const rowH = maxLines * lineH + padY * 2;
+
+    // Page break: keep row on one page; redraw header on next page
+    if (w.y + rowH > layout.contentBottom) {
+      newPage(w);
+    }
+
+    const x0 = layout.margin;
+    const y0 = w.y;
+
+    // Header shading
+    if (isHeader) {
+      pdf.setFillColor(240, 240, 240);
+      pdf.rect(x0, y0, layout.contentW, rowH, "F");
+    }
+
+    // Cell borders + text
+    pdf.setDrawColor(170);
+    pdf.setLineWidth(0.5);
+    for (let i = 0; i < colCount; i++) {
+      const cx = x0 + i * colW;
+      pdf.rect(cx, y0, colW, rowH);
+      const lines = wrapped[i];
+      let ty = y0 + padY;
+      for (const ln of lines) {
+        let tx = cx + padX;
+        for (const tok of ln) {
+          setFont(pdf, size, !!tok.bold, !!tok.italic);
+          pdf.setTextColor(20);
+          pdf.text(tok.text, tx, ty + size * 0.9);
+          tx += pdf.getTextWidth(tok.text);
+        }
+        ty += lineH;
+      }
+    }
+    w.y = y0 + rowH;
+  };
+
+  ensureSpace(w, lineH + padY * 2);
+  rows.forEach((r, idx) => drawRow(r, hasHeader && idx === 0));
+  w.y += 4;
+}
 
 export async function buildArchivePdf(input: PdfInput): Promise<Blob> {
   const { bundles, opts, meta, onProgress } = input;

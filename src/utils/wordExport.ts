@@ -1,4 +1,15 @@
-import { Paragraph, TextRun, HeadingLevel, PageBreak } from "docx";
+import {
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  PageBreak,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
+} from "docx";
 import { restoreMathSource } from "@/utils/mathRenderer";
 
 /**
@@ -124,7 +135,7 @@ export const parseHtmlToRuns = (html: string): TextRun[] => {
 /**
  * Recursively parse HTML into paragraphs (block level) with enhanced formatting
  */
-export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
+export const parseHtmlToParagraphs = (html: string): Array<Paragraph | Table> => {
   if (!html) return [];
 
   const prepared = restoreMathSource(html);
@@ -137,7 +148,65 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
   root.style.left = "-9999px";
   document.body.appendChild(root);
 
-  const paragraphs: Paragraph[] = [];
+  const paragraphs: Array<Paragraph | Table> = [];
+
+  const CELL_BORDER = { style: BorderStyle.SINGLE, size: 4, color: "AAAAAA" };
+  const CELL_BORDERS = {
+    top: CELL_BORDER,
+    bottom: CELL_BORDER,
+    left: CELL_BORDER,
+    right: CELL_BORDER,
+  };
+  const TABLE_TOTAL_WIDTH = 9000; // DXA — fits both A4 and Letter with 1" margins
+
+  const buildTable = (tableEl: HTMLTableElement): Table => {
+    const rowEls = Array.from(tableEl.querySelectorAll("tr"));
+    const colCount = Math.max(
+      1,
+      ...rowEls.map((tr) => tr.querySelectorAll("th,td").length)
+    );
+    const colWidth = Math.floor(TABLE_TOTAL_WIDTH / colCount);
+    const columnWidths = Array(colCount).fill(colWidth);
+
+    const rows = rowEls.map((tr, rowIdx) => {
+      const cellEls = Array.from(
+        tr.querySelectorAll("th,td")
+      ) as HTMLElement[];
+      const isHeader =
+        cellEls.length > 0 &&
+        cellEls.every((c) => c.tagName.toLowerCase() === "th");
+      const cells: TableCell[] = [];
+      for (let i = 0; i < colCount; i++) {
+        const cellEl = cellEls[i];
+        const inner = cellEl ? cellEl.innerHTML.trim() : "";
+        let cellChildren: Array<Paragraph | Table> = [];
+        if (inner) {
+          cellChildren = parseHtmlToParagraphs(inner);
+        }
+        if (cellChildren.length === 0) {
+          cellChildren = [new Paragraph({ children: [new TextRun("")] })];
+        }
+        cells.push(
+          new TableCell({
+            borders: CELL_BORDERS,
+            width: { size: colWidth, type: WidthType.DXA },
+            margins: { top: 80, bottom: 80, left: 120, right: 120 },
+            shading: isHeader
+              ? { fill: "F0F0F0", type: ShadingType.CLEAR, color: "auto" }
+              : undefined,
+            children: cellChildren,
+          })
+        );
+      }
+      return new TableRow({ tableHeader: isHeader, children: cells });
+    });
+
+    return new Table({
+      width: { size: TABLE_TOTAL_WIDTH, type: WidthType.DXA },
+      columnWidths,
+      rows,
+    });
+  };
 
   const walk = (el: HTMLElement, listLevel = 0) => {
     const tag = el.tagName.toLowerCase();
@@ -231,6 +300,14 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
       return;
     }
 
+    // TABLE
+    if (tag === "table") {
+      paragraphs.push(buildTable(el as HTMLTableElement));
+      // Empty paragraph after table so subsequent content isn't glued to it
+      paragraphs.push(new Paragraph({ children: [] }));
+      return;
+    }
+
     // CONTAINER ELEMENTS - only recurse, don't process inline content
     if (["div", "section", "article"].includes(tag)) {
       Array.from(el.children).forEach((child) =>
@@ -240,13 +317,15 @@ export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
     }
 
     // LEAF BLOCK ELEMENTS - process inline content and return
-    if (["p", "span"].includes(tag)) {
+    if (["p", "span", "blockquote"].includes(tag)) {
       const runs = processInline(el, {});
+      const options: any = {};
+      if (Object.keys(spacing).length > 0) options.spacing = spacing;
       if (runs.length) {
-        const options: any = { children: runs };
-        if (Object.keys(spacing).length > 0) {
-          options.spacing = spacing;
-        }
+        options.children = runs;
+        paragraphs.push(new Paragraph(options));
+      } else if (tag === "p") {
+        // Preserve intentional blank paragraphs used for vertical spacing
         paragraphs.push(new Paragraph(options));
       }
       return;

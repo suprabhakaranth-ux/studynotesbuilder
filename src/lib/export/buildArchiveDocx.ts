@@ -19,6 +19,7 @@ import {
   TabStopPosition,
   LeaderType,
 } from "docx";
+import type { Table } from "docx";
 import type { TopicBundle, ExportOptions, ProgressCallback } from "./types";
 import { parseHtmlToParagraphs, createPageBreak } from "@/utils/wordExport";
 
@@ -32,7 +33,7 @@ const MARGIN = 1440;
 // Bookmark IDs must not contain hyphens for maximum Word compatibility.
 const bookmarkIdFor = (topicId: string) => `topic_${topicId.replace(/-/g, "")}`;
 
-function flattenHeadings(nodes: any[], level: number, out: Paragraph[]): void {
+function flattenHeadings(nodes: any[], level: number, out: Array<Paragraph | Table>): void {
   nodes.forEach((n) => {
     const headingLevel =
       level === 0
@@ -62,7 +63,7 @@ export async function buildArchiveDocx(
 ): Promise<Blob> {
   const pageSize = PAGE_SIZES[opts.paper];
 
-  const children: Array<Paragraph> = [];
+  const children: Array<Paragraph | Table> = [];
 
   // ───────── Cover page ─────────
   children.push(
