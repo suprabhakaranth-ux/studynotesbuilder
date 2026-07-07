@@ -1,43 +1,53 @@
 ## Problem
 
-The Tiptap editor has no table support installed. When you paste HTML that contains a `<table>` (or a CSS-grid "table" of `<div>`s, like Gemini's chat output), Tiptap's schema doesn't recognize tables, so it strips the table tags and keeps only the inner text — collapsing every cell into one run, exactly what you saw.
+Study Pack export (DOCX + PDF) has two gaps:
 
-The paste cleaner (`wordPasteCleaner.ts`) and the public-HTML sanitizer already allow `<table>`, but the editor schema is the bottleneck.
+1. **Empty paragraphs between bullets/points/paragraphs are dropped.** `parseHtmlToParagraphs` (DOCX) skips any `<p>` whose runs are empty, and `parseHtmlToBlocks` (PDF) skips paragraphs whose runs contain no non‑whitespace text. Tiptap writes intentional visual gaps as `<p></p>` or `<p><br></p>`, so those blank rows never make it into the exported document.
+2. **Tables are flattened to plain text.** `parseHtmlToParagraphs` has no `<table>` branch — it just recurses into cells and pushes their contents as loose paragraphs. `parseHtmlToBlocks` in the PDF path deliberately joins cells with `"   |   "`. Result: tables collapse into a single wall of text.
+
+The HTML source is fine (Tiptap now stores real `<table>` markup after the earlier paste fix); only the exporters need updating.
 
 ## Fix
 
-### 1. Install Tiptap table extensions
-- `@tiptap/extension-table`, `@tiptap/extension-table-row`, `@tiptap/extension-table-header`, `@tiptap/extension-table-cell`
+Scope is strictly the two exporter renderers. No changes to the editor, storage, or single‑topic export.
 
-### 2. Register them in `src/components/editor/TiptapEditor.tsx`
-Add to `buildExtensions`:
-```ts
-Table.configure({ resizable: true, allowTableNodeSelection: true }),
-TableRow, TableHeader, TableCell,
-```
-This lets Tiptap accept `<table><tr><td>…` from pasted HTML (Keep Source Formatting and Match Destination Style both go through Tiptap's schema, so both will now preserve tables).
+### 1. Preserve blank paragraphs
 
-### 3. Convert div-grid "tables" to real `<table>` in `wordPasteCleaner.ts`
-Gemini, Claude, and some PDFs paste tables as nested `<div>`s with `display: grid` / `display: table` instead of `<table>`. Add a small pre-pass that detects these patterns and rewrites them to `<table><tr><td>` so Tiptap's table schema picks them up:
-- `<div style="display:table">` → `<table>`, child `display:table-row` → `<tr>`, `display:table-cell` → `<td>`.
-- CSS-grid blocks where every direct child is a same-width grid item and `grid-template-columns` has N tracks → group children into rows of N as `<tr><td>`.
+**`src/utils/wordExport.ts` — `parseHtmlToParagraphs`**
+- When a `<p>` produces zero runs (or only a `<br>`), emit an empty `Paragraph({})` instead of skipping. This gives Word a real blank line at the same spacing as the surrounding text.
 
-### 4. Style tables in the editor and in public/reader views
-Add minimal table CSS in `src/index.css` (borders, padding, header row, full-width, overflow-x on small screens) for both `.ProseMirror` (editor) and `.article-prose` (already has a `table` rule — extend it).
+**`src/lib/export/buildArchivePdf.ts` — `parseHtmlToBlocks`**
+- For `<p>` / `<blockquote>` with no non‑whitespace text, push a `{ kind: "space", pt: 8 }` block so the PDF gets the same vertical gap.
 
-### 5. Toolbar button (small add-on)
-Add an "Insert table" control to `FormattingToolbar.tsx` so users can also create tables manually (rows/cols picker, add/remove row/column, delete table). This is a small UI addition wired to the new Tiptap commands; skip if you want the minimum fix.
+### 2. Render tables as tables
+
+**`src/utils/wordExport.ts`**
+- Add a `<table>` branch to `parseHtmlToParagraphs` that builds a real docx `Table`:
+  - Iterate `<tr>` → `<td>`/`<th>`.
+  - For each cell, run its inner HTML back through `parseHtmlToParagraphs` so bold/italic/lists inside cells survive.
+  - Use `WidthType.DXA` with equal column widths summing to content width (9360 for Letter / 9026 for A4 — read from the section, or hard‑code 9026 which fits both). Set matching `columnWidths` and per‑cell `width`. Grey borders, small cell padding, header row shaded.
+- Change the return type helper so `walk` can push both `Paragraph` and `Table` into the same `children` array. Docx `sections.children` accepts both; adjust the `Paragraph[]` typing to `(Paragraph | Table)[]` and update `buildArchiveDocx.ts` where the array is typed as `Paragraph[]` so it accepts tables from `parseHtmlToParagraphs`.
+
+**`src/lib/export/buildArchivePdf.ts`**
+- Replace the current `<table>` flattening with a real grid renderer:
+  - Introduce a new block kind `{ kind: "table"; rows: Run[][][]; hasHeader: boolean }`.
+  - In `drawBlock`, compute equal column widths from `layout.contentW`, measure wrapped text height per cell using the existing font metrics, draw cell borders with `pdf.rect`, and render text inside each cell with the existing `drawRuns` machinery (bounded to the cell rect). Handle page breaks by re‑drawing the header row on the next page when `hasHeader`.
+  - Keep it simple: uniform column widths, one line height, no colspan/rowspan.
 
 ### Out of scope
-- DOCX/PDF export already understands `<table>` via the existing HTML parser path, so once tables survive in the stored HTML the Study Pack export will render them. I will spot-check `parseHtmlToParagraphs` and only patch it if tables come through as flattened text.
+
+- HTML/reader view already renders tables correctly (CSS in `renderTopicHtml.ts` handles `table/th/td`) and preserves empty `<p>` as valid HTML — no change needed.
+- Single‑topic legacy exporter is untouched.
+- No new dependencies.
 
 ### Files touched
-- `package.json` (new deps)
-- `src/components/editor/TiptapEditor.tsx` (register extensions)
-- `src/components/editor/extensions/wordPasteCleaner.ts` (div-grid → table)
-- `src/index.css` (table styling in editor + reader)
-- `src/components/FormattingToolbar.tsx` (insert-table control — optional)
-- possibly `src/utils/wordExport.ts` (only if export drops tables)
+
+- `src/utils/wordExport.ts` — blank‑paragraph handling + table branch
+- `src/lib/export/buildArchiveDocx.ts` — widen `children` typing to accept `Table`
+- `src/lib/export/buildArchivePdf.ts` — blank‑paragraph spacing + real table rendering
 
 ### Verification
-Paste the Gemini table from your screenshot into a topic and confirm a real 3-column / 3-row table appears, persists after save/reload, and renders correctly in the public reader and in the Study Pack DOCX/PDF.
+
+Export a topic containing (a) two paragraphs separated by a blank line, (b) a bulleted list with a blank line between items, (c) a 3×3 table (like the Gemini one). Confirm:
+- DOCX opens in Word/Google Docs with the blank lines visible and the table rendered as a real table with borders.
+- PDF shows the same spacing and a bordered table with wrapped cell text.
