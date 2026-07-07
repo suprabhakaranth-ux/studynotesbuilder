@@ -135,7 +135,7 @@ export const parseHtmlToRuns = (html: string): TextRun[] => {
 /**
  * Recursively parse HTML into paragraphs (block level) with enhanced formatting
  */
-export const parseHtmlToParagraphs = (html: string): Paragraph[] => {
+export const parseHtmlToParagraphs = (html: string): Array<Paragraph | Table> => {
   if (!html) return [];
 
   const prepared = restoreMathSource(html);
