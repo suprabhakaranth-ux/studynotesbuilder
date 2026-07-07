@@ -63,7 +63,7 @@ export async function buildArchiveDocx(
 ): Promise<Blob> {
   const pageSize = PAGE_SIZES[opts.paper];
 
-  const children: Array<Paragraph> = [];
+  const children: Array<Paragraph | Table> = [];
 
   // ───────── Cover page ─────────
   children.push(
