@@ -19,7 +19,6 @@ import {
   TabStopPosition,
   LeaderType,
 } from "docx";
-} from "docx";
 import type { Table } from "docx";
 import type { TopicBundle, ExportOptions, ProgressCallback } from "./types";
 import { parseHtmlToParagraphs, createPageBreak } from "@/utils/wordExport";
