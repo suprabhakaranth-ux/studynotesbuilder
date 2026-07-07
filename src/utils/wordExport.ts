@@ -300,6 +300,14 @@ export const parseHtmlToParagraphs = (html: string): Array<Paragraph | Table> =>
       return;
     }
 
+    // TABLE
+    if (tag === "table") {
+      paragraphs.push(buildTable(el as HTMLTableElement));
+      // Empty paragraph after table so subsequent content isn't glued to it
+      paragraphs.push(new Paragraph({ children: [] }));
+      return;
+    }
+
     // CONTAINER ELEMENTS - only recurse, don't process inline content
     if (["div", "section", "article"].includes(tag)) {
       Array.from(el.children).forEach((child) =>
@@ -309,13 +317,15 @@ export const parseHtmlToParagraphs = (html: string): Array<Paragraph | Table> =>
     }
 
     // LEAF BLOCK ELEMENTS - process inline content and return
-    if (["p", "span"].includes(tag)) {
+    if (["p", "span", "blockquote"].includes(tag)) {
       const runs = processInline(el, {});
+      const options: any = {};
+      if (Object.keys(spacing).length > 0) options.spacing = spacing;
       if (runs.length) {
-        const options: any = { children: runs };
-        if (Object.keys(spacing).length > 0) {
-          options.spacing = spacing;
-        }
+        options.children = runs;
+        paragraphs.push(new Paragraph(options));
+      } else if (tag === "p") {
+        // Preserve intentional blank paragraphs used for vertical spacing
         paragraphs.push(new Paragraph(options));
       }
       return;
