@@ -104,6 +104,7 @@ function parseHtmlToBlocks(html: string): Block[] {
     if (tag === "p" || tag === "blockquote") {
       const runs = inlineRuns(el, { text: "" });
       if (runs.some((r) => r.text.trim())) blocks.push({ kind: "p", runs });
+      else blocks.push({ kind: "space", pt: 8 });
       return;
     }
     if (tag === "ul") return walkList(el, false, 0);
@@ -120,14 +121,19 @@ function parseHtmlToBlocks(html: string): Block[] {
       return;
     }
     if (tag === "table") {
-      // Flatten table rows to plain paragraphs to keep text selectable.
-      Array.from(el.querySelectorAll("tr")).forEach((tr) => {
-        const cells = Array.from(tr.querySelectorAll("th,td")).map(
-          (c) => (c as HTMLElement).innerText.replace(/\s+/g, " ").trim()
+      const trs = Array.from(el.querySelectorAll("tr"));
+      const rows: Run[][][] = trs.map((tr) =>
+        Array.from(tr.querySelectorAll("th,td")).map((c) =>
+          inlineRuns(c as HTMLElement, { text: "" })
+        )
+      );
+      const firstRowCells = trs[0]?.querySelectorAll("th,td") ?? [];
+      const hasHeader =
+        firstRowCells.length > 0 &&
+        Array.from(firstRowCells).every(
+          (c) => c.tagName.toLowerCase() === "th"
         );
-        const text = cells.join("   |   ");
-        if (text) blocks.push({ kind: "p", runs: [{ text }] });
-      });
+      if (rows.length) blocks.push({ kind: "table", rows, hasHeader });
       blocks.push({ kind: "space", pt: 6 });
       return;
     }
