@@ -33,7 +33,7 @@ const MARGIN = 1440;
 // Bookmark IDs must not contain hyphens for maximum Word compatibility.
 const bookmarkIdFor = (topicId: string) => `topic_${topicId.replace(/-/g, "")}`;
 
-function flattenHeadings(nodes: any[], level: number, out: Paragraph[]): void {
+function flattenHeadings(nodes: any[], level: number, out: Array<Paragraph | Table>): void {
   nodes.forEach((n) => {
     const headingLevel =
       level === 0
