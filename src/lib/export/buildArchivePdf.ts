@@ -31,7 +31,8 @@ type Block =
   | { kind: "li"; runs: Run[]; ordered: boolean; index: number; depth: number }
   | { kind: "img"; src: string }
   | { kind: "hr" }
-  | { kind: "space"; pt: number };
+  | { kind: "space"; pt: number }
+  | { kind: "table"; rows: Run[][][]; hasHeader: boolean };
 
 const esc = (s: string) => s.replace(/\s+/g, " ");
 
