@@ -1,4 +1,15 @@
-import { Paragraph, TextRun, HeadingLevel, PageBreak } from "docx";
+import {
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+  PageBreak,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  BorderStyle,
+  ShadingType,
+} from "docx";
 import { restoreMathSource } from "@/utils/mathRenderer";
 
 /**
