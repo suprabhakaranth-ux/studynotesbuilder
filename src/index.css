@@ -158,6 +158,27 @@ All colors MUST be HSL.
   .ProseMirror {
     outline: none;
   }
+  /* Preserve visible spacing between block elements so pasted content
+     retains the paragraph gaps present in the source. */
+  .ProseMirror > p,
+  .ProseMirror > h1,
+  .ProseMirror > h2,
+  .ProseMirror > h3,
+  .ProseMirror > h4,
+  .ProseMirror > ul,
+  .ProseMirror > ol,
+  .ProseMirror > blockquote,
+  .ProseMirror > pre,
+  .ProseMirror > table {
+    margin-top: 0;
+    margin-bottom: 0.85em;
+  }
+  .ProseMirror > h1,
+  .ProseMirror > h2,
+  .ProseMirror > h3,
+  .ProseMirror > h4 {
+    margin-top: 1em;
+  }
   .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     float: left;
