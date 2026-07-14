@@ -75,6 +75,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
+  const [outlineConfirmOpen, setOutlineConfirmOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   // Centralized save scheduler/lock to prevent concurrent saves
