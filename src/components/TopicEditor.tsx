@@ -914,6 +914,31 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={outlineConfirmOpen} onOpenChange={setOutlineConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate outline from notes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This scans the Full Content tab and rebuilds the heading tree.
+              Notes on matching headings are preserved. Headings no longer found
+              in your notes (that have notes or sub-headings) will be moved to
+              the bottom so you don't lose them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setOutlineConfirmOpen(false);
+                runGenerateOutline();
+              }}
+            >
+              Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
