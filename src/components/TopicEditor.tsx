@@ -631,6 +631,33 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const summaryBlocks = blocks.filter((b) => b.type === "summary");
   const mnemonicBlocks = blocks.filter((b) => b.type === "mnemonic");
 
+  const runGenerateOutline = () => {
+    const result = generateOutlineFromBlocks(blocks, headingNodes);
+    setHeadingNodes(result.nodes);
+    if (result.headingCount === 0 && result.subHeadingCount === 0) {
+      toast({
+        title: "No headings found",
+        description:
+          "Add headings (H1/H2/H3) or bold-only lines in your notes, then try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Outline updated",
+      description: `${result.headingCount} heading${result.headingCount === 1 ? "" : "s"}, ${result.subHeadingCount} sub-heading${result.subHeadingCount === 1 ? "" : "s"}${result.unmatchedCount > 0 ? ` (${result.unmatchedCount} unmatched kept at bottom)` : ""}.`,
+    });
+  };
+
+  const handleGenerateOutlineClick = () => {
+    if (headingNodes.length > 0) {
+      setOutlineConfirmOpen(true);
+    } else {
+      runGenerateOutline();
+    }
+  };
+
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       <div className="border-b-2 border-border p-4 flex items-center justify-between bg-card/80 backdrop-blur shadow-sm">
