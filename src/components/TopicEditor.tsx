@@ -761,16 +761,30 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                   </div>
                   Summary
                 </h3>
-                {headingNodes.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setAreAllCollapsed(!areAllCollapsed)}
-                    className="text-xs"
-                  >
-                    {areAllCollapsed ? "Expand All" : "Collapse All"}
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleGenerateOutlineClick}
+                      className="text-xs gap-1.5"
+                      title="Scan the Full Content tab and build the heading tree automatically"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Generate Outline from Notes
+                    </Button>
+                  )}
+                  {headingNodes.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAreAllCollapsed(!areAllCollapsed)}
+                      className="text-xs"
+                    >
+                      {areAllCollapsed ? "Expand All" : "Collapse All"}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {headingNodes.length > 0 && (
