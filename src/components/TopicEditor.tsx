@@ -1,5 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { generateOutlineFromBlocks } from "@/lib/outline/extractHeadings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -64,6 +75,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
+  const [outlineConfirmOpen, setOutlineConfirmOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   // Centralized save scheduler/lock to prevent concurrent saves
@@ -618,6 +631,33 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const summaryBlocks = blocks.filter((b) => b.type === "summary");
   const mnemonicBlocks = blocks.filter((b) => b.type === "mnemonic");
 
+  const runGenerateOutline = () => {
+    const result = generateOutlineFromBlocks(blocks, headingNodes);
+    setHeadingNodes(result.nodes);
+    if (result.headingCount === 0 && result.subHeadingCount === 0) {
+      toast({
+        title: "No headings found",
+        description:
+          "Add headings (H1/H2/H3) or bold-only lines in your notes, then try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+    toast({
+      title: "Outline updated",
+      description: `${result.headingCount} heading${result.headingCount === 1 ? "" : "s"}, ${result.subHeadingCount} sub-heading${result.subHeadingCount === 1 ? "" : "s"}${result.unmatchedCount > 0 ? ` (${result.unmatchedCount} unmatched kept at bottom)` : ""}.`,
+    });
+  };
+
+  const handleGenerateOutlineClick = () => {
+    if (headingNodes.length > 0) {
+      setOutlineConfirmOpen(true);
+    } else {
+      runGenerateOutline();
+    }
+  };
+
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       <div className="border-b-2 border-border p-4 flex items-center justify-between bg-card/80 backdrop-blur shadow-sm">
@@ -721,16 +761,30 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                   </div>
                   Summary
                 </h3>
-                {headingNodes.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setAreAllCollapsed(!areAllCollapsed)}
-                    className="text-xs"
-                  >
-                    {areAllCollapsed ? "Expand All" : "Collapse All"}
-                  </Button>
-                )}
+                <div className="flex items-center gap-2">
+                  {!readOnly && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleGenerateOutlineClick}
+                      className="text-xs gap-1.5"
+                      title="Scan the Full Content tab and build the heading tree automatically"
+                    >
+                      <Wand2 className="w-3.5 h-3.5" />
+                      Generate Outline from Notes
+                    </Button>
+                  )}
+                  {headingNodes.length > 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAreAllCollapsed(!areAllCollapsed)}
+                      className="text-xs"
+                    >
+                      {areAllCollapsed ? "Expand All" : "Collapse All"}
+                    </Button>
+                  )}
+                </div>
               </div>
               
               {headingNodes.length > 0 && (
@@ -860,6 +914,31 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
           </div>
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={outlineConfirmOpen} onOpenChange={setOutlineConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Regenerate outline from notes?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This scans the Full Content tab and rebuilds the heading tree.
+              Notes on matching headings are preserved. Headings no longer found
+              in your notes (that have notes or sub-headings) will be moved to
+              the bottom so you don't lose them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setOutlineConfirmOpen(false);
+                runGenerateOutline();
+              }}
+            >
+              Regenerate
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
