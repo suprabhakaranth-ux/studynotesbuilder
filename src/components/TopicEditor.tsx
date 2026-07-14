@@ -1,5 +1,16 @@
 import { useState, useEffect, useRef } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { generateOutlineFromBlocks } from "@/lib/outline/extractHeadings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
