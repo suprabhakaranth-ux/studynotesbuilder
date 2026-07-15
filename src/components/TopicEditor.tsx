@@ -737,7 +737,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         {/* Single scroll region below sticky chrome */}
         <div className="flex-1 overflow-y-auto min-h-0">
 
-        <TabsContent value="full" className="flex-1 m-0 overflow-y-auto px-4">
+        <TabsContent value="full" className="m-0 px-4">
           <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
             <div id="pdf-export-content" className="p-12 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block) => (
@@ -753,7 +753,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
           </div>
         </TabsContent>
 
-        <TabsContent value="summary" className="flex-1 m-0 p-4 overflow-y-auto">
+        <TabsContent value="summary" className="m-0 p-4">
           <div className="max-w-4xl mx-auto space-y-6">
             <div className="bg-gradient-to-br from-primary/10 to-accent/10 rounded-xl p-4 shadow-lg border-2 border-primary/20">
               <div className="flex items-center justify-between mb-3">
@@ -915,7 +915,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
             </div>
           </div>
         </TabsContent>
+        </div>
       </Tabs>
+
 
       <AlertDialog open={outlineConfirmOpen} onOpenChange={setOutlineConfirmOpen}>
         <AlertDialogContent>
