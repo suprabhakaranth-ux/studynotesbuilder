@@ -208,9 +208,10 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
                   size="sm"
                   disabled={selectedCount === 0 || running}
                   onClick={onGenerate}
+                  variant={artifacts ? "outline" : "default"}
                 >
-                  <Download className="w-4 h-4 mr-1.5" />
-                  {running ? "Generating…" : "Generate Study Pack"}
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  {running ? "Generating…" : artifacts ? "Regenerate" : "Generate Study Pack"}
                 </Button>
               </div>
             </div>
