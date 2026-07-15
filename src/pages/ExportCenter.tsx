@@ -298,14 +298,68 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
               </div>
             </div>
 
-            <Button
-              className="w-full"
-              disabled={selectedCount === 0 || running}
-              onClick={onGenerate}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {running ? "Generating…" : "Generate Study Pack"}
-            </Button>
+            <div className="border-t pt-4 space-y-3">
+              <Button
+                className="w-full"
+                disabled={selectedCount === 0 || running}
+                onClick={onGenerate}
+                variant={artifacts ? "outline" : "default"}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {running
+                  ? "Generating…"
+                  : artifacts
+                    ? "Regenerate Study Pack"
+                    : "Generate Study Pack"}
+              </Button>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Format</Label>
+                <Select value={format} onValueChange={(v) => setFormat(v as typeof format)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF — paginated, viewable</SelectItem>
+                    <SelectItem value="html">HTML — continuous scroll, viewable</SelectItem>
+                    <SelectItem value="docx">Word (.docx) — download only</SelectItem>
+                    <SelectItem value="zip">ZIP bundle (all formats) — download only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  disabled={!artifacts || format === "docx" || format === "zip"}
+                  onClick={onView}
+                  title={
+                    !artifacts
+                      ? "Generate the pack first"
+                      : format === "docx" || format === "zip"
+                        ? "This format can't be viewed in-browser"
+                        : "Open in a new tab"
+                  }
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View online
+                </Button>
+                <Button
+                  disabled={!artifacts}
+                  onClick={onDownload}
+                  title={!artifacts ? "Generate the pack first" : "Download this format"}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+
+              {!artifacts && !running && (
+                <p className="text-[11px] text-muted-foreground">
+                  Generate the pack once, then download or view any format.
+                </p>
+              )}
+            </div>
 
             <p className="text-[11px] text-muted-foreground">
               Large packs may take a minute or two. Keep this tab open.
