@@ -99,24 +99,34 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     ? 0
     : 1 + Math.max(1, Math.ceil(selectedCount / 40)) + selectedCount * 2;
 
+  const [artifacts, setArtifacts] = useState<StudyPackArtifacts | null>(null);
+  const [format, setFormat] = useState<"zip" | "pdf" | "docx" | "html">("pdf");
+
+  // Invalidate a previously built pack when selection or options change.
+  useEffect(() => {
+    setArtifacts(null);
+  }, [selected, opts]);
+
   const onGenerate = async () => {
     if (!user || selected.size === 0) return;
     setRunning(true);
     setProgress([]);
     setDone(false);
     setError(null);
+    setArtifacts(null);
     setDialogOpen(true);
     try {
-      await generateStudyPack({
+      const built = await buildStudyPack({
         topicIds: Array.from(selected),
         userId: user.id,
         opts,
         onProgress: (e) => setProgress((p) => [...p, e]),
       });
+      setArtifacts(built);
       setDone(true);
       toast({
-        title: "Study Pack downloaded",
-        description: `${selected.size} topic${selected.size === 1 ? "" : "s"} packaged.`,
+        title: "Study Pack ready",
+        description: `Choose a format to download or view online.`,
       });
     } catch (e: any) {
       console.error("Study Pack failed:", e);
@@ -124,6 +134,37 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     } finally {
       setRunning(false);
     }
+  };
+
+  const getBlobForFormat = (a: StudyPackArtifacts, f: typeof format): { blob: Blob; filename: string; viewable: boolean } => {
+    switch (f) {
+      case "zip":  return { blob: a.zipBlob,  filename: a.zipFilename,               viewable: false };
+      case "pdf":  return { blob: a.pdfBlob,  filename: `StudyPack-${a.stamp}.pdf`,  viewable: true  };
+      case "docx": return { blob: a.docxBlob, filename: `StudyPack-${a.stamp}.docx`, viewable: false };
+      case "html": return { blob: a.htmlBlob, filename: `StudyPack-${a.stamp}.html`, viewable: true  };
+    }
+  };
+
+  const onDownload = () => {
+    if (!artifacts) return;
+    const { blob, filename } = getBlobForFormat(artifacts, format);
+    saveAs(blob, filename);
+  };
+
+  const onView = () => {
+    if (!artifacts) return;
+    const { blob, viewable } = getBlobForFormat(artifacts, format);
+    if (!viewable) {
+      toast({
+        title: "Preview not available",
+        description: "Word and ZIP formats can't be viewed in-browser. Please download instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
