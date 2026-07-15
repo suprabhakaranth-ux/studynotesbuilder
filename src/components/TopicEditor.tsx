@@ -660,80 +660,82 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="border-b-2 border-border p-4 flex items-center justify-between bg-card/80 backdrop-blur shadow-sm">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-primary/10">
-            <ArrowLeft className="w-4 h-4" />
-          </Button>
-          <BookOpen className="w-5 h-5 text-primary" />
-          <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            {topicTitle}
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {!readOnly && (
-            <>
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button size="sm" className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Block
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-card">
-                  <DropdownMenuItem onClick={() => addBlock("title")}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Title
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addBlock("text")}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Text
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addBlock("summary")}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Summary
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addBlock("mnemonic")}>
-                    <Lightbulb className="w-4 h-4 mr-2" />
-                    Mnemonic
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => addBlock("image")}>
-                    <FileText className="w-4 h-4 mr-2" />
-                    Image
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              
-              <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                <Save className="w-4 h-4 mr-2" />
-                Save
+      <Tabs defaultValue="full" className="flex-1 flex flex-col min-h-0">
+        {/* Sticky chrome: header + formatting ribbon + tab switcher */}
+        <div className="shrink-0 sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
+          <div className="border-b border-border p-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-primary/10">
+                <ArrowLeft className="w-4 h-4" />
               </Button>
-            </>
+              <BookOpen className="w-5 h-5 text-primary" />
+              <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+                {topicTitle}
+              </h2>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {!readOnly && (
+                <>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
+                        <Plus className="w-4 h-4 mr-2" />
+                        Add Block
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="bg-card">
+                      <DropdownMenuItem onClick={() => addBlock("title")}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Title
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("text")}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Text
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("summary")}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Summary
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("mnemonic")}>
+                        <Lightbulb className="w-4 h-4 mr-2" />
+                        Mnemonic
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("image")}>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Image
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Save className="w-4 h-4 mr-2" />
+                    Save
+                  </Button>
+                </>
+              )}
+
+              <Button size="sm" variant="outline" onClick={exportToWord}>
+                <Download className="w-4 h-4 mr-2" />
+                Export Word
+              </Button>
+            </div>
+          </div>
+
+          {!readOnly && (
+            <div className="border-b border-border">
+              <FormattingToolbar onMarkHeading={markTextAsHeading} />
+            </div>
           )}
-          
-          <Button size="sm" variant="outline" onClick={exportToWord}>
-            <Download className="w-4 h-4 mr-2" />
-            Export Word
-          </Button>
+
+          <TabsList className="mx-4 my-2 w-fit">
+            <TabsTrigger value="full">Full Content</TabsTrigger>
+            <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
+          </TabsList>
         </div>
-      </div>
 
-      {/* Global Fixed Toolbar - positioned below header (only in edit mode) */}
-      {!readOnly && (
-        <div className="fixed top-[72px] left-0 right-0 z-50 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
-          <FormattingToolbar onMarkHeading={markTextAsHeading} />
-        </div>
-      )}
-
-      {/* Spacer to prevent content from hiding under fixed toolbar */}
-      {!readOnly && <div className="h-[52px]" />}
-
-      <Tabs defaultValue="full" className="flex-1 flex flex-col">
-        <TabsList className="mx-4 mt-4 w-fit">
-          <TabsTrigger value="full">Full Content</TabsTrigger>
-          <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
-        </TabsList>
+        {/* Single scroll region below sticky chrome */}
+        <div className="flex-1 overflow-y-auto min-h-0">
 
         <TabsContent value="full" className="flex-1 m-0 overflow-y-auto px-4">
           <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
