@@ -11,12 +11,25 @@ function ts(d: Date) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
 }
 
-export async function generateStudyPack(args: {
+export interface StudyPackArtifacts {
+  stamp: string;
+  exportedAt: Date;
+  bundles: TopicBundle[];
+  html: string;
+  htmlBlob: Blob;
+  pdfBlob: Blob;
+  docxBlob: Blob;
+  zipBlob: Blob;
+  zipFilename: string;
+}
+
+/** Build all Study Pack artifacts in memory. Does NOT trigger a download. */
+export async function buildStudyPack(args: {
   topicIds: string[];
   userId: string;
   opts: ExportOptions;
   onProgress?: ProgressCallback;
-}): Promise<{ filename: string; blob: Blob; bundles: TopicBundle[] }> {
+}): Promise<StudyPackArtifacts> {
   const { topicIds, userId, opts, onProgress } = args;
   const exportedAt = new Date();
 
@@ -26,6 +39,7 @@ export async function generateStudyPack(args: {
 
   onProgress?.({ stage: "html", message: "Building HTML archive…" });
   const html = await buildArchiveHtml(bundles, opts, { exportedAt });
+  const htmlBlob = new Blob([html], { type: "text/html;charset=utf-8" });
 
   onProgress?.({ stage: "pdf", message: "Building PDF…" });
   const pdfBlob = await buildArchivePdf({ bundles, opts, meta: { exportedAt }, onProgress });
@@ -74,10 +88,21 @@ the original application, or an internet connection to read.
 `;
   zip.file("README.txt", readme);
 
-  const blob = await zip.generateAsync({ type: "blob" });
-  const filename = `StudyPack-${stamp}.zip`;
-  onProgress?.({ stage: "done", message: "Done!", percent: 100 });
+  const zipBlob = await zip.generateAsync({ type: "blob" });
+  const zipFilename = `StudyPack-${stamp}.zip`;
+  onProgress?.({ stage: "done", message: "Study Pack ready.", percent: 100 });
 
-  saveAs(blob, filename);
-  return { filename, blob, bundles };
+  return { stamp, exportedAt, bundles, html, htmlBlob, pdfBlob, docxBlob, zipBlob, zipFilename };
+}
+
+/** Backward-compatible: build + auto-download the ZIP. */
+export async function generateStudyPack(args: {
+  topicIds: string[];
+  userId: string;
+  opts: ExportOptions;
+  onProgress?: ProgressCallback;
+}): Promise<{ filename: string; blob: Blob; bundles: TopicBundle[] }> {
+  const a = await buildStudyPack(args);
+  saveAs(a.zipBlob, a.zipFilename);
+  return { filename: a.zipFilename, blob: a.zipBlob, bundles: a.bundles };
 }

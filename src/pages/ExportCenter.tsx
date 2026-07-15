@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Package } from "lucide-react";
+import { ArrowLeft, Download, Package, Eye, Sparkles } from "lucide-react";
+import { saveAs } from "file-saver";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ExportTree } from "@/components/export/ExportTree";
 import { ExportProgressDialog } from "@/components/export/ExportProgressDialog";
 import { fetchHierarchy } from "@/lib/export/fetchStudyData";
-import { generateStudyPack } from "@/lib/export/zipStudyPack";
+import { buildStudyPack, type StudyPackArtifacts } from "@/lib/export/zipStudyPack";
 import type {
   ExportSubject,
   ExportChapter,
@@ -97,24 +99,34 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     ? 0
     : 1 + Math.max(1, Math.ceil(selectedCount / 40)) + selectedCount * 2;
 
+  const [artifacts, setArtifacts] = useState<StudyPackArtifacts | null>(null);
+  const [format, setFormat] = useState<"zip" | "pdf" | "docx" | "html">("pdf");
+
+  // Invalidate a previously built pack when selection or options change.
+  useEffect(() => {
+    setArtifacts(null);
+  }, [selected, opts]);
+
   const onGenerate = async () => {
     if (!user || selected.size === 0) return;
     setRunning(true);
     setProgress([]);
     setDone(false);
     setError(null);
+    setArtifacts(null);
     setDialogOpen(true);
     try {
-      await generateStudyPack({
+      const built = await buildStudyPack({
         topicIds: Array.from(selected),
         userId: user.id,
         opts,
         onProgress: (e) => setProgress((p) => [...p, e]),
       });
+      setArtifacts(built);
       setDone(true);
       toast({
-        title: "Study Pack downloaded",
-        description: `${selected.size} topic${selected.size === 1 ? "" : "s"} packaged.`,
+        title: "Study Pack ready",
+        description: `Choose a format to download or view online.`,
       });
     } catch (e: any) {
       console.error("Study Pack failed:", e);
@@ -122,6 +134,37 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     } finally {
       setRunning(false);
     }
+  };
+
+  const getBlobForFormat = (a: StudyPackArtifacts, f: typeof format): { blob: Blob; filename: string; viewable: boolean } => {
+    switch (f) {
+      case "zip":  return { blob: a.zipBlob,  filename: a.zipFilename,               viewable: false };
+      case "pdf":  return { blob: a.pdfBlob,  filename: `StudyPack-${a.stamp}.pdf`,  viewable: true  };
+      case "docx": return { blob: a.docxBlob, filename: `StudyPack-${a.stamp}.docx`, viewable: false };
+      case "html": return { blob: a.htmlBlob, filename: `StudyPack-${a.stamp}.html`, viewable: true  };
+    }
+  };
+
+  const onDownload = () => {
+    if (!artifacts) return;
+    const { blob, filename } = getBlobForFormat(artifacts, format);
+    saveAs(blob, filename);
+  };
+
+  const onView = () => {
+    if (!artifacts) return;
+    const { blob, viewable } = getBlobForFormat(artifacts, format);
+    if (!viewable) {
+      toast({
+        title: "Preview not available",
+        description: "Word and ZIP formats can't be viewed in-browser. Please download instead.",
+        variant: "destructive",
+      });
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank", "noopener,noreferrer");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   };
 
   return (
@@ -165,9 +208,10 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
                   size="sm"
                   disabled={selectedCount === 0 || running}
                   onClick={onGenerate}
+                  variant={artifacts ? "outline" : "default"}
                 >
-                  <Download className="w-4 h-4 mr-1.5" />
-                  {running ? "Generating…" : "Generate Study Pack"}
+                  <Sparkles className="w-4 h-4 mr-1.5" />
+                  {running ? "Generating…" : artifacts ? "Regenerate" : "Generate Study Pack"}
                 </Button>
               </div>
             </div>
@@ -254,14 +298,68 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
               </div>
             </div>
 
-            <Button
-              className="w-full"
-              disabled={selectedCount === 0 || running}
-              onClick={onGenerate}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {running ? "Generating…" : "Generate Study Pack"}
-            </Button>
+            <div className="border-t pt-4 space-y-3">
+              <Button
+                className="w-full"
+                disabled={selectedCount === 0 || running}
+                onClick={onGenerate}
+                variant={artifacts ? "outline" : "default"}
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                {running
+                  ? "Generating…"
+                  : artifacts
+                    ? "Regenerate Study Pack"
+                    : "Generate Study Pack"}
+              </Button>
+
+              <div className="space-y-2">
+                <Label className="text-sm">Format</Label>
+                <Select value={format} onValueChange={(v) => setFormat(v as typeof format)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pdf">PDF — paginated, viewable</SelectItem>
+                    <SelectItem value="html">HTML — continuous scroll, viewable</SelectItem>
+                    <SelectItem value="docx">Word (.docx) — download only</SelectItem>
+                    <SelectItem value="zip">ZIP bundle (all formats) — download only</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  variant="outline"
+                  disabled={!artifacts || format === "docx" || format === "zip"}
+                  onClick={onView}
+                  title={
+                    !artifacts
+                      ? "Generate the pack first"
+                      : format === "docx" || format === "zip"
+                        ? "This format can't be viewed in-browser"
+                        : "Open in a new tab"
+                  }
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View online
+                </Button>
+                <Button
+                  disabled={!artifacts}
+                  onClick={onDownload}
+                  title={!artifacts ? "Generate the pack first" : "Download this format"}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+              </div>
+
+              {!artifacts && !running && (
+                <p className="text-[11px] text-muted-foreground">
+                  Generate the pack once, then download or view any format.
+                </p>
+              )}
+            </div>
 
             <p className="text-[11px] text-muted-foreground">
               Large packs may take a minute or two. Keep this tab open.
