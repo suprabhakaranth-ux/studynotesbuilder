@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Package } from "lucide-react";
+import { ArrowLeft, Download, Package, Eye, Sparkles } from "lucide-react";
+import { saveAs } from "file-saver";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ExportTree } from "@/components/export/ExportTree";
 import { ExportProgressDialog } from "@/components/export/ExportProgressDialog";
 import { fetchHierarchy } from "@/lib/export/fetchStudyData";
-import { generateStudyPack } from "@/lib/export/zipStudyPack";
+import { buildStudyPack, type StudyPackArtifacts } from "@/lib/export/zipStudyPack";
 import type {
   ExportSubject,
   ExportChapter,
