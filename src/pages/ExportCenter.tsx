@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Package, Eye, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, Package, Eye, Sparkles, X, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { saveAs } from "file-saver";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
