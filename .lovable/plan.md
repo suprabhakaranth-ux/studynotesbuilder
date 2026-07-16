@@ -1,41 +1,34 @@
-## Sticky editor chrome (MS Word style)
+## Problem
 
-Rework the top of `src/components/TopicEditor.tsx` so the header, formatting ribbon, and tab switcher are all pinned together at the top of the viewport, and only the page content below scrolls — on both the Full Content and Summary & Mnemonics tabs.
+`ERR_BLOCKED_BY_CLIENT` on "View online" is Chrome reporting that an extension (ad blocker / privacy extension) or popup blocker killed the new tab opened via `window.open(blobUrl, "_blank")`. Blob URLs opened as popups are a common false-positive for uBlock/Adblock/Brave shields, and there's nothing we can change server-side to whitelist it.
+
+## Fix
+
+Stop relying on `window.open` for "View online". Instead, render the generated pack inside the app in a full-screen dialog with an `<iframe>` pointing at the blob URL. This keeps the view fully in-app (no new tab, no popup, no extension interference) and preserves the continuous-scroll reading experience the user wanted.
+
+Keep a small fallback: a "Open in new tab" link inside that dialog for users who do want a separate tab — implemented as a plain `<a href={blobUrl} target="_blank" rel="noopener">` triggered by their click (anchor clicks are far less likely to be blocked than programmatic `window.open`).
+
+No changes to generation, formats, or the rest of the Export Center UI.
 
 ## Changes
 
-Single file: `src/components/TopicEditor.tsx`.
+**`src/pages/ExportCenter.tsx`**
+- Add state: `viewerOpen: boolean`, `viewerUrl: string | null`, `viewerTitle: string`.
+- Replace current `onView` implementation:
+  - If format isn't viewable (docx/zip) → same toast as today.
+  - Otherwise: create `URL.createObjectURL(blob)`, store it in `viewerUrl`, set `viewerOpen=true`. Do **not** call `window.open`.
+- On dialog close: `URL.revokeObjectURL(viewerUrl)` and clear state.
+- Also revoke on unmount and when a new pack is generated (invalidate old URL).
+- Render a new `<Dialog>` at the bottom of the page:
+  - `DialogContent` sized to near-fullscreen (`max-w-[95vw] w-[95vw] h-[90vh] p-0 flex flex-col`).
+  - Header row: title (`StudyPack — PDF` / `StudyPack — HTML`), an `<a href={viewerUrl} target="_blank" rel="noopener noreferrer">Open in new tab</a>` (anchor, not `window.open`), and a Close button.
+  - Body: `<iframe src={viewerUrl} className="flex-1 w-full h-full border-0" title="Study Pack preview" />`.
+- The iframe renders PDFs via Chrome's built-in viewer and HTML natively — both keep the continuous-scroll behaviour.
 
-1. Wrap the editor in `<Tabs>` at the top level and split the layout into two flex children:
-   - **Sticky chrome** (`shrink-0 sticky top-0 z-40 bg-card/95 backdrop-blur border-b shadow-sm`) containing, top to bottom:
-     - existing header bar (back button, title, Add Block, Save, Export Word)
-     - `<FormattingToolbar />` (only when `!readOnly`)
-     - `<TabsList>` with the two triggers
-   - **Scroll region** (`flex-1 overflow-y-auto min-h-0`) containing both `<TabsContent>` panels.
-2. Remove the old `fixed top-[72px]` positioning on the toolbar and the `h-[52px]` spacer — no more hard-coded offsets.
-3. Remove `overflow-y-auto` from each individual `<TabsContent>` — the single parent scroll region handles it uniformly.
-4. Read-only mode still hides only the ribbon; header and tab switcher remain sticky.
+No other files change. No changes to build logic, exports, or backend.
 
-## Untouched
+## Why this dodges `ERR_BLOCKED_BY_CLIENT`
 
-- `FormattingToolbar` component, data model, autosave, outline generation, exports, public library viewer, mobile behaviour.
-
-## Technical notes
-
-```text
-<div h-screen flex flex-col>
-  <Tabs flex-1 flex flex-col min-h-0>
-    <div shrink-0 sticky top-0 z-40>       ← chrome
-      header
-      FormattingToolbar (edit only)
-      TabsList
-    </div>
-    <div flex-1 overflow-y-auto min-h-0>   ← scroll region
-      <TabsContent value="full">…</TabsContent>
-      <TabsContent value="summary">…</TabsContent>
-    </div>
-  </Tabs>
-</div>
-```
-
-`min-h-0` on the flex parents prevents flex children from forcing the container taller than the viewport (a common cause of the whole page becoming scrollable instead of just the content region).
+- No `window.open` call → no popup heuristic tripped.
+- Blob URL loaded as a same-origin iframe, not a top-level cross-context navigation → ad blockers don't treat it as a tracker/ad frame.
+- The optional "Open in new tab" anchor is a direct user-gesture navigation; if an aggressive extension still blocks it, the in-app iframe still works.
