@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Download, Package, Eye, Sparkles } from "lucide-react";
+import { ArrowLeft, Download, Package, Eye, Sparkles, X, ExternalLink } from "lucide-react";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { saveAs } from "file-saver";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -102,10 +103,28 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   const [artifacts, setArtifacts] = useState<StudyPackArtifacts | null>(null);
   const [format, setFormat] = useState<"zip" | "pdf" | "docx" | "html">("pdf");
 
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState("Study Pack preview");
+
+  const closeViewer = () => {
+    setViewerOpen(false);
+    if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+    setViewerUrl(null);
+  };
+
   // Invalidate a previously built pack when selection or options change.
   useEffect(() => {
     setArtifacts(null);
   }, [selected, opts]);
+
+  // Revoke any active blob URL on unmount.
+  useEffect(() => {
+    return () => {
+      if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onGenerate = async () => {
     if (!user || selected.size === 0) return;
@@ -162,9 +181,11 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
       });
       return;
     }
+    if (viewerUrl) URL.revokeObjectURL(viewerUrl);
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setViewerUrl(url);
+    setViewerTitle(`Study Pack — ${format.toUpperCase()}`);
+    setViewerOpen(true);
   };
 
   return (
@@ -375,6 +396,37 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
         error={error}
         onClose={() => setDialogOpen(false)}
       />
+
+      <Dialog open={viewerOpen} onOpenChange={(o) => { if (!o) closeViewer(); }}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 flex flex-col gap-0">
+          <div className="flex items-center gap-3 px-4 py-2 border-b bg-card">
+            <h2 className="font-semibold text-sm">{viewerTitle}</h2>
+            <div className="ml-auto flex items-center gap-2">
+              {viewerUrl && (
+                <a
+                  href={viewerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open in new tab
+                </a>
+              )}
+              <Button size="sm" variant="ghost" onClick={closeViewer}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          {viewerUrl && (
+            <iframe
+              src={viewerUrl}
+              title={viewerTitle}
+              className="flex-1 w-full border-0"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
