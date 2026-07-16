@@ -181,9 +181,11 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
       });
       return;
     }
+    if (viewerUrl) URL.revokeObjectURL(viewerUrl);
     const url = URL.createObjectURL(blob);
-    window.open(url, "_blank", "noopener,noreferrer");
-    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    setViewerUrl(url);
+    setViewerTitle(`Study Pack — ${format.toUpperCase()}`);
+    setViewerOpen(true);
   };
 
   return (
