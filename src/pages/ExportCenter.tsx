@@ -103,10 +103,28 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   const [artifacts, setArtifacts] = useState<StudyPackArtifacts | null>(null);
   const [format, setFormat] = useState<"zip" | "pdf" | "docx" | "html">("pdf");
 
+  const [viewerOpen, setViewerOpen] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+  const [viewerTitle, setViewerTitle] = useState("Study Pack preview");
+
+  const closeViewer = () => {
+    setViewerOpen(false);
+    if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+    setViewerUrl(null);
+  };
+
   // Invalidate a previously built pack when selection or options change.
   useEffect(() => {
     setArtifacts(null);
   }, [selected, opts]);
+
+  // Revoke any active blob URL on unmount.
+  useEffect(() => {
+    return () => {
+      if (viewerUrl) URL.revokeObjectURL(viewerUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const onGenerate = async () => {
     if (!user || selected.size === 0) return;
