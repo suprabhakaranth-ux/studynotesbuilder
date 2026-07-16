@@ -396,6 +396,37 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
         error={error}
         onClose={() => setDialogOpen(false)}
       />
+
+      <Dialog open={viewerOpen} onOpenChange={(o) => { if (!o) closeViewer(); }}>
+        <DialogContent className="max-w-[95vw] w-[95vw] h-[90vh] p-0 flex flex-col gap-0">
+          <div className="flex items-center gap-3 px-4 py-2 border-b bg-card">
+            <h2 className="font-semibold text-sm">{viewerTitle}</h2>
+            <div className="ml-auto flex items-center gap-2">
+              {viewerUrl && (
+                <a
+                  href={viewerUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                  Open in new tab
+                </a>
+              )}
+              <Button size="sm" variant="ghost" onClick={closeViewer}>
+                <X className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          {viewerUrl && (
+            <iframe
+              src={viewerUrl}
+              title={viewerTitle}
+              className="flex-1 w-full border-0"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
