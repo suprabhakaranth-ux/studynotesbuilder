@@ -194,7 +194,29 @@ const Auth = () => {
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-card px-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    or
+                  </span>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleAdminLogin}
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? "Signing in..." : "Admin login"}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                One-click access to the shared study workspace with edit rights.
+              </p>
             </TabsContent>
+
 
             <TabsContent value="signup" className="space-y-4">
               <div className="space-y-2">
