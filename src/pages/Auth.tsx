@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ADMIN_SHORTCUT_EMAIL, ADMIN_SHORTCUT_PASSWORD } from "@/lib/workspace";
 import studyIllustration from "@/assets/study-illustration.png";
 
 const Auth = () => {
