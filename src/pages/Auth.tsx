@@ -106,6 +106,25 @@ const Auth = () => {
     }
   };
 
+  const handleAdminLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: ADMIN_SHORTCUT_EMAIL,
+      password: ADMIN_SHORTCUT_PASSWORD,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Admin login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 py-12">
       <div className="w-full max-w-4xl space-y-8">
