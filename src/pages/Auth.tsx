@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { ADMIN_SHORTCUT_EMAIL, ADMIN_SHORTCUT_PASSWORD } from "@/lib/workspace";
 import studyIllustration from "@/assets/study-illustration.png";
 
 const Auth = () => {
@@ -105,6 +106,25 @@ const Auth = () => {
     }
   };
 
+  const handleAdminLogin = async () => {
+    setLoading(true);
+    const { error } = await supabase.auth.signInWithPassword({
+      email: ADMIN_SHORTCUT_EMAIL,
+      password: ADMIN_SHORTCUT_PASSWORD,
+    });
+    setLoading(false);
+
+    if (error) {
+      toast({
+        title: "Admin login failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5 p-4 py-12">
       <div className="w-full max-w-4xl space-y-8">
@@ -174,7 +194,29 @@ const Auth = () => {
               >
                 {loading ? "Signing in..." : "Sign In"}
               </Button>
+              <div className="relative py-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center">
+                  <span className="bg-card px-2 text-xs uppercase tracking-wide text-muted-foreground">
+                    or
+                  </span>
+                </div>
+              </div>
+              <Button
+                variant="secondary"
+                onClick={handleAdminLogin}
+                className="w-full"
+                disabled={loading}
+              >
+                {loading ? "Signing in..." : "Admin login"}
+              </Button>
+              <p className="text-xs text-center text-muted-foreground">
+                One-click access to the shared study workspace with edit rights.
+              </p>
             </TabsContent>
+
 
             <TabsContent value="signup" className="space-y-4">
               <div className="space-y-2">
