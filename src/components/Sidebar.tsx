@@ -8,7 +8,9 @@ interface Subject {
   id: string;
   name: string;
   color: string;
+  year?: number | null;
 }
+
 
 interface Chapter {
   id: string;
@@ -110,7 +112,19 @@ export const Sidebar = ({
               </p>
             </div>
           ) : (
-            subjects.map((subject) => {
+            [1, 2].map((yr) => {
+    const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
+    if (readOnly && yearSubjects.length === 0) return null;
+    return (
+      <div key={yr} className="mb-4">
+        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground px-1 mb-2">
+          {yr === 1 ? "1st Year" : "2nd Year"}
+        </h3>
+        {yearSubjects.length === 0 ? (
+          <p className="text-xs text-muted-foreground px-1 py-1">No subjects yet</p>
+        ) : (
+          yearSubjects.map((subject) => {
+
               const isExpanded = expandedSubjects.has(subject.id);
               const subjectChapters = chapters.filter(
                 (ch) => ch.subject_id === subject.id
@@ -257,6 +271,11 @@ export const Sidebar = ({
               );
             })
           )}
+        </div>
+      );
+    })
+          )}
+
         </div>
       </ScrollArea>
 

@@ -9,13 +9,22 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 
 interface SubjectDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   subjectId?: string;
   subjectName?: string;
-  onSave: (name: string, subjectId?: string) => void;
+  subjectYear?: number;
+  onSave: (name: string, subjectId?: string, year?: number) => void;
 }
 
 export const SubjectDialog = ({
@@ -23,19 +32,23 @@ export const SubjectDialog = ({
   onOpenChange,
   subjectId,
   subjectName,
+  subjectYear,
   onSave,
 }: SubjectDialogProps) => {
   const [name, setName] = useState("");
+  const [year, setYear] = useState("1");
 
   useEffect(() => {
     if (open) {
       setName(subjectName || "");
+      setYear(String(subjectYear || 1));
     }
-  }, [open, subjectName]);
+  }, [open, subjectName, subjectYear]);
+
 
   const handleSave = () => {
     if (name.trim()) {
-      onSave(name.trim(), subjectId);
+      onSave(name.trim(), subjectId, Number(year));
       setName("");
       onOpenChange(false);
     }
@@ -67,7 +80,20 @@ export const SubjectDialog = ({
               autoFocus
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="subject-year">Year</Label>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger id="subject-year">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1st Year</SelectItem>
+                <SelectItem value="2">2nd Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel

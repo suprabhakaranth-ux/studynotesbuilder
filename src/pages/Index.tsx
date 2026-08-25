@@ -42,7 +42,9 @@ interface Subject {
   id: string;
   name: string;
   color: string;
+  year?: number | null;
 }
+
 
 interface Chapter {
   id: string;
@@ -134,6 +136,7 @@ const Index = () => {
           id: s.id,
           name: s.name,
           color: s.color,
+          year: (s as any).year ?? 1,
         }));
         setSubjects(mappedSubjects);
       }
@@ -245,7 +248,7 @@ const Index = () => {
     });
   };
 
-  const handleSaveSubject = async (name: string, subjectId?: string) => {
+  const handleSaveSubject = async (name: string, subjectId?: string, year: number = 1) => {
     if (!user) return;
 
     try {
@@ -253,13 +256,13 @@ const Index = () => {
         // Update existing subject
         const { error } = await supabase
           .from("subjects")
-          .update({ name })
+          .update({ name, year })
           .eq("id", subjectId);
 
         if (error) throw error;
 
         setSubjects(subjects.map(s =>
-          s.id === subjectId ? { ...s, name } : s
+          s.id === subjectId ? { ...s, name, year } : s
         ));
 
         toast({
@@ -273,6 +276,7 @@ const Index = () => {
           .insert({
             user_id: user.id,
             name,
+            year,
             color: colors[Math.floor(Math.random() * colors.length)],
           })
           .select()
@@ -286,6 +290,7 @@ const Index = () => {
             id: data.id,
             name: data.name,
             color: data.color,
+            year: (data as any).year ?? year,
           },
         ]);
 
@@ -294,6 +299,7 @@ const Index = () => {
           description: `${name} has been added to your subjects.`,
         });
       }
+
     } catch (error) {
       console.error("Error saving subject:", error);
       toast({
@@ -1187,6 +1193,7 @@ const Index = () => {
             id: s.id,
             name: s.name,
             color: s.color,
+          year: (s as any).year ?? 1,
           }));
           setSubjects(mappedSubjects);
         }
@@ -1498,6 +1505,8 @@ const Index = () => {
         }}
         subjectId={editingSubject?.id}
         subjectName={editingSubject?.name}
+        subjectYear={subjects.find((s) => s.id === editingSubject?.id)?.year ?? 1}
+
         onSave={handleSaveSubject}
       />
 

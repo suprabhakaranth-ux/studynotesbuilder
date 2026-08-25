@@ -343,6 +343,7 @@ export type Database = {
           slug: string | null
           updated_at: string
           user_id: string
+          year: number
         }
         Insert: {
           color?: string
@@ -352,6 +353,7 @@ export type Database = {
           slug?: string | null
           updated_at?: string
           user_id: string
+          year?: number
         }
         Update: {
           color?: string
@@ -361,6 +363,7 @@ export type Database = {
           slug?: string | null
           updated_at?: string
           user_id?: string
+          year?: number
         }
         Relationships: []
       }
