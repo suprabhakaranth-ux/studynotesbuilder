@@ -1505,6 +1505,8 @@ const Index = () => {
         }}
         subjectId={editingSubject?.id}
         subjectName={editingSubject?.name}
+        subjectYear={subjects.find((s) => s.id === editingSubject?.id)?.year ?? 1}
+
         onSave={handleSaveSubject}
       />
 
