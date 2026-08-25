@@ -40,7 +40,7 @@ export const SubjectDialog = ({
 
   const handleSave = () => {
     if (name.trim()) {
-      onSave(name.trim(), subjectId);
+      onSave(name.trim(), subjectId, Number(year));
       setName("");
       onOpenChange(false);
     }
