@@ -260,6 +260,11 @@ export const Sidebar = ({
             })
           )}
         </div>
+      );
+    })
+          )}
+
+        </div>
       </ScrollArea>
 
       <div className="p-4 border-t border-border space-y-2">
