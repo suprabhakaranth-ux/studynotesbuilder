@@ -72,7 +72,20 @@ export const SubjectDialog = ({
               autoFocus
             />
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="subject-year">Year</Label>
+            <Select value={year} onValueChange={setYear}>
+              <SelectTrigger id="subject-year">
+                <SelectValue placeholder="Select year" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">1st Year</SelectItem>
+                <SelectItem value="2">2nd Year</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
+
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
