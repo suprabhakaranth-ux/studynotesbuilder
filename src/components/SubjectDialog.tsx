@@ -15,7 +15,8 @@ interface SubjectDialogProps {
   onOpenChange: (open: boolean) => void;
   subjectId?: string;
   subjectName?: string;
-  onSave: (name: string, subjectId?: string) => void;
+  subjectYear?: number;
+  onSave: (name: string, subjectId?: string, year?: number) => void;
 }
 
 export const SubjectDialog = ({
@@ -23,15 +24,19 @@ export const SubjectDialog = ({
   onOpenChange,
   subjectId,
   subjectName,
+  subjectYear,
   onSave,
 }: SubjectDialogProps) => {
   const [name, setName] = useState("");
+  const [year, setYear] = useState("1");
 
   useEffect(() => {
     if (open) {
       setName(subjectName || "");
+      setYear(String(subjectYear || 1));
     }
-  }, [open, subjectName]);
+  }, [open, subjectName, subjectYear]);
+
 
   const handleSave = () => {
     if (name.trim()) {
