@@ -8,7 +8,9 @@ interface Subject {
   id: string;
   name: string;
   color: string;
+  year?: number | null;
 }
+
 
 interface Chapter {
   id: string;
