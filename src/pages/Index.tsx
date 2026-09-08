@@ -82,7 +82,7 @@ const Index = () => {
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+  const [activeYear, setActiveYear] = useState<number | null>(null);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1389,9 +1389,22 @@ const Index = () => {
                     onClick={() => {
                       setActiveSubject(null);
                       setActiveChapter(null);
+                      setActiveYear(null);
                     }}
                   >
                     All Subjects
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    className="cursor-pointer hover:text-primary"
+                    onClick={() => {
+                      setActiveSubject(null);
+                      setActiveChapter(null);
+                    }}
+                  >
+                    {(activeSubjectData?.year ?? 1) === 2 ? "2nd Year" : "1st Year"}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
@@ -1525,13 +1538,34 @@ const Index = () => {
           </div>
         ) : (
           <div className="p-8">
+            {activeYear !== null && (
+              <Breadcrumb className="mb-6">
+                <BreadcrumbList>
+                  <BreadcrumbItem>
+                    <BreadcrumbLink
+                      className="cursor-pointer hover:text-primary"
+                      onClick={() => setActiveYear(null)}
+                    >
+                      All Subjects
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbPage>{activeYear === 2 ? "2nd Year" : "1st Year"}</BreadcrumbPage>
+                  </BreadcrumbItem>
+                </BreadcrumbList>
+              </Breadcrumb>
+            )}
+
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-3xl font-bold text-foreground">
-                  All Subjects
+                  {activeYear === null ? "All Subjects" : activeYear === 2 ? "2nd Year" : "1st Year"}
                 </h2>
                 <p className="text-muted-foreground mt-1">
-                  {subjects.length} {subjects.length === 1 ? "subject" : "subjects"}
+                  {activeYear === null
+                    ? `${subjects.length} ${subjects.length === 1 ? "subject" : "subjects"}`
+                    : `${subjects.filter((s) => (s.year ?? 1) === activeYear).length} ${subjects.filter((s) => (s.year ?? 1) === activeYear).length === 1 ? "subject" : "subjects"}`}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -1558,62 +1592,41 @@ const Index = () => {
                   Create your first subject
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-6">
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {[1, 2].map((yr) => {
-                    const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
-                    return (
-                      <YearCard
-                        key={yr}
-                        year={yr}
-                        subjectCount={yearSubjects.length}
-                        expanded={expandedYears.has(yr)}
-                        onToggle={() => {
-                          setExpandedYears((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(yr)) next.delete(yr);
-                            else next.add(yr);
-                            return next;
-                          });
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-
-                {[1, 2].map((yr) => {
-                  if (!expandedYears.has(yr)) return null;
-                  const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
-                  return (
-                    <section key={yr} aria-label={yr === 1 ? "1st Year subjects" : "2nd Year subjects"}>
-                      <h3 className="mb-4 text-xl font-bold text-foreground">
-                        {yr === 1 ? "1st Year Subjects" : "2nd Year Subjects"}
-                      </h3>
-                      {yearSubjects.length === 0 ? (
-                        <p className="rounded-lg border-2 border-dashed border-border py-4 text-center text-sm text-muted-foreground">
-                          No subjects in this year yet
-                        </p>
-                      ) : (
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {yearSubjects.map((subject) => (
-                            <SubjectCard
-                              key={subject.id}
-                              subject={subject}
-                              chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
-                              onClick={() => setActiveSubject(subject.id)}
-                              onDelete={handleDeleteSubject}
-                              onEdit={handleEditSubject}
-                              onMove={handleMoveSubject}
-                              onToggleStudied={handleToggleSubjectStudied}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </section>
-                  );
-                })}
+            ) : activeYear === null ? (
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {[1, 2].map((yr) => (
+                  <YearCard
+                    key={yr}
+                    year={yr}
+                    subjectCount={subjects.filter((s) => (s.year ?? 1) === yr).length}
+                    onClick={() => setActiveYear(yr)}
+                  />
+                ))}
               </div>
+            ) : (
+              (() => {
+                const yearSubjects = subjects.filter((s) => (s.year ?? 1) === activeYear);
+                return yearSubjects.length === 0 ? (
+                  <p className="rounded-lg border-2 border-dashed border-border py-4 text-center text-sm text-muted-foreground">
+                    No subjects in this year yet
+                  </p>
+                ) : (
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {yearSubjects.map((subject) => (
+                      <SubjectCard
+                        key={subject.id}
+                        subject={subject}
+                        chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
+                        onClick={() => setActiveSubject(subject.id)}
+                        onDelete={handleDeleteSubject}
+                        onEdit={handleEditSubject}
+                        onMove={handleMoveSubject}
+                        onToggleStudied={handleToggleSubjectStudied}
+                      />
+                    ))}
+                  </div>
+                );
+              })()
             )}
           </div>
         )}
