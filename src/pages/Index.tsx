@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Plus, LogOut, Trash2, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, LogOut, Trash2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
 import { ChapterCard } from "@/components/ChapterCard";
 import { SubjectCard } from "@/components/SubjectCard";
+import { YearCard } from "@/components/YearCard";
 import { TopicEditor } from "@/components/TopicEditor";
 import { RecycleBin } from "@/components/RecycleBin";
 import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
@@ -81,7 +82,7 @@ const Index = () => {
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([1, 2]));
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -1559,13 +1560,16 @@ const Index = () => {
               </div>
             ) : (
               <div className="space-y-6">
-                {[1, 2].map((yr) => {
-                  const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
-                  const isExpanded = expandedYears.has(yr);
-                  return (
-                    <div key={yr} className="rounded-xl border-2 border-border bg-card/50">
-                      <button
-                        onClick={() => {
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {[1, 2].map((yr) => {
+                    const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
+                    return (
+                      <YearCard
+                        key={yr}
+                        year={yr}
+                        subjectCount={yearSubjects.length}
+                        expanded={expandedYears.has(yr)}
+                        onToggle={() => {
                           setExpandedYears((prev) => {
                             const next = new Set(prev);
                             if (next.has(yr)) next.delete(yr);
@@ -1573,45 +1577,40 @@ const Index = () => {
                             return next;
                           });
                         }}
-                        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-accent/40 rounded-xl transition-colors"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
-                        ) : (
-                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                        )}
-                        <h3 className="text-xl font-bold text-foreground">
-                          {yr === 1 ? "1st Year" : "2nd Year"}
-                        </h3>
-                        <span className="text-sm text-muted-foreground">
-                          {yearSubjects.length} {yearSubjects.length === 1 ? "subject" : "subjects"}
-                        </span>
-                      </button>
-                      {isExpanded && (
-                        <div className="px-5 pb-5">
-                          {yearSubjects.length === 0 ? (
-                            <p className="text-sm text-muted-foreground py-4 text-center border-2 border-dashed border-border rounded-lg">
-                              No subjects in this year yet
-                            </p>
-                          ) : (
-                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                              {yearSubjects.map((subject) => (
-                                <SubjectCard
-                                  key={subject.id}
-                                  subject={subject}
-                                  chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
-                                  onClick={() => setActiveSubject(subject.id)}
-                                  onDelete={handleDeleteSubject}
-                                  onEdit={handleEditSubject}
-                                  onMove={handleMoveSubject}
-                                  onToggleStudied={handleToggleSubjectStudied}
-                                />
-                              ))}
-                            </div>
-                          )}
+                      />
+                    );
+                  })}
+                </div>
+
+                {[1, 2].map((yr) => {
+                  if (!expandedYears.has(yr)) return null;
+                  const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
+                  return (
+                    <section key={yr} aria-label={yr === 1 ? "1st Year subjects" : "2nd Year subjects"}>
+                      <h3 className="mb-4 text-xl font-bold text-foreground">
+                        {yr === 1 ? "1st Year Subjects" : "2nd Year Subjects"}
+                      </h3>
+                      {yearSubjects.length === 0 ? (
+                        <p className="rounded-lg border-2 border-dashed border-border py-4 text-center text-sm text-muted-foreground">
+                          No subjects in this year yet
+                        </p>
+                      ) : (
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                          {yearSubjects.map((subject) => (
+                            <SubjectCard
+                              key={subject.id}
+                              subject={subject}
+                              chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
+                              onClick={() => setActiveSubject(subject.id)}
+                              onDelete={handleDeleteSubject}
+                              onEdit={handleEditSubject}
+                              onMove={handleMoveSubject}
+                              onToggleStudied={handleToggleSubjectStudied}
+                            />
+                          ))}
                         </div>
                       )}
-                    </div>
+                    </section>
                   );
                 })}
               </div>

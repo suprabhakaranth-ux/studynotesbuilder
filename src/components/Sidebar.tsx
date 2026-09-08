@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Plus, BookOpen, Settings, Sparkles, Trash2, FolderPlus, ChevronDown, ChevronRight, MoveHorizontal, MessageSquare, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -79,6 +80,7 @@ export const Sidebar = ({
   readOnly = false,
 }: SidebarProps) => {
   const navigate = useNavigate();
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
   
   return <div className="w-64 border-r-2 border-border bg-gradient-to-b from-sidebar-background to-sidebar-accent/30 flex flex-col h-screen shadow-lg">
       <div className="p-4 border-b-2 border-border bg-gradient-to-br from-primary/10 to-secondary/10">
@@ -116,11 +118,33 @@ export const Sidebar = ({
     const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
     if (readOnly && yearSubjects.length === 0) return null;
     return (
-      <div key={yr} className="mb-4">
-        <h3 className="text-xs font-bold uppercase tracking-wide text-muted-foreground px-1 mb-2">
-          {yr === 1 ? "1st Year" : "2nd Year"}
-        </h3>
-        {yearSubjects.length === 0 ? (
+       <div key={yr} className="mb-2">
+         <Button
+           type="button"
+           variant="ghost"
+           size="sm"
+           className="w-full justify-between px-2 font-semibold text-foreground"
+           onClick={() => {
+             setExpandedYears((prev) => {
+               const next = new Set(prev);
+               if (next.has(yr)) next.delete(yr);
+               else next.add(yr);
+               return next;
+             });
+           }}
+           aria-expanded={expandedYears.has(yr)}
+         >
+           <span className="flex items-center gap-2">
+             {expandedYears.has(yr) ? (
+               <ChevronDown className="h-4 w-4 text-muted-foreground" />
+             ) : (
+               <ChevronRight className="h-4 w-4 text-muted-foreground" />
+             )}
+             {yr === 1 ? "1st Year" : "2nd Year"}
+           </span>
+           <span className="text-xs font-normal text-muted-foreground">{yearSubjects.length}</span>
+         </Button>
+         {expandedYears.has(yr) && (yearSubjects.length === 0 ? (
           <p className="text-xs text-muted-foreground px-1 py-1">No subjects yet</p>
         ) : (
           yearSubjects.map((subject) => {
@@ -270,7 +294,7 @@ export const Sidebar = ({
                 </div>
               );
             })
-          )}
+          ))}
         </div>
       );
     })
