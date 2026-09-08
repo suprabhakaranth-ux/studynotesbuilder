@@ -141,6 +141,7 @@ const Index = () => {
           name: s.name,
           color: s.color,
           year: (s as any).year ?? 1,
+          studied: (s as any).studied ?? false,
         }));
         setSubjects(mappedSubjects);
       }
@@ -1198,6 +1199,7 @@ const Index = () => {
             name: s.name,
             color: s.color,
           year: (s as any).year ?? 1,
+          studied: (s as any).studied ?? false,
           }));
           setSubjects(mappedSubjects);
         }
