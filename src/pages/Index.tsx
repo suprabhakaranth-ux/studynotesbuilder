@@ -82,7 +82,7 @@ const Index = () => {
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
-  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set());
+  const [activeYear, setActiveYear] = useState<number | null>(null);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
