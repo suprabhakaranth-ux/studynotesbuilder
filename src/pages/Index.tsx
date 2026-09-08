@@ -1566,6 +1566,8 @@ const Index = () => {
                     onClick={() => setActiveSubject(subject.id)}
                     onDelete={handleDeleteSubject}
                     onEdit={handleEditSubject}
+                    onMove={handleMoveSubject}
+                    onToggleStudied={handleToggleSubjectStudied}
                   />
                 ))}
               </div>
@@ -1625,6 +1627,15 @@ const Index = () => {
         allSubjects={subjects}
         allChapters={chapters}
         onMove={handleMoveTopicConfirm}
+      />
+
+      <MoveSubjectDialog
+        open={moveSubjectDialogOpen}
+        onOpenChange={setMoveSubjectDialogOpen}
+        subjectId={subjectToMove?.id || ""}
+        subjectName={subjectToMove?.name || ""}
+        currentYear={subjects.find(s => s.id === subjectToMove?.id)?.year ?? 1}
+        onMove={handleMoveSubjectConfirm}
       />
 
       <MoveChapterDialog
