@@ -1557,19 +1557,62 @@ const Index = () => {
                 </Button>
               </div>
             ) : (
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {subjects.map((subject) => (
-                  <SubjectCard
-                    key={subject.id}
-                    subject={subject}
-                    chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
-                    onClick={() => setActiveSubject(subject.id)}
-                    onDelete={handleDeleteSubject}
-                    onEdit={handleEditSubject}
-                    onMove={handleMoveSubject}
-                    onToggleStudied={handleToggleSubjectStudied}
-                  />
-                ))}
+              <div className="space-y-6">
+                {[1, 2].map((yr) => {
+                  const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
+                  const isExpanded = expandedYears.has(yr);
+                  return (
+                    <div key={yr} className="rounded-xl border-2 border-border bg-card/50">
+                      <button
+                        onClick={() => {
+                          setExpandedYears((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(yr)) next.delete(yr);
+                            else next.add(yr);
+                            return next;
+                          });
+                        }}
+                        className="w-full flex items-center gap-3 px-5 py-4 text-left hover:bg-accent/40 rounded-xl transition-colors"
+                      >
+                        {isExpanded ? (
+                          <ChevronDown className="w-5 h-5 text-muted-foreground" />
+                        ) : (
+                          <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                        )}
+                        <h3 className="text-xl font-bold text-foreground">
+                          {yr === 1 ? "1st Year" : "2nd Year"}
+                        </h3>
+                        <span className="text-sm text-muted-foreground">
+                          {yearSubjects.length} {yearSubjects.length === 1 ? "subject" : "subjects"}
+                        </span>
+                      </button>
+                      {isExpanded && (
+                        <div className="px-5 pb-5">
+                          {yearSubjects.length === 0 ? (
+                            <p className="text-sm text-muted-foreground py-4 text-center border-2 border-dashed border-border rounded-lg">
+                              No subjects in this year yet
+                            </p>
+                          ) : (
+                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                              {yearSubjects.map((subject) => (
+                                <SubjectCard
+                                  key={subject.id}
+                                  subject={subject}
+                                  chapterCount={chapters.filter(c => c.subject_id === subject.id).length}
+                                  onClick={() => setActiveSubject(subject.id)}
+                                  onDelete={handleDeleteSubject}
+                                  onEdit={handleEditSubject}
+                                  onMove={handleMoveSubject}
+                                  onToggleStudied={handleToggleSubjectStudied}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
