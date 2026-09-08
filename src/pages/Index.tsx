@@ -1389,9 +1389,22 @@ const Index = () => {
                     onClick={() => {
                       setActiveSubject(null);
                       setActiveChapter(null);
+                      setActiveYear(null);
                     }}
                   >
                     All Subjects
+                  </BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbLink
+                    className="cursor-pointer hover:text-primary"
+                    onClick={() => {
+                      setActiveSubject(null);
+                      setActiveChapter(null);
+                    }}
+                  >
+                    {(activeSubjectData?.year ?? 1) === 2 ? "2nd Year" : "1st Year"}
                   </BreadcrumbLink>
                 </BreadcrumbItem>
                 <BreadcrumbSeparator />
