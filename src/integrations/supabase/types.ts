@@ -341,6 +341,7 @@ export type Database = {
           id: string
           name: string
           slug: string | null
+          studied: boolean
           updated_at: string
           user_id: string
           year: number
@@ -351,6 +352,7 @@ export type Database = {
           id?: string
           name: string
           slug?: string | null
+          studied?: boolean
           updated_at?: string
           user_id: string
           year?: number
@@ -361,6 +363,7 @@ export type Database = {
           id?: string
           name?: string
           slug?: string | null
+          studied?: boolean
           updated_at?: string
           user_id?: string
           year?: number
