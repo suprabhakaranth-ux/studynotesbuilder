@@ -12,6 +12,7 @@ import { SubjectDialog } from "@/components/SubjectDialog";
 import { TopicDialog } from "@/components/TopicDialog";
 import { MoveTopicDialog } from "@/components/MoveTopicDialog";
 import { MoveChapterDialog } from "@/components/MoveChapterDialog";
+import { MoveSubjectDialog } from "@/components/MoveSubjectDialog";
 import ExportCenter from "@/pages/ExportCenter";
 import {
   Breadcrumb,
@@ -43,6 +44,7 @@ interface Subject {
   name: string;
   color: string;
   year?: number | null;
+  studied?: boolean;
 }
 
 
@@ -101,6 +103,8 @@ const Index = () => {
   const [topicToMove, setTopicToMove] = useState<{ id: string; title: string } | null>(null);
   const [moveChapterDialogOpen, setMoveChapterDialogOpen] = useState(false);
   const [chapterToMove, setChapterToMove] = useState<{ id: string; name: string } | null>(null);
+  const [moveSubjectDialogOpen, setMoveSubjectDialogOpen] = useState(false);
+  const [subjectToMove, setSubjectToMove] = useState<{ id: string; name: string } | null>(null);
 
   // Rename dialogs
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
