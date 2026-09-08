@@ -467,6 +467,79 @@ const Index = () => {
     }
   };
 
+  const handleToggleSubjectStudied = async (subjectId: string) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const newStudiedValue = !subject.studied;
+
+    setSubjects(subjects.map((s) =>
+      s.id === subjectId ? { ...s, studied: newStudiedValue } : s
+    ));
+
+    const { error } = await supabase
+      .from("subjects")
+      .update({ studied: newStudiedValue } as any)
+      .eq("id", subjectId);
+
+    if (error) {
+      console.error("Error toggling subject studied status:", error);
+      setSubjects(subjects.map((s) =>
+        s.id === subjectId ? { ...s, studied: subject.studied } : s
+      ));
+      toast({
+        title: "Error",
+        description: "Failed to update studied status",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: newStudiedValue ? "Marked as studied" : "Unmarked as studied",
+      description: `${subject.name} has been updated.`,
+    });
+  };
+
+  const handleMoveSubject = (subjectId: string, subjectName: string) => {
+    setSubjectToMove({ id: subjectId, name: subjectName });
+    setMoveSubjectDialogOpen(true);
+  };
+
+  const handleMoveSubjectConfirm = async (subjectId: string, newYear: number) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const previousYear = subject.year ?? 1;
+
+    setSubjects(subjects.map((s) =>
+      s.id === subjectId ? { ...s, year: newYear } : s
+    ));
+
+    const { error } = await supabase
+      .from("subjects")
+      .update({ year: newYear } as any)
+      .eq("id", subjectId);
+
+    if (error) {
+      console.error("Error moving subject:", error);
+      setSubjects(subjects.map((s) =>
+        s.id === subjectId ? { ...s, year: previousYear } : s
+      ));
+      toast({
+        title: "Failed to move subject",
+        description: "An error occurred while moving the subject",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Subject moved",
+      description: `${subject.name} is now in ${newYear === 2 ? "2nd Year" : "1st Year"}.`,
+    });
+  };
+
   const handleToggleChapterStudied = async (chapterId: string) => {
     if (!user) return;
 
