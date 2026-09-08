@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Plus, LogOut, Trash2 } from "lucide-react";
+import { Plus, LogOut, Trash2, ChevronDown, ChevronRight } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
 import { ChapterCard } from "@/components/ChapterCard";
@@ -81,6 +81,7 @@ const Index = () => {
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
+  const [expandedYears, setExpandedYears] = useState<Set<number>>(new Set([1, 2]));
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
