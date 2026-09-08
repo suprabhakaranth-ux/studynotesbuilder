@@ -12,6 +12,7 @@ import { SubjectDialog } from "@/components/SubjectDialog";
 import { TopicDialog } from "@/components/TopicDialog";
 import { MoveTopicDialog } from "@/components/MoveTopicDialog";
 import { MoveChapterDialog } from "@/components/MoveChapterDialog";
+import { MoveSubjectDialog } from "@/components/MoveSubjectDialog";
 import ExportCenter from "@/pages/ExportCenter";
 import {
   Breadcrumb,
@@ -43,6 +44,7 @@ interface Subject {
   name: string;
   color: string;
   year?: number | null;
+  studied?: boolean;
 }
 
 
@@ -101,6 +103,8 @@ const Index = () => {
   const [topicToMove, setTopicToMove] = useState<{ id: string; title: string } | null>(null);
   const [moveChapterDialogOpen, setMoveChapterDialogOpen] = useState(false);
   const [chapterToMove, setChapterToMove] = useState<{ id: string; name: string } | null>(null);
+  const [moveSubjectDialogOpen, setMoveSubjectDialogOpen] = useState(false);
+  const [subjectToMove, setSubjectToMove] = useState<{ id: string; name: string } | null>(null);
 
   // Rename dialogs
   const [subjectDialogOpen, setSubjectDialogOpen] = useState(false);
@@ -137,6 +141,7 @@ const Index = () => {
           name: s.name,
           color: s.color,
           year: (s as any).year ?? 1,
+          studied: (s as any).studied ?? false,
         }));
         setSubjects(mappedSubjects);
       }
@@ -460,6 +465,79 @@ const Index = () => {
         variant: "destructive",
       });
     }
+  };
+
+  const handleToggleSubjectStudied = async (subjectId: string) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const newStudiedValue = !subject.studied;
+
+    setSubjects(subjects.map((s) =>
+      s.id === subjectId ? { ...s, studied: newStudiedValue } : s
+    ));
+
+    const { error } = await supabase
+      .from("subjects")
+      .update({ studied: newStudiedValue } as any)
+      .eq("id", subjectId);
+
+    if (error) {
+      console.error("Error toggling subject studied status:", error);
+      setSubjects(subjects.map((s) =>
+        s.id === subjectId ? { ...s, studied: subject.studied } : s
+      ));
+      toast({
+        title: "Error",
+        description: "Failed to update studied status",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: newStudiedValue ? "Marked as studied" : "Unmarked as studied",
+      description: `${subject.name} has been updated.`,
+    });
+  };
+
+  const handleMoveSubject = (subjectId: string, subjectName: string) => {
+    setSubjectToMove({ id: subjectId, name: subjectName });
+    setMoveSubjectDialogOpen(true);
+  };
+
+  const handleMoveSubjectConfirm = async (subjectId: string, newYear: number) => {
+    if (!user) return;
+    const subject = subjects.find((s) => s.id === subjectId);
+    if (!subject) return;
+    const previousYear = subject.year ?? 1;
+
+    setSubjects(subjects.map((s) =>
+      s.id === subjectId ? { ...s, year: newYear } : s
+    ));
+
+    const { error } = await supabase
+      .from("subjects")
+      .update({ year: newYear } as any)
+      .eq("id", subjectId);
+
+    if (error) {
+      console.error("Error moving subject:", error);
+      setSubjects(subjects.map((s) =>
+        s.id === subjectId ? { ...s, year: previousYear } : s
+      ));
+      toast({
+        title: "Failed to move subject",
+        description: "An error occurred while moving the subject",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    toast({
+      title: "Subject moved",
+      description: `${subject.name} is now in ${newYear === 2 ? "2nd Year" : "1st Year"}.`,
+    });
   };
 
   const handleToggleChapterStudied = async (chapterId: string) => {
@@ -1194,6 +1272,7 @@ const Index = () => {
             name: s.name,
             color: s.color,
           year: (s as any).year ?? 1,
+          studied: (s as any).studied ?? false,
           }));
           setSubjects(mappedSubjects);
         }
@@ -1487,6 +1566,8 @@ const Index = () => {
                     onClick={() => setActiveSubject(subject.id)}
                     onDelete={handleDeleteSubject}
                     onEdit={handleEditSubject}
+                    onMove={handleMoveSubject}
+                    onToggleStudied={handleToggleSubjectStudied}
                   />
                 ))}
               </div>
@@ -1546,6 +1627,15 @@ const Index = () => {
         allSubjects={subjects}
         allChapters={chapters}
         onMove={handleMoveTopicConfirm}
+      />
+
+      <MoveSubjectDialog
+        open={moveSubjectDialogOpen}
+        onOpenChange={setMoveSubjectDialogOpen}
+        subjectId={subjectToMove?.id || ""}
+        subjectName={subjectToMove?.name || ""}
+        currentYear={subjects.find(s => s.id === subjectToMove?.id)?.year ?? 1}
+        onMove={handleMoveSubjectConfirm}
       />
 
       <MoveChapterDialog
