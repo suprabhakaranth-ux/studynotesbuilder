@@ -200,7 +200,7 @@ export const Sidebar = ({
                         >
                           <Trash2 className="w-3.5 h-3.5 text-destructive" />
                         </button>
-         ))}
+                      )}
                     </div>
                   </div>
 
@@ -294,7 +294,7 @@ export const Sidebar = ({
                 </div>
               );
             })
-          )}
+          ))}
         </div>
       );
     })
