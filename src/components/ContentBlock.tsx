@@ -16,9 +16,10 @@ interface ContentBlockProps {
   onUpdate: (id: string, content: string, headings?: string[]) => void;
   onDelete: (id: string) => void;
   readOnly?: boolean;
+  autoFocus?: boolean;
 }
 
-export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false }: ContentBlockProps) => {
+export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false, autoFocus = false }: ContentBlockProps) => {
   const [selectedText, setSelectedText] = useState("");
 
   const handleTextSelection = () => {
@@ -111,6 +112,7 @@ export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false }: Co
             value={block.content}
             onChange={(e) => onUpdate(block.id, e.target.value)}
             placeholder={getPlaceholder()}
+            autoFocus={autoFocus}
             className="text-3xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
           />
         )
@@ -145,6 +147,7 @@ export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false }: Co
               placeholder={getPlaceholder()}
               className="min-h-[150px]"
               readOnly={readOnly}
+              autoFocus={autoFocus}
             />
           </div>
           {selectedText && block.type === "text" && !readOnly && (
