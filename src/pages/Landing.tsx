@@ -36,10 +36,28 @@ const Landing = () => {
       color: "bg-green-500/20 text-green-600 dark:text-green-400",
     },
     {
+      code: "MPC 003",
+      title: "Personality: Theories and Assessment",
+      description: "Learn major theories of personality, approaches to assessment, and their applications in understanding individual differences.",
+      color: "bg-amber-500/20 text-amber-600 dark:text-amber-400",
+    },
+    {
       code: "MPC 004",
       title: "Advanced Social Psychology",
       description: "Understand social cognition, attitudes, group dynamics, and applied social psychology concepts.",
       color: "bg-purple-500/20 text-purple-600 dark:text-purple-400",
+    },
+    {
+      code: "MPC 005",
+      title: "Research Methods",
+      description: "Build a practical understanding of research design, methods, measurement, sampling, and psychological research ethics.",
+      color: "bg-pink-500/20 text-pink-600 dark:text-pink-400",
+    },
+    {
+      code: "MPC 006",
+      title: "Statistics in Psychology",
+      description: "Understand descriptive and inferential statistics, hypothesis testing, correlation, and analysis used in psychology.",
+      color: "bg-cyan-500/20 text-cyan-600 dark:text-cyan-400",
     },
   ];
 
@@ -113,7 +131,7 @@ const Landing = () => {
             IGNOU MA Psychology Notes
           </h2>
           <p className="text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">
-            First year notes for <span className="font-semibold text-foreground">MPC 001</span>, <span className="font-semibold text-foreground">MPC 002</span>, and <span className="font-semibold text-foreground">MPC 004</span> — 
+            First year notes for <span className="font-semibold text-foreground">MPC 001</span> through <span className="font-semibold text-foreground">MPC 006</span> — 
             rewritten using AI for easy understanding and enhanced with insights from standard textbooks.
           </p>
           <div className="flex gap-4 justify-center pt-4 flex-wrap">
@@ -133,7 +151,7 @@ const Landing = () => {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {subjects.map((subject) => (
               <Card
                 key={subject.code}
