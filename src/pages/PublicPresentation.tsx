@@ -30,6 +30,7 @@ const PublicPresentation = () => {
         .select("id, name")
         .eq("user_id", PUBLIC_OWNER_ID)
         .eq("slug", subjectSlug!)
+        .eq("year", 1)
         .maybeSingle();
       if (!subject) {
         if (!cancelled) { setNotFound(true); setLoading(false); }

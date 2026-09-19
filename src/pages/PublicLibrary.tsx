@@ -1,10 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { Presentation as PresentationIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SEOHead } from "@/components/SEOHead";
 import { Sidebar } from "@/components/Sidebar";
-import { BookOpen, Sparkles, FolderOpen, BookMarked, FileText, Presentation as PresentationIcon } from "lucide-react";
+import { YearCard } from "@/components/YearCard";
+import { SubjectCard } from "@/components/SubjectCard";
+import { ChapterCard } from "@/components/ChapterCard";
+import { TopicCard } from "@/components/TopicCard";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -19,6 +24,8 @@ interface Subject {
   name: string;
   color: string;
   slug: string;
+  year?: number | null;
+  studied?: boolean;
 }
 
 interface Chapter {
@@ -27,6 +34,7 @@ interface Chapter {
   name: string;
   chapter_order: number;
   slug: string;
+  studied?: boolean;
 }
 
 interface Topic {
@@ -35,6 +43,16 @@ interface Topic {
   title: string;
   chapterId?: string | null;
   slug: string;
+  summary?: string;
+  studied?: boolean;
+}
+
+interface Presentation {
+  id: string;
+  subject_id: string;
+  title: string;
+  slug: string;
+  page_count: number | null;
 }
 
 const PUBLIC_OWNER_ID = "b6dc6569-25ba-4ea0-a7bf-607219aa8daf";
@@ -46,106 +64,105 @@ const PublicLibrary = () => {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [topics, setTopics] = useState<Topic[]>([]);
-  const [presentations, setPresentations] = useState<{ id: string; subject_id: string; title: string; slug: string; page_count: number | null }[]>([]);
+  const [presentations, setPresentations] = useState<Presentation[]>([]);
+  const [activeYear, setActiveYear] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const [subjectsRes, chaptersRes, topicsRes, presRes] = await Promise.all([
-        supabase.from("subjects").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
+      const [subjectsRes, chaptersRes, topicsRes, presentationsRes] = await Promise.all([
+        supabase.from("subjects").select("*").eq("user_id", PUBLIC_OWNER_ID).eq("year", 1).order("created_at", { ascending: false }),
         supabase.from("chapters").select("*").eq("user_id", PUBLIC_OWNER_ID).order("chapter_order", { ascending: true }),
         supabase.from("topics").select("*").eq("user_id", PUBLIC_OWNER_ID).order("created_at", { ascending: false }),
         supabase.from("presentations").select("id, subject_id, title, slug, page_count").eq("user_id", PUBLIC_OWNER_ID).order("presentation_order"),
       ]);
 
-      if (subjectsRes.data) setSubjects(subjectsRes.data as any);
-      if (chaptersRes.data) setChapters(chaptersRes.data as any);
-      if (presRes.data) setPresentations(presRes.data as any);
-      if (topicsRes.data) {
-        setTopics(topicsRes.data.map((t: any) => ({
-          id: t.id,
-          subjectId: t.subject_id || "",
-          title: t.title,
-          chapterId: t.chapter_id,
-          slug: t.slug,
-        })));
-      }
+      setSubjects((subjectsRes.data || []) as Subject[]);
+      setChapters((chaptersRes.data || []) as Chapter[]);
+      setPresentations((presentationsRes.data || []) as Presentation[]);
+      setTopics((topicsRes.data || []).map((topic) => ({
+        id: topic.id,
+        subjectId: topic.subject_id || "",
+        title: topic.title,
+        chapterId: topic.chapter_id,
+        slug: topic.slug,
+        studied: topic.studied,
+      })));
       setLoading(false);
     };
     loadData();
   }, []);
 
   const activeSubjectData = useMemo(
-    () => subjects.find(s => s.slug === subjectSlug) || null,
-    [subjects, subjectSlug]
+    () => subjects.find((subject) => subject.slug === subjectSlug) || null,
+    [subjects, subjectSlug],
   );
   const activeChapterData = useMemo(
-    () => chapters.find(c => c.slug === chapterSlug && c.subject_id === activeSubjectData?.id) || null,
-    [chapters, chapterSlug, activeSubjectData]
+    () => chapters.find((chapter) => chapter.slug === chapterSlug && chapter.subject_id === activeSubjectData?.id) || null,
+    [chapters, chapterSlug, activeSubjectData],
   );
   const activeSubject = activeSubjectData?.id || null;
   const activeChapter = activeChapterData?.id || null;
 
-  // Auto-expand sidebar nodes for current path
   useEffect(() => {
-    if (activeSubject) setExpandedSubjects(prev => new Set(prev).add(activeSubject));
-    if (activeChapter) setExpandedChapters(prev => new Set(prev).add(activeChapter));
+    if (activeSubject) {
+      setActiveYear(1);
+      setExpandedSubjects((previous) => new Set(previous).add(activeSubject));
+    }
+    if (activeChapter) setExpandedChapters((previous) => new Set(previous).add(activeChapter));
   }, [activeSubject, activeChapter]);
 
   const handleSubjectSelect = (id: string) => {
-    const s = subjects.find(x => x.id === id);
-    if (s) navigate(`/library/${s.slug}`);
+    const subject = subjects.find((item) => item.id === id);
+    if (subject) navigate(`/library/${subject.slug}`);
   };
 
   const handleChapterSelect = (id: string) => {
-    const c = chapters.find(x => x.id === id);
-    const s = c ? subjects.find(x => x.id === c.subject_id) : null;
-    if (c && s) navigate(`/library/${s.slug}/${c.slug}`);
+    const chapter = chapters.find((item) => item.id === id);
+    const subject = chapter ? subjects.find((item) => item.id === chapter.subject_id) : null;
+    if (chapter && subject) navigate(`/library/${subject.slug}/${chapter.slug}`);
   };
 
   const handleTopicSelect = (id: string) => {
-    const t = topics.find(x => x.id === id);
-    if (!t) return;
-    const s = subjects.find(x => x.id === t.subjectId);
-    const c = t.chapterId ? chapters.find(x => x.id === t.chapterId) : null;
-    if (s) navigate(`/library/${s.slug}/${c?.slug || NO_CHAPTER}/${t.slug}`);
+    const topic = topics.find((item) => item.id === id);
+    if (!topic) return;
+    const subject = subjects.find((item) => item.id === topic.subjectId);
+    const chapter = topic.chapterId ? chapters.find((item) => item.id === topic.chapterId) : null;
+    if (subject) navigate(`/library/${subject.slug}/${chapter?.slug || NO_CHAPTER}/${topic.slug}`);
   };
 
-  const handleToggleSubject = (id: string) => {
-    setExpandedSubjects(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  };
-  const handleToggleChapter = (id: string) => {
-    setExpandedChapters(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
+  const toggleSubject = (id: string) => {
+    setExpandedSubjects((previous) => {
+      const next = new Set(previous);
+      next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
   };
 
-  const totalTopics = topics.length;
-  const activeTopics = activeChapter
-    ? topics.filter(t => t.chapterId === activeChapter)
-    : topics.filter(t => t.subjectId === activeSubject && !t.chapterId);
+  const toggleChapter = (id: string) => {
+    setExpandedChapters((previous) => {
+      const next = new Set(previous);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground text-lg">Loading library...</div>
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="animate-pulse text-lg text-muted-foreground">Loading library...</div>
       </div>
     );
   }
 
-  const canonical = typeof window !== "undefined"
-    ? `${window.location.origin}${window.location.pathname}`
-    : undefined;
+  const totalTopics = topics.length;
+  const activeTopics = activeChapter
+    ? topics.filter((topic) => topic.chapterId === activeChapter)
+    : topics.filter((topic) => topic.subjectId === activeSubject && !topic.chapterId);
+  const canonical = typeof window !== "undefined" ? `${window.location.origin}${window.location.pathname}` : undefined;
 
   return (
     <>
@@ -167,9 +184,9 @@ const PublicLibrary = () => {
           onSubjectSelect={handleSubjectSelect}
           onChapterSelect={handleChapterSelect}
           onTopicSelect={handleTopicSelect}
-          onToggleSubject={handleToggleSubject}
-          onToggleChapter={handleToggleChapter}
-          readOnly={true}
+          onToggleSubject={toggleSubject}
+          onToggleChapter={toggleChapter}
+          readOnly
         />
 
         <div className="flex-1 overflow-auto">
@@ -178,8 +195,14 @@ const PublicLibrary = () => {
               <Breadcrumb className="mb-6">
                 <BreadcrumbList>
                   <BreadcrumbItem>
-                    <BreadcrumbLink className="cursor-pointer hover:text-primary" onClick={() => navigate("/library")}>
+                    <BreadcrumbLink className="cursor-pointer hover:text-primary" onClick={() => { setActiveYear(null); navigate("/library"); }}>
                       All Subjects
+                    </BreadcrumbLink>
+                  </BreadcrumbItem>
+                  <BreadcrumbSeparator />
+                  <BreadcrumbItem>
+                    <BreadcrumbLink className="cursor-pointer hover:text-primary" onClick={() => { setActiveYear(1); navigate("/library"); }}>
+                      1st Year
                     </BreadcrumbLink>
                   </BreadcrumbItem>
                   <BreadcrumbSeparator />
@@ -188,150 +211,102 @@ const PublicLibrary = () => {
                       <BreadcrumbLink className="cursor-pointer hover:text-primary" onClick={() => navigate(`/library/${activeSubjectData.slug}`)}>
                         {activeSubjectData.name}
                       </BreadcrumbLink>
-                    ) : (
-                      <BreadcrumbPage>{activeSubjectData.name}</BreadcrumbPage>
-                    )}
+                    ) : <BreadcrumbPage>{activeSubjectData.name}</BreadcrumbPage>}
                   </BreadcrumbItem>
-                  {activeChapterData && (
-                    <>
-                      <BreadcrumbSeparator />
-                      <BreadcrumbItem>
-                        <BreadcrumbPage>{activeChapterData.name}</BreadcrumbPage>
-                      </BreadcrumbItem>
-                    </>
-                  )}
+                  {activeChapterData && <><BreadcrumbSeparator /><BreadcrumbItem><BreadcrumbPage>{activeChapterData.name}</BreadcrumbPage></BreadcrumbItem></>}
                 </BreadcrumbList>
               </Breadcrumb>
 
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">
-                    {activeChapterData ? activeChapterData.name : activeSubjectData.name}
-                  </h1>
-                  <p className="text-muted-foreground mt-1">
-                    {activeChapterData && `${activeSubjectData.name} • `}
-                    {activeChapter
-                      ? `${activeTopics.length} ${activeTopics.length === 1 ? "topic" : "topics"}`
-                      : `${chapters.filter(c => c.subject_id === activeSubject).length} chapters`}
-                  </p>
-                </div>
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground">{activeChapterData?.name || activeSubjectData.name}</h2>
+                <p className="mt-1 text-muted-foreground">
+                  {activeChapterData && `${activeSubjectData.name} • `}
+                  {activeChapter
+                    ? `${activeTopics.length} ${activeTopics.length === 1 ? "topic" : "topics"}`
+                    : `${chapters.filter((chapter) => chapter.subject_id === activeSubject).length} ${chapters.filter((chapter) => chapter.subject_id === activeSubject).length === 1 ? "chapter" : "chapters"}`}
+                </p>
               </div>
 
               {activeChapter ? (
-                activeTopics.length === 0 ? (
-                  <div className="text-center py-16"><p className="text-muted-foreground">No topics in this chapter yet.</p></div>
-                ) : (
+                activeTopics.length === 0 ? <EmptyState text="No topics in this chapter yet." /> : (
                   <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {activeTopics.map(topic => (
-                      <Card key={topic.id} className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group cursor-pointer" onClick={() => handleTopicSelect(topic.id)}>
-                        <CardContent className="p-6">
-                          <div className="flex items-start gap-4">
-                            <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
-                              <BookOpen className="w-7 h-7 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="font-bold text-xl mb-2 text-foreground line-clamp-2 flex items-center gap-2">
-                                {topic.title}
-                                <Sparkles className="w-4 h-4 text-accent opacity-0 group-hover:opacity-100 transition-opacity" />
-                              </h3>
-                              <div className="flex items-center gap-2 text-xs text-primary font-medium mt-4">
-                                <FileText className="w-3 h-3" />
-                                <span>Click to read</span>
-                              </div>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
+                    {activeTopics.map((topic) => (
+                      <TopicCard key={topic.id} topic={topic} onClick={() => handleTopicSelect(topic.id)} readOnly />
                     ))}
                   </div>
                 )
               ) : (
-                <>
-                  {(() => {
-                    const subjectPres = presentations.filter(p => p.subject_id === activeSubject);
-                    if (subjectPres.length === 0) return null;
-                    return (
-                      <div className="mb-8">
-                        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-                          <PresentationIcon className="w-5 h-5 text-primary" /> Presentations
-                        </h2>
-                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                          {subjectPres.map(p => (
-                            <Card key={p.id} className="hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 cursor-pointer" onClick={() => navigate(`/library/${activeSubjectData.slug}/presentations/${p.slug}`)}>
-                              <CardContent className="p-6">
-                                <div className="flex items-start gap-4">
-                                  <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                    <PresentationIcon className="w-7 h-7 text-primary" />
-                                  </div>
-                                  <div className="flex-1 min-w-0">
-                                    <h3 className="font-bold text-lg text-foreground line-clamp-2">{p.title}</h3>
-                                    <p className="text-xs text-muted-foreground mt-2">
-                                      {p.page_count ? `${p.page_count} pages` : "PDF deck"}
-                                    </p>
-                                  </div>
-                                </div>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
+                <Tabs defaultValue="chapters" className="w-full">
+                  <TabsList>
+                    <TabsTrigger value="chapters">Chapters</TabsTrigger>
+                    <TabsTrigger value="presentations">Presentations</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="chapters" className="mt-6">
+                    {chapters.filter((chapter) => chapter.subject_id === activeSubject).length === 0 ? <EmptyState text="No chapters in this subject yet." /> : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {chapters.filter((chapter) => chapter.subject_id === activeSubject).sort((a, b) => a.chapter_order - b.chapter_order).map((chapter) => (
+                          <ChapterCard key={chapter.id} chapter={chapter} onClick={() => handleChapterSelect(chapter.id)} readOnly />
+                        ))}
                       </div>
-                    );
-                  })()}
-                  {chapters.filter(c => c.subject_id === activeSubject).length === 0 ? (
-                    <div className="text-center py-16"><p className="text-muted-foreground">No chapters in this subject yet.</p></div>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {chapters.filter(c => c.subject_id === activeSubject).sort((a, b) => a.chapter_order - b.chapter_order).map(chapter => (
-                        <Card key={chapter.id} className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group cursor-pointer" onClick={() => navigate(`/library/${activeSubjectData.slug}/${chapter.slug}`)}>
-                          <CardContent className="p-6">
-                            <div className="flex items-start gap-4">
-                              <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm">
-                                <BookMarked className="w-7 h-7 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <h3 className="font-bold text-xl text-foreground truncate">{chapter.name}</h3>
-                                <div className="flex items-center gap-2 mt-4 text-xs text-primary font-medium">
-                                  <span>{topics.filter(t => t.chapterId === chapter.id).length} topics</span>
-                                  <span>•</span><span>Click to view</span>
+                    )}
+                  </TabsContent>
+                  <TabsContent value="presentations" className="mt-6">
+                    {presentations.filter((presentation) => presentation.subject_id === activeSubject).length === 0 ? <EmptyState text="No presentations in this subject yet." /> : (
+                      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        {presentations.filter((presentation) => presentation.subject_id === activeSubject).map((presentation) => (
+                          <Card key={presentation.id} className="cursor-pointer border-2 border-border bg-gradient-to-br from-card to-card/50 transition-all hover:scale-[1.02] hover:border-primary/30 hover:shadow-xl" onClick={() => navigate(`/library/${activeSubjectData.slug}/presentations/${presentation.slug}`)}>
+                            <CardContent className="p-6">
+                              <div className="flex items-start gap-4">
+                                <div className="flex h-14 w-14 flex-shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 shadow-sm">
+                                  <PresentationIcon className="h-7 w-7 text-primary" />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h3 className="line-clamp-2 text-lg font-bold text-foreground">{presentation.title}</h3>
+                                  <p className="mt-2 text-xs text-muted-foreground">{presentation.page_count ? `${presentation.page_count} pages` : "PDF deck"}</p>
                                 </div>
                               </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  )}
-                </>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
               )}
             </div>
           ) : (
             <div className="p-8">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h1 className="text-3xl font-bold text-foreground">All Subjects</h1>
-                  <p className="text-muted-foreground mt-1">{subjects.length} subjects • {totalTopics} topics</p>
-                </div>
+              {activeYear !== null && (
+                <Breadcrumb className="mb-6">
+                  <BreadcrumbList>
+                    <BreadcrumbItem><BreadcrumbLink className="cursor-pointer hover:text-primary" onClick={() => setActiveYear(null)}>All Subjects</BreadcrumbLink></BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem><BreadcrumbPage>1st Year</BreadcrumbPage></BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+              )}
+              <div className="mb-8">
+                <h2 className="text-3xl font-bold text-foreground">{activeYear === null ? "All Subjects" : "1st Year"}</h2>
+                <p className="mt-1 text-muted-foreground">
+                  {activeYear === null ? `${subjects.length} ${subjects.length === 1 ? "subject" : "subjects"}` : `${subjects.length} ${subjects.length === 1 ? "subject" : "subjects"}`}
+                </p>
               </div>
-              {subjects.length === 0 ? (
-                <div className="text-center py-16"><p className="text-muted-foreground">No subjects available yet.</p></div>
+              {subjects.length === 0 ? <EmptyState text="No subjects available yet." /> : activeYear === null ? (
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  <YearCard year={1} subjectCount={subjects.length} onClick={() => setActiveYear(1)} />
+                </div>
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {subjects.map(subject => (
-                    <Card key={subject.id} className="relative hover:shadow-xl transition-all hover:scale-[1.02] border-2 border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50 group cursor-pointer" onClick={() => navigate(`/library/${subject.slug}`)}>
-                      <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                          <div className="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm" style={{ background: `linear-gradient(135deg, ${subject.color}33, ${subject.color}1a)` }}>
-                            <FolderOpen className="w-7 h-7" style={{ color: subject.color }} />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-bold text-xl text-foreground truncate">{subject.name}</h3>
-                            <div className="flex items-center gap-2 mt-4 text-xs text-muted-foreground">
-                              <span>{chapters.filter(c => c.subject_id === subject.id).length} chapters</span>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {subjects.map((subject) => (
+                    <SubjectCard
+                      key={subject.id}
+                      subject={subject}
+                      chapterCount={chapters.filter((chapter) => chapter.subject_id === subject.id).length}
+                      onClick={() => handleSubjectSelect(subject.id)}
+                      onDelete={() => undefined}
+                      onEdit={() => undefined}
+                      readOnly
+                    />
                   ))}
                 </div>
               )}
@@ -342,5 +317,9 @@ const PublicLibrary = () => {
     </>
   );
 };
+
+const EmptyState = ({ text }: { text: string }) => (
+  <div className="py-16 text-center"><p className="text-muted-foreground">{text}</p></div>
+);
 
 export default PublicLibrary;
