@@ -79,6 +79,7 @@ const Index = () => {
   const [activeChapter, setActiveChapter] = useState<string | null>(null);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [editingTopic, setEditingTopic] = useState<string | null>(null);
+  const [autoFocusTopicId, setAutoFocusTopicId] = useState<string | null>(null);
   const [showExportCenter, setShowExportCenter] = useState(false);
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
@@ -409,6 +410,10 @@ const Index = () => {
             chapterId: data.chapter_id,
           },
         ]);
+
+        // Open the new topic's note page immediately, cursor ready
+        setAutoFocusTopicId(data.id);
+        setEditingTopic(data.id);
 
         toast({
           title: "Topic created",
@@ -1326,7 +1331,8 @@ const Index = () => {
       <TopicEditor
         topicId={editingTopic}
         topicTitle={editingTopicData.title}
-        onBack={() => setEditingTopic(null)}
+        onBack={() => { setEditingTopic(null); setAutoFocusTopicId(null); }}
+        autoFocus={autoFocusTopicId === editingTopic}
       />
     );
   }

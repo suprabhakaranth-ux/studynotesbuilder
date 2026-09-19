@@ -62,9 +62,10 @@ interface TopicEditorProps {
   onBack: () => void;
   readOnly?: boolean;
   userId?: string; // For public read-only mode
+  autoFocus?: boolean; // Focus first block on mount (freshly created topic)
 }
 
-export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, userId: propUserId }: TopicEditorProps) => {
+export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, userId: propUserId, autoFocus = false }: TopicEditorProps) => {
   const { toast } = useToast();
   const { user } = useAuth();
   const effectiveUserId = propUserId || user?.id;
@@ -740,13 +741,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         <TabsContent value="full" className="m-0 px-4">
           <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
             <div id="pdf-export-content" className="p-12 min-h-[297mm] space-y-4 bg-card">
-              {blocks.map((block) => (
+              {blocks.map((block, index) => (
                 <ContentBlock
                   key={block.id}
                   block={block}
                   onUpdate={updateBlock}
                   onDelete={deleteBlock}
                   readOnly={readOnly}
+                  autoFocus={autoFocus && index === 0}
                 />
               ))}
             </div>
