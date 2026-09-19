@@ -35,6 +35,7 @@ interface TiptapEditorProps {
   minHeight?: string;
   onMarkHeading?: (text: string) => void;
   readOnly?: boolean;
+  autoFocus?: boolean;
 }
 
 /** Window-level registry so the toolbar can find the active editor. */
@@ -87,12 +88,14 @@ export const TiptapEditor = ({
   minHeight = "150px",
   onMarkHeading,
   readOnly = false,
+  autoFocus = false,
 }: TiptapEditorProps) => {
   const lastEmitted = useRef<string>("");
 
   const editor = useEditor({
     extensions: buildExtensions(placeholder),
     editable: !readOnly,
+    autofocus: autoFocus ? "end" : false,
     content: normalizeHtmlForTiptap(value || ""),
     // CRITICAL: do not emit update on initial setContent — no save on load.
     onUpdate: ({ editor }) => {
