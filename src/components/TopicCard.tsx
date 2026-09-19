@@ -10,13 +10,14 @@ interface TopicCardProps {
     studied?: boolean;
   };
   onClick: () => void;
-  onDelete: (id: string, title: string) => void;
-  onMove: (id: string, title: string) => void;
-  onEdit: (id: string, title: string) => void;
-  onToggleStudied: (id: string) => void;
+  onDelete?: (id: string, title: string) => void;
+  onMove?: (id: string, title: string) => void;
+  onEdit?: (id: string, title: string) => void;
+  onToggleStudied?: (id: string) => void;
+  readOnly?: boolean;
 }
 
-export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleStudied }: TopicCardProps) => {
+export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleStudied, readOnly = false }: TopicCardProps) => {
   const isStudied = topic.studied || false;
   
   return (
@@ -25,14 +26,14 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
         ? 'border-green-500 bg-gradient-to-br from-green-50/50 to-card/50 dark:from-green-950/30 dark:to-card/50' 
         : 'border-border hover:border-primary/30 bg-gradient-to-br from-card to-card/50'
     } group`}>
-      <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+      {!readOnly && <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
         <Button
           variant="ghost"
           size="icon"
           className="hover:bg-primary/20"
           onClick={(e) => {
             e.stopPropagation();
-            onEdit(topic.id, topic.title);
+            onEdit?.(topic.id, topic.title);
           }}
           title="Rename topic"
         >
@@ -44,7 +45,7 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
           className="hover:bg-primary/20"
           onClick={(e) => {
             e.stopPropagation();
-            onMove(topic.id, topic.title);
+            onMove?.(topic.id, topic.title);
           }}
           title="Move topic"
         >
@@ -56,13 +57,13 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
           className="hover:bg-destructive/20"
           onClick={(e) => {
             e.stopPropagation();
-            onDelete(topic.id, topic.title);
+            onDelete?.(topic.id, topic.title);
           }}
           title="Delete topic"
         >
           <Trash2 className="w-4 h-4 text-destructive" />
         </Button>
-      </div>
+      </div>}
       <CardContent className="p-6 cursor-pointer" onClick={onClick}>
         <div className="flex items-start gap-4">
           <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-secondary/20 flex items-center justify-center flex-shrink-0 shadow-sm group-hover:shadow-md transition-shadow">
@@ -83,7 +84,7 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
                 <FileText className="w-3 h-3" />
                 <span>Click to view or edit</span>
               </div>
-              <Button
+              {!readOnly && onToggleStudied && <Button
                 size="sm"
                 variant="ghost"
                 className="flex-shrink-0 h-7 px-2 hover:bg-transparent"
@@ -98,7 +99,7 @@ export const TopicCard = ({ topic, onClick, onDelete, onMove, onEdit, onToggleSt
                 ) : (
                   <Circle className="w-5 h-5 text-muted-foreground" />
                 )}
-              </Button>
+              </Button>}
             </div>
           </div>
         </div>

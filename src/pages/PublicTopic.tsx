@@ -22,7 +22,7 @@ interface Topic {
   slug: string;
 }
 
-interface Subject { id: string; name: string; slug: string }
+interface Subject { id: string; name: string; slug: string; year?: number | null }
 interface Chapter { id: string; name: string; slug: string }
 
 const PUBLIC_OWNER_ID = "b6dc6569-25ba-4ea0-a7bf-607219aa8daf";
@@ -50,7 +50,7 @@ const PublicTopic = () => {
 
       const { data: subj } = await supabase
         .from("subjects").select("*")
-        .eq("user_id", PUBLIC_OWNER_ID).eq("slug", subjectSlug).maybeSingle();
+        .eq("user_id", PUBLIC_OWNER_ID).eq("slug", subjectSlug).eq("year", 1).maybeSingle();
 
       if (!subj) { setNotFound(true); setLoading(false); return; }
       setSubject(subj as any);
@@ -149,6 +149,10 @@ const PublicTopic = () => {
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink onClick={() => navigate("/library")} className="cursor-pointer hover:text-primary">Library</BreadcrumbLink>
+                </BreadcrumbItem>
+                <BreadcrumbSeparator />
+                <BreadcrumbItem>
+                  <BreadcrumbPage>1st Year</BreadcrumbPage>
                 </BreadcrumbItem>
                 {subject && (
                   <>

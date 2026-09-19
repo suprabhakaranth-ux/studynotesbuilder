@@ -114,7 +114,7 @@ export const Sidebar = ({
               </p>
             </div>
           ) : (
-            [1, 2].map((yr) => {
+            (readOnly ? [1] : [1, 2]).map((yr) => {
     const yearSubjects = subjects.filter((s) => (s.year ?? 1) === yr);
     if (readOnly && yearSubjects.length === 0) return null;
     return (
