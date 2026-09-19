@@ -89,7 +89,6 @@ const PublicLibrary = () => {
         title: topic.title,
         chapterId: topic.chapter_id,
         slug: topic.slug,
-        summary: topic.summary,
         studied: topic.studied,
       })));
       setLoading(false);
