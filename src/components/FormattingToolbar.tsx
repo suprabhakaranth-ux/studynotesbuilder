@@ -408,6 +408,17 @@ export const FormattingToolbar = ({
 
         <Button
           size="sm"
+          variant="default"
+          onClick={() => handlePasteSpecial("source")}
+          className="h-12 px-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          title="Paste with source formatting (one click)"
+        >
+          <ClipboardPaste className="w-5 h-5" />
+          <span className="text-xs font-semibold whitespace-nowrap">Paste + Format</span>
+        </Button>
+
+        <Button
+          size="sm"
           variant="ghost"
           onClick={() => setMathDialogOpen(true)}
           className="h-8 w-8 p-0 hover:bg-primary/10"
