@@ -9,13 +9,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Loader2 } from "lucide-react";
 
 interface TopicDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   topicId?: string;
   topicTitle?: string;
-  onSave: (title: string, topicId?: string) => void;
+  onSave: (title: string, topicId?: string) => Promise<void>;
 }
 
 export const TopicDialog = ({
@@ -26,18 +27,29 @@ export const TopicDialog = ({
   onSave,
 }: TopicDialogProps) => {
   const [title, setTitle] = useState("");
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (open) {
       setTitle(topicTitle || "");
+      setSaving(false);
     }
   }, [open, topicTitle]);
 
-  const handleSave = () => {
-    if (title.trim()) {
-      onSave(title.trim(), topicId);
+  const handleSave = async () => {
+    const trimmed = title.trim();
+    if (!trimmed || saving) return;
+    setSaving(true);
+    try {
+      // Wait for the save (and, for new topics, for the note page to be
+      // ready) before closing, so the popup swaps seamlessly into the editor.
+      await onSave(trimmed, topicId);
       setTitle("");
       onOpenChange(false);
+    } catch {
+      // Save failed: keep the dialog open with the typed title intact.
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -69,10 +81,11 @@ export const TopicDialog = ({
           </div>
         </div>
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!title.trim()}>
+          <Button onClick={handleSave} disabled={!title.trim() || saving}>
+            {saving && <Loader2 className="w-4 h-4 mr-1 animate-spin" />}
             {topicId ? "Save" : "Create"}
           </Button>
         </DialogFooter>

@@ -427,6 +427,8 @@ const Index = () => {
         description: "Failed to save topic",
         variant: "destructive",
       });
+      // Rethrow so the dialog stays open with the typed title intact.
+      throw error;
     }
   };
 

@@ -78,7 +78,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
   const [outlineConfirmOpen, setOutlineConfirmOpen] = useState(false);
 
-  const [loading, setLoading] = useState(true);
+  // Brand-new topics have no saved blocks yet — skip the loading gate so the
+  // cursor is live the instant the page mounts.
+  const [loading, setLoading] = useState(!autoFocus);
   const [isSaving, setIsSaving] = useState(false);
   // Centralized save scheduler/lock to prevent concurrent saves
   const saveTimeoutRef = useRef<number | null>(null);
