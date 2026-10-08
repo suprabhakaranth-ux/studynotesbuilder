@@ -313,10 +313,18 @@ export const FormattingToolbar = ({
           if ($from.index(d - 1) === 0) break;
           const itemPos = $from.before(d);
           const offset = $from.pos - (itemPos + 1);
+          // Keep the requested blank line on either side inside the same
+          // list item, so spacing survives saves without splitting the list.
+          const paragraph = state.schema.nodes.paragraph;
+          if (!paragraph) break;
+          const blankBefore = paragraph.create();
+          const content = [blankBefore];
+          node.content.forEach((child) => content.push(child));
+          content.push(paragraph.create());
           const tr = state.tr
             .delete(itemPos, itemPos + node.nodeSize)
-            .insert(itemPos - 1, node.content);
-          const target = Math.min(itemPos - 1 + offset, tr.doc.content.size);
+            .insert(itemPos - 1, content);
+          const target = Math.min(itemPos - 1 + blankBefore.nodeSize + offset, tr.doc.content.size);
           tr.setSelection(TextSelection.near(tr.doc.resolve(target)));
           view.dispatch(tr.scrollIntoView());
           view.focus();
