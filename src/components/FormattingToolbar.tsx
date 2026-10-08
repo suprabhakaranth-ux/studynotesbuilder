@@ -298,7 +298,32 @@ export const FormattingToolbar = ({
   const tBullet = () =>
     withEditor((e) => e.chain().focus().toggleBulletList().run());
   const tOrdered = () =>
-    withEditor((e) => e.chain().focus().toggleOrderedList().run());
+    withEditor((e) => {
+      // Removing the number from a non-first item of a numbered list:
+      // fold its content into the previous item so the list stays one
+      // list and following numbers continue (no restart at 1).
+      const { state, view } = e;
+      const { $from, empty } = state.selection;
+      if (empty) {
+        for (let d = $from.depth; d > 1; d--) {
+          const node = $from.node(d);
+          if (node.type.name !== "listItem") continue;
+          if ($from.node(d - 1).type.name !== "orderedList") break;
+          if ($from.index(d - 1) === 0) break;
+          const itemPos = $from.before(d);
+          const offset = $from.pos - (itemPos + 1);
+          const tr = state.tr
+            .delete(itemPos, itemPos + node.nodeSize)
+            .insert(itemPos - 1, node.content);
+          const target = Math.min(itemPos - 1 + offset, tr.doc.content.size);
+          tr.setSelection(TextSelection.near(tr.doc.resolve(target)));
+          view.dispatch(tr.scrollIntoView());
+          view.focus();
+          return;
+        }
+      }
+      e.chain().focus().toggleOrderedList().run();
+    });
   const tIndent = () =>
     withEditor((e) => {
       // Inside lists, sinkListItem; otherwise increase paragraph indent
