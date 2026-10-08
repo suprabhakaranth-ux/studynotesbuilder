@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { TextSelection } from "@tiptap/pm/state";
 import {
   Bold,
   Italic,
