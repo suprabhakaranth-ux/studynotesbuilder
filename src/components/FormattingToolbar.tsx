@@ -324,7 +324,7 @@ export const FormattingToolbar = ({
   return (
     <>
       <div
-        className="flex flex-nowrap items-center gap-0.5 px-2 py-1 overflow-x-auto border-b border-border bg-card [&>*]:shrink-0 [&>button]:h-7 [&>button]:w-6 [&>button]:p-0"
+        className="flex flex-nowrap items-center gap-0.5 px-2 py-1 overflow-x-auto border-b border-border bg-card [&>*]:shrink-0 [&>button:not([role=combobox])]:h-7 [&>button:not([role=combobox])]:w-6 [&>button:not([role=combobox])]:p-0"
         onMouseDown={(e) => e.preventDefault()}
       >
         <Select onValueChange={tFontFamily}>
