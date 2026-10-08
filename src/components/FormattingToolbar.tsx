@@ -324,11 +324,11 @@ export const FormattingToolbar = ({
   return (
     <>
       <div
-        className="flex flex-wrap items-center gap-1.5 p-2 border-b border-border bg-gradient-to-r from-primary/5 to-secondary/5"
+        className="flex flex-nowrap items-center gap-0.5 px-2 py-1 overflow-x-auto border-b border-border bg-card [&>*]:shrink-0 [&>button]:h-7 [&>button]:w-6 [&>button]:p-0"
         onMouseDown={(e) => e.preventDefault()}
       >
         <Select onValueChange={tFontFamily}>
-          <SelectTrigger className="w-[110px] h-8 bg-card text-xs">
+          <SelectTrigger className="w-[80px] h-7 bg-card text-xs px-2">
             <SelectValue placeholder="Font" />
           </SelectTrigger>
           <SelectContent className="bg-card">
@@ -341,7 +341,7 @@ export const FormattingToolbar = ({
         </Select>
 
         <Select onValueChange={tFontSize}>
-          <SelectTrigger className="w-[70px] h-8 bg-card text-xs">
+          <SelectTrigger className="w-[52px] h-7 bg-card text-xs px-2">
             <SelectValue placeholder="Size" />
           </SelectTrigger>
           <SelectContent className="bg-card">
@@ -410,11 +410,11 @@ export const FormattingToolbar = ({
           size="sm"
           variant="default"
           onClick={() => handlePasteSpecial("source")}
-          className="h-12 px-3 gap-1.5 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          className="!h-8 !w-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
           title="Paste with source formatting (one click)"
+          aria-label="Paste + Format"
         >
           <ClipboardPaste className="w-5 h-5" />
-          <span className="text-xs font-semibold whitespace-nowrap">Paste + Format</span>
         </Button>
 
         <Button
@@ -497,7 +497,7 @@ export const FormattingToolbar = ({
         <div className="w-px h-6 bg-border" />
 
         <Select onValueChange={tColor}>
-          <SelectTrigger className="w-[100px] h-8 bg-card text-xs">
+          <SelectTrigger className="w-[72px] h-7 bg-card text-xs px-2">
             <SelectValue placeholder="Color" />
           </SelectTrigger>
           <SelectContent className="bg-card">
@@ -514,7 +514,7 @@ export const FormattingToolbar = ({
 
         <input
           type="color"
-          className="w-8 h-8 rounded cursor-pointer border border-border"
+          className="w-6 h-7 rounded cursor-pointer border border-border"
           onChange={(e) => tColor(e.target.value)}
           title="Custom color"
         />
@@ -526,11 +526,11 @@ export const FormattingToolbar = ({
               size="sm"
               variant="ghost"
               onClick={handleMarkHeading}
-              className="h-8 px-2 hover:bg-secondary/50 text-xs"
+              className="h-7 w-6 p-0 hover:bg-secondary/50"
               title="Mark selected text as heading"
+              aria-label="Mark heading"
             >
-              <Heading className="w-3.5 h-3.5 mr-1" />
-              Mark Heading
+              <Heading className="w-3.5 h-3.5" />
             </Button>
           </>
         )}

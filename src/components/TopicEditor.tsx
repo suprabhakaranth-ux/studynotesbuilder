@@ -14,6 +14,7 @@ import { generateOutlineFromBlocks } from "@/lib/outline/extractHeadings";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentBlock, BlockType } from "./ContentBlock";
 import { FormattingToolbar } from "./FormattingToolbar";
@@ -664,28 +665,39 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
       <Tabs defaultValue="full" className="flex-1 flex flex-col min-h-0">
-        {/* Sticky chrome: header + formatting ribbon + tab switcher */}
+        {/* Sticky chrome: compact header/navigation + single-line ribbon */}
         <div className="shrink-0 sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
-          <div className="border-b border-border p-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <Button variant="ghost" size="sm" onClick={handleBack} className="hover:bg-primary/10">
+          <TooltipProvider delayDuration={250}>
+          <div className="border-b border-border px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0 flex-1">
+              <Button variant="ghost" size="sm" onClick={handleBack} className="h-8 w-8 p-0 shrink-0 hover:bg-primary/10" aria-label="Back">
                 <ArrowLeft className="w-4 h-4" />
               </Button>
-              <BookOpen className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              <BookOpen className="w-5 h-5 shrink-0 text-primary" />
+              <h2 className="text-xl font-semibold break-words min-w-0 text-primary">
                 {topicTitle}
               </h2>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 shrink-0">
+              <TabsList className="h-8 p-0.5 mr-1 rounded-full">
+                <TabsTrigger value="full" className="rounded-full px-3 py-1 text-xs">Notes</TabsTrigger>
+                <TabsTrigger value="summary" className="rounded-full px-3 py-1 text-xs">Summary</TabsTrigger>
+              </TabsList>
               {!readOnly && (
                 <>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" className="bg-gradient-to-r from-primary to-secondary hover:opacity-90">
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Block
-                      </Button>
+                      <span className="inline-flex">
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button size="sm" className="h-8 w-8 p-0" aria-label="Add block" title="Add block">
+                              <Plus className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>Add block</TooltipContent>
+                        </Tooltip>
+                      </span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-card">
                       <DropdownMenuItem onClick={() => addBlock("title")}>
@@ -711,19 +723,28 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                     </DropdownMenuContent>
                   </DropdownMenu>
 
-                  <Button size="sm" onClick={handleSave} className="bg-accent hover:bg-accent/90 text-accent-foreground">
-                    <Save className="w-4 h-4 mr-2" />
-                    Save
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" onClick={handleSave} className="h-8 w-8 p-0 bg-accent hover:bg-accent/90 text-accent-foreground" aria-label="Save" disabled={isSaving}>
+                        <Save className="w-4 h-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Save</TooltipContent>
+                  </Tooltip>
                 </>
               )}
 
-              <Button size="sm" variant="outline" onClick={exportToWord}>
-                <Download className="w-4 h-4 mr-2" />
-                Export Word
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button size="sm" variant="outline" onClick={exportToWord} className="h-8 w-8 p-0" aria-label="Export Word">
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Export Word</TooltipContent>
+              </Tooltip>
             </div>
           </div>
+          </TooltipProvider>
 
           {!readOnly && (
             <div className="border-b border-border">
@@ -731,10 +752,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
             </div>
           )}
 
-          <TabsList className="mx-4 my-2 w-fit">
-            <TabsTrigger value="full">Full Content</TabsTrigger>
-            <TabsTrigger value="summary">Summary & Mnemonics</TabsTrigger>
-          </TabsList>
         </div>
 
         {/* Single scroll region below sticky chrome */}
