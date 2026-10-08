@@ -410,11 +410,12 @@ export const FormattingToolbar = ({
           size="sm"
           variant="default"
           onClick={() => handlePasteSpecial("source")}
-          className="!h-8 !w-10 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
+          className="!h-8 !w-auto !px-2.5 gap-1.5 whitespace-nowrap text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm"
           title="Paste with source formatting (one click)"
           aria-label="Paste + Format"
         >
-          <ClipboardPaste className="w-5 h-5" />
+          <ClipboardPaste className="w-4 h-4" />
+          <span>Paste + Format</span>
         </Button>
 
         <Button
