@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2 } from "lucide-react";
 import {
   AlertDialog,
@@ -74,6 +74,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     { id: crypto.randomUUID(), type: "text", content: "" },
   ]);
   const [summaryContent, setSummaryContent] = useState("");
+
+  // Live word count of the notes content (plain-text words across all blocks).
+  const wordCount = useMemo(() => {
+    const text = blocks.map((b) => b.content).join(" ");
+    const plain = text.replace(/<[^>]*>/g, " ");
+    const words = plain.match(/\S+/g);
+    return words ? words.length : 0;
+  }, [blocks]);
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
@@ -680,6 +688,12 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              <span
+                className="hidden sm:inline-flex items-center h-8 px-2 rounded-full bg-muted/60 text-xs text-muted-foreground tabular-nums"
+                title="Word count of these notes (updates as you type)"
+              >
+                {wordCount.toLocaleString()} words
+              </span>
               <TabsList className="h-8 p-0.5 mr-1 rounded-full">
                 <TabsTrigger value="full" className="rounded-full px-3 py-1 text-xs">Notes</TabsTrigger>
                 <TabsTrigger value="summary" className="rounded-full px-3 py-1 text-xs">Summary</TabsTrigger>
