@@ -688,6 +688,12 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
+              <span
+                className="hidden sm:inline-flex items-center h-8 px-2 rounded-full bg-muted/60 text-xs text-muted-foreground tabular-nums"
+                title="Word count of these notes (updates as you type)"
+              >
+                {wordCount.toLocaleString()} words
+              </span>
               <TabsList className="h-8 p-0.5 mr-1 rounded-full">
                 <TabsTrigger value="full" className="rounded-full px-3 py-1 text-xs">Notes</TabsTrigger>
                 <TabsTrigger value="summary" className="rounded-full px-3 py-1 text-xs">Summary</TabsTrigger>
