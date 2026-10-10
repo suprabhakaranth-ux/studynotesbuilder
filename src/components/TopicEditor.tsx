@@ -74,6 +74,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     { id: crypto.randomUUID(), type: "text", content: "" },
   ]);
   const [summaryContent, setSummaryContent] = useState("");
+
+  // Live word count of the notes content (plain-text words across all blocks).
+  const wordCount = useMemo(() => {
+    const text = blocks.map((b) => b.content).join(" ");
+    const plain = text.replace(/<[^>]*>/g, " ");
+    const words = plain.match(/\S+/g);
+    return words ? words.length : 0;
+  }, [blocks]);
   const [mnemonicContent, setMnemonicContent] = useState("");
   const [headingNodes, setHeadingNodes] = useState<HeadingNode[]>([]);
   const [areAllCollapsed, setAreAllCollapsed] = useState(false);
