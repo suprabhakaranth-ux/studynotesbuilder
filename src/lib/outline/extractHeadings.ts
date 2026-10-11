@@ -215,23 +215,23 @@ export const generateOutlineFromBlocks = (
   blocks: BlockInput[],
   existing: OutlineHeadingNode[]
 ): OutlineResult => {
-  const flat: FlatHeading[] = [];
+  const raw: RawHeading[] = [];
   for (const b of blocks) {
     if (b.type && b.type !== "text") continue;
-    flat.push(...extractFromHtml(b.content || ""));
+    raw.push(...extractRawFromHtml(b.content || ""));
     // Fold in any manually-tagged headings that weren't detected
     if (b.headings && b.headings.length > 0) {
-      const detected = new Set(flat.map((f) => normalize(f.title)));
+      const detected = new Set(raw.map((f) => normalize(f.title)));
       for (const h of b.headings) {
         const t = cleanText(h);
         if (t && !detected.has(normalize(t))) {
-          flat.push({ level: 2, title: t });
+          raw.push({ rank: 7, title: t });
         }
       }
     }
   }
 
-  const extracted = buildTree(flat);
+  const extracted = buildTree(normalizeLevels(raw));
   const { merged, unmatched } = mergeWith(extracted, existing);
 
   const finalNodes = unmatched.length > 0 ? [...merged, ...unmatched] : merged;
