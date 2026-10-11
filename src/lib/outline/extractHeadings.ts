@@ -38,7 +38,12 @@ const isBoldOnlyParagraph = (p: HTMLElement): boolean => {
   return normalize(strongText) === normalize(text);
 };
 
-const extractFromHtml = (html: string): FlatHeading[] => {
+interface RawHeading {
+  rank: number; // 1-6 for h1-h6, 7 for bold-only paragraph
+  title: string;
+}
+
+const extractRawFromHtml = (html: string): RawHeading[] => {
   if (!html || !html.trim()) return [];
   const doc = new DOMParser().parseFromString(
     `<div id="__root">${html}</div>`,
@@ -47,23 +52,21 @@ const extractFromHtml = (html: string): FlatHeading[] => {
   const root = doc.getElementById("__root");
   if (!root) return [];
 
-  const out: FlatHeading[] = [];
+  const out: RawHeading[] = [];
 
   const walk = (node: Element) => {
-    // Skip headings inside tables or code
     const tag = node.tagName.toLowerCase();
     if (tag === "table" || tag === "pre" || tag === "code") return;
 
     if (/^h[1-6]$/.test(tag)) {
-      const level = Math.min(3, parseInt(tag.slice(1), 10)) as 1 | 2 | 3;
       const title = cleanText(node.textContent || "");
-      if (title) out.push({ level, title });
+      if (title) out.push({ rank: parseInt(tag.slice(1), 10), title });
       return;
     }
 
     if (tag === "p" && isBoldOnlyParagraph(node as HTMLElement)) {
       const title = cleanText(node.textContent || "");
-      if (title) out.push({ level: 2, title });
+      if (title) out.push({ rank: 7, title });
       return;
     }
 
@@ -72,6 +75,31 @@ const extractFromHtml = (html: string): FlatHeading[] => {
 
   for (const child of Array.from(root.children)) walk(child);
   return out;
+};
+
+const MAIN_NUMBER = /^\d+\s*[.)]\s+\S/; // "1. Intro", "2) Why"
+const SUB_NUMBER = /^(\d+\.\d+|[ivxlcdm]+[.)]|[a-z][.)])\s*\S/i; // "1.1", "I.", "a)"
+
+/**
+ * Convert raw ranks to relative levels: the shallowest tag used becomes
+ * level 1, the next level 2, etc. Bold-only paragraphs are always deeper
+ * than real headings. Numbering prefixes then refine the level.
+ */
+const normalizeLevels = (raw: RawHeading[]): FlatHeading[] => {
+  const ranks = Array.from(new Set(raw.map((r) => r.rank))).sort((a, b) => a - b);
+  const hasMainNumbered = raw.some((r) => MAIN_NUMBER.test(r.title));
+  return raw.map((r) => {
+    let level = Math.min(3, ranks.indexOf(r.rank) + 1) as 1 | 2 | 3;
+    if (MAIN_NUMBER.test(r.title) && !SUB_NUMBER.test(r.title)) {
+      level = 1;
+    } else if (SUB_NUMBER.test(r.title) && level === 1 && hasMainNumbered) {
+      level = 2;
+    } else if (hasMainNumbered && level === 1 && !MAIN_NUMBER.test(r.title) && ranks.length > 1) {
+      // Unnumbered item at same tag as numbered mains stays main
+      level = 1;
+    }
+    return { level, title: r.title };
+  });
 };
 
 /** Build a tree from a flat list of {level,title} in document order. */
