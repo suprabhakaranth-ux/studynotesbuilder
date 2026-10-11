@@ -247,18 +247,20 @@ export const HeadingNodeComponent = ({
                 onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
                 onDelete={() => deleteChild(idx)}
                 onPromote={() => {
-                  // Promote child to be a sibling (parent level) or to root
-                  const newChildren = [...node.children];
-                  const promotedChild = newChildren.splice(idx, 1)[0];
-                  onUpdate({ ...node, children: newChildren });
-                  
-                  // If we're at level 0, promote to root; otherwise just update parent
-                  if (level === 0 && onPromoteChild) {
-                    onPromoteChild(promotedChild);
-                  }
+                  // Ask our parent to lift this child out of us, placing it right after us
+                  onPromoteChild?.(child);
                 }}
-                onPromoteChild={onPromoteChild}
-                canPromote={true}
+                onPromoteChild={(grandchild) => {
+                  // Atomically move grandchild from child[idx] to just after child[idx]
+                  const newChildren = [...node.children];
+                  newChildren[idx] = {
+                    ...child,
+                    children: child.children.filter((g) => g.id !== grandchild.id),
+                  };
+                  newChildren.splice(idx + 1, 0, grandchild);
+                  onUpdate({ ...node, children: newChildren });
+                }}
+                canPromote={!!onPromoteChild}
                 canDemote={false}
                 level={level + 1}
               />
