@@ -259,7 +259,7 @@ export async function buildArchiveDocx(
         continue;
       }
 
-      if (block.type === "image") {
+      if (block.type === "image" || block.type === "drawing") {
         // Skipped here — images inside rich content come through parseHtmlToParagraphs.
         // Standalone image blocks: include as a labelled placeholder paragraph.
         continue;

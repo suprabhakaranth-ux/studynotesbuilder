@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2 } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -77,7 +77,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
   // Live word count of the notes content (plain-text words across all blocks).
   const wordCount = useMemo(() => {
-    const text = blocks.map((b) => b.content).join(" ");
+    const text = blocks.filter((b) => b.type !== "drawing").map((b) => b.content).join(" ");
     const plain = text.replace(/<[^>]*>/g, " ");
     const words = plain.match(/\S+/g);
     return words ? words.length : 0;
@@ -444,7 +444,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
       // Add content blocks with proper formatting
       for (const block of blocks) {
-        if (block.content) {
+        if (block.content && block.type !== "drawing") {
           const paragraphs = parseHtmlToParagraphs(block.content);
           children.push(...paragraphs);
         }
@@ -733,6 +733,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                       <DropdownMenuItem onClick={() => addBlock("image")}>
                         <FileText className="w-4 h-4 mr-2" />
                         Image
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("drawing")}>
+                        <PenLine className="w-4 h-4 mr-2" />
+                        Scribble / Drawing
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

@@ -581,7 +581,7 @@ export async function buildArchivePdf(input: PdfInput): Promise<Blob> {
 
     // Blocks
     for (const block of b.blocks) {
-      if (!block.content?.trim()) continue;
+      if (!block.content?.trim() || block.type === "drawing") continue;
 
       if (block.type === "title") {
         await drawBlock(writer, {
