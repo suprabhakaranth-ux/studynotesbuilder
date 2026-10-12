@@ -1,5 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine, StickyNote, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { useMarginNotes } from "@/hooks/useMarginNotes";
+import { MarginNotesLayer, DeletedMarginNotes } from "./MarginNotesLayer";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,6 +77,32 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     { id: crypto.randomUUID(), type: "text", content: "" },
   ]);
   const [summaryContent, setSummaryContent] = useState("");
+  const [activeTab, setActiveTab] = useState("full");
+  const [showMarginNotes, setShowMarginNotes] = useState(true);
+  const [closedMarginNotes, setClosedMarginNotes] = useState<Set<string>>(new Set());
+  const scrollRegionRef = useRef<HTMLDivElement>(null);
+  const pageLayerRef = useRef<HTMLDivElement>(null);
+  const selectedAnchorRef = useRef("");
+  const margin = useMarginNotes(topicId, effectiveUserId, !readOnly);
+  const visibleMarginNotes = margin.notes.filter(note => !note.deleted_at && note.page_tab === activeTab);
+  const deletedMarginNotes = margin.notes.filter(note => note.deleted_at);
+  const addMarginNote = () => {
+    const region = scrollRegionRef.current;
+    const layer = pageLayerRef.current;
+    if (!region || !layer) return;
+    const selection = window.getSelection();
+    const anchor = selection?.toString().trim() || selectedAnchorRef.current;
+    const selectedRect = selection?.rangeCount && layer.contains(selection.anchorNode)
+      ? selection.getRangeAt(0).getBoundingClientRect() : null;
+    const layerRect = layer.getBoundingClientRect();
+    const y = Math.max(16, (selectedRect?.top || region.getBoundingClientRect().top + 24) - layerRect.top);
+    const x = Math.max(0, (layer.clientWidth - Math.min(390, layer.clientWidth - 16) - 16) / layer.clientWidth);
+    const id = margin.add(x, y, activeTab, anchor.slice(0, 240));
+    if (id) {
+      setClosedMarginNotes(previous => { const next = new Set(previous); next.delete(id); return next; });
+      setShowMarginNotes(true);
+    }
+  };
 
   // Live word count of the notes content (plain-text words across all blocks).
   const wordCount = useMemo(() => {
@@ -392,6 +421,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
   const handleSave = async () => {
     try {
+      await margin.flush();
       // Cancel any pending autosave
       if (saveTimeoutRef.current) {
         clearTimeout(saveTimeoutRef.current);
@@ -415,6 +445,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const handleBack = async () => {
     if (!readOnly) {
       try {
+        await margin.flush();
         if (saveTimeoutRef.current) {
           clearTimeout(saveTimeoutRef.current);
           saveTimeoutRef.current = null;
@@ -672,7 +703,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <Tabs defaultValue="full" className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
         {/* Sticky chrome: compact header/navigation + single-line ribbon */}
         <div className="shrink-0 sticky top-0 z-40 bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 border-b shadow-sm">
           <TooltipProvider delayDuration={250}>
@@ -700,6 +731,26 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
               </TabsList>
               {!readOnly && (
                 <>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="outline" className="h-8 w-8 p-0" aria-label="Add margin note" disabled={!margin.ready} onMouseDown={event => event.preventDefault()} onClick={addMarginNote}><StickyNote className="w-4 h-4" /></Button>
+                    </TooltipTrigger>
+                    <TooltipContent>Add margin note</TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={showMarginNotes ? "Hide margin notes" : "Show margin notes"} disabled={!margin.notes.some(note => !note.deleted_at)} onClick={() => {
+                        if (!showMarginNotes) setClosedMarginNotes(new Set());
+                        setShowMarginNotes(!showMarginNotes);
+                      }}>{showMarginNotes ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}</Button>
+                    </TooltipTrigger>
+                    <TooltipContent>{showMarginNotes ? "Hide margin notes" : "Show margin notes"}</TooltipContent>
+                  </Tooltip>
+                  {deletedMarginNotes.length > 0 && <Popover>
+                    <PopoverTrigger asChild><Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label="Deleted margin notes" title="Deleted margin notes"><RotateCcw className="w-4 h-4" /></Button></PopoverTrigger>
+                    <PopoverContent align="end"><p className="font-medium mb-2">Deleted margin notes</p><DeletedMarginNotes notes={deletedMarginNotes} onRestore={id => margin.update(id, { deleted_at: null })} /></PopoverContent>
+                  </Popover>}
+                  {margin.status !== "saved" && <Button variant="ghost" size="sm" className="text-xs px-1" disabled={margin.status === "saving"} onClick={() => void margin.flush()}>{margin.status === "error" ? "Retry note save" : "Saving note…"}</Button>}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <span className="inline-flex">
@@ -773,11 +824,15 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         </div>
 
         {/* Single scroll region below sticky chrome */}
-        <div className="flex-1 overflow-y-auto min-h-0">
+        <div ref={scrollRegionRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0" onMouseUp={() => {
+          const selection = window.getSelection();
+          if (selection && pageLayerRef.current?.contains(selection.anchorNode)) selectedAnchorRef.current = selection.toString().trim();
+        }}>
+        <div ref={pageLayerRef} className="relative min-h-full">
 
         <TabsContent value="full" className="m-0 px-4">
-          <div className="w-full max-w-[210mm] mx-auto shadow-2xl bg-card mb-8">
-            <div id="pdf-export-content" className="p-12 min-h-[297mm] space-y-4 bg-card">
+          <div className="study-notes-page w-full mx-auto shadow-2xl bg-card mb-8">
+            <div id="pdf-export-content" className="p-4 sm:p-8 lg:p-10 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block, index) => (
                 <ContentBlock
                   key={block.id}
@@ -943,6 +998,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
             </div>
           </div>
         </TabsContent>
+        {!readOnly && showMarginNotes && <MarginNotesLayer notes={visibleMarginNotes} closed={closedMarginNotes}
+          onClose={id => setClosedMarginNotes(previous => new Set([...previous, id]))}
+          onOpen={id => setClosedMarginNotes(previous => { const next = new Set(previous); next.delete(id); return next; })}
+          onUpdate={margin.update} />}
+        </div>
         </div>
       </Tabs>
 

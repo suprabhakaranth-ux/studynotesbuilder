@@ -89,7 +89,8 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
   }, [content]);
 
   const pt = (e: React.PointerEvent): [number, number, number] => {
-    const r = svgRef.current!.getBoundingClientRect();
+    const r = svgRef.current?.getBoundingClientRect();
+    if (!r) return [0, 0, 0.5];
     return [
       ((e.clientX - r.left) / r.width) * WIDTH,
       ((e.clientY - r.top) / r.height) * HEIGHT,
@@ -122,7 +123,8 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
     if (penSeen.current && e.pointerType === "touch") return;
     if (tool === "eraser" && e.buttons) return eraseAt(pt(e));
     if (!current) return;
-    const events = (e.nativeEvent as PointerEvent).getCoalescedEvents?.() ?? [e.nativeEvent];
+    const coalesced = (e.nativeEvent as PointerEvent).getCoalescedEvents?.();
+    const events = coalesced?.length ? coalesced : [e.nativeEvent];
     const pts = events.map((ev) => pt(ev as unknown as React.PointerEvent));
     setCurrent({ ...current, points: [...current.points, ...pts] });
   };
@@ -167,7 +169,9 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
           <span className="mx-1 h-6 w-px bg-border" />
           {tool !== "eraser" &&
             palette.map((c) => (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 key={c}
                 onClick={() => setColor(c)}
                 aria-label={`Colour ${c}`}
@@ -181,7 +185,9 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
           {tool !== "eraser" && <span className="mx-1 h-6 w-px bg-border" />}
           {tool !== "eraser" &&
             SIZES.map((s) => (
-              <button
+              <Button
+                variant="ghost"
+                size="icon"
                 key={s}
                 onClick={() => setSize(s)}
                 aria-label={`Thickness ${s}`}
@@ -191,7 +197,7 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
                 )}
               >
                 <span className="rounded-full bg-foreground" style={{ width: s + 2, height: s + 2 }} />
-              </button>
+              </Button>
             ))}
           <span className="mx-1 h-6 w-px bg-border" />
           <Button size="sm" variant="ghost" className="h-8 w-8 p-0" title="Undo" aria-label="Undo"
@@ -218,7 +224,8 @@ export const DrawingBlock = ({ content, onChange, readOnly }: Props) => {
           "w-full rounded-lg border border-border bg-background select-none",
           !readOnly && (tool === "eraser" ? "cursor-cell" : "cursor-crosshair"),
         )}
-        style={{ touchAction: readOnly ? "auto" : "pan-y", aspectRatio: `${WIDTH} / ${HEIGHT}` }}
+        aria-label="Scribble canvas"
+        style={{ touchAction: readOnly ? "auto" : "none", aspectRatio: `${WIDTH} / ${HEIGHT}` }}
         onPointerDown={onDown}
         onPointerMove={onMove}
         onPointerUp={onUp}

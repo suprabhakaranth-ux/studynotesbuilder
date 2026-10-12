@@ -405,6 +405,51 @@ export type Database = {
           },
         ]
       }
+      topic_margin_notes: {
+        Row: {
+          anchor_text: string
+          created_at: string
+          deleted_at: string | null
+          drawing_content: string
+          id: string
+          page_tab: string
+          text_content: string
+          topic_id: string
+          updated_at: string
+          user_id: string
+          x: number
+          y: number
+        }
+        Insert: {
+          anchor_text?: string
+          created_at?: string
+          deleted_at?: string | null
+          drawing_content?: string
+          id?: string
+          page_tab?: string
+          text_content?: string
+          topic_id: string
+          updated_at?: string
+          user_id: string
+          x?: number
+          y?: number
+        }
+        Update: {
+          anchor_text?: string
+          created_at?: string
+          deleted_at?: string | null
+          drawing_content?: string
+          id?: string
+          page_tab?: string
+          text_content?: string
+          topic_id?: string
+          updated_at?: string
+          user_id?: string
+          x?: number
+          y?: number
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           chapter_id: string | null
