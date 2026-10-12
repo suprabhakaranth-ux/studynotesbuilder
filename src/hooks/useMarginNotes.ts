@@ -14,8 +14,18 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
   const retryCount = useRef(0);
   const queue = useRef(Promise.resolve());
 
+  const scheduleRetry = () => {
+    // Auto-retry failed saves with growing delay so a hiccup heals itself;
+    // the manual Retry button stays as a last resort.
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    const delay = Math.min(8000, 1500 * 2 ** retryCount.current);
+    retryCount.current += 1;
+    retryTimer.current = setTimeout(() => void flush(), delay);
+  };
+
   const flush = () => {
     if (timer.current) clearTimeout(timer.current);
+    if (retryTimer.current) clearTimeout(retryTimer.current);
     const batch = [...pending.current.values()];
     pending.current.clear();
     if (!batch.length) return queue.current;
@@ -25,10 +35,15 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
       if (error) {
         for (const note of batch) if (!pending.current.has(note.id)) pending.current.set(note.id, note);
         setStatus("error");
-      } else setStatus(pending.current.size ? "saving" : "saved");
+        scheduleRetry();
+      } else {
+        retryCount.current = 0;
+        setStatus(pending.current.size ? "saving" : "saved");
+      }
     }).catch(() => {
       for (const note of batch) if (!pending.current.has(note.id)) pending.current.set(note.id, note);
       setStatus("error");
+      scheduleRetry();
     });
     return queue.current;
   };
