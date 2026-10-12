@@ -10,6 +10,8 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
   const [status, setStatus] = useState<"saved" | "saving" | "error">("saved");
   const pending = useRef(new Map<string, MarginNote>());
   const timer = useRef<ReturnType<typeof setTimeout>>();
+  const retryTimer = useRef<ReturnType<typeof setTimeout>>();
+  const retryCount = useRef(0);
   const queue = useRef(Promise.resolve());
 
   const flush = () => {
