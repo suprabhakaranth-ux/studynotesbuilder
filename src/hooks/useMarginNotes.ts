@@ -50,6 +50,8 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
 
   useEffect(() => {
     if (!enabled || !userId) return;
+    if (retryTimer.current) clearTimeout(retryTimer.current);
+    retryCount.current = 0;
     let active = true;
     setReady(false);
     supabase.from("topic_margin_notes").select("*").eq("topic_id", topicId).eq("user_id", userId)
@@ -59,7 +61,7 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
         setNotes(data || []);
         setReady(true);
       });
-    return () => { active = false; void flush(); };
+    return () => { active = false; if (retryTimer.current) clearTimeout(retryTimer.current); void flush(); };
     // Persist only explicit annotation edits, never on load.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [topicId, userId, enabled]);
