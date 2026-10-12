@@ -123,6 +123,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   // Centralized save scheduler/lock to prevent concurrent saves
   const saveTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
+  const loadFailedRef = useRef(false);
+  const skipNextAutosaveRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -139,12 +141,21 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
       setLoading(true);
       
       // Load blocks
-      const { data: blocksData } = await supabase
+      const { data: blocksData, error: blocksError } = await supabase
         .from("blocks")
         .select("*")
         .eq("topic_id", topicId)
         .eq("user_id", effectiveUserId)
         .order("block_order", { ascending: true });
+      if (blocksError) {
+        // Never let a failed load fall through to autosave: the empty
+        // placeholder would overwrite the real notes.
+        loadFailedRef.current = true;
+        toast({ title: "Couldn't load notes", description: "Please reopen this topic. Nothing was changed.", variant: "destructive" });
+        return;
+      }
+      loadFailedRef.current = false;
+      
       
       if (blocksData && blocksData.length > 0) {
         setBlocks(blocksData.map(b => ({
@@ -234,6 +245,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     }
   }
 
+      skipNextAutosaveRef.current = true;
       setLoading(false);
     };
 
@@ -242,7 +254,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
 
   // Centralized debounced auto-save for all topic data (skip in readOnly mode)
   useEffect(() => {
-    if (!user || loading || readOnly) return;
+    if (!user || loading || readOnly || loadFailedRef.current) return;
+    // The first run after loading is just the loaded data — not an edit.
+    if (skipNextAutosaveRef.current) { skipNextAutosaveRef.current = false; return; }
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
@@ -292,7 +306,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   };
 
   const saveAll = async () => {
-    if (!user || readOnly) return;
+    if (!user || readOnly || loadFailedRef.current) return;
     // Prevent concurrent saves
     if (savingRef.current) return;
     savingRef.current = true;
