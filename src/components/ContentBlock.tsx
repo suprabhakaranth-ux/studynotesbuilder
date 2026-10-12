@@ -51,6 +51,8 @@ export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false, auto
         return "Mnemonic";
       case "image":
         return "Image URL";
+      case "drawing":
+        return "Scribble";
       default:
         return "Content";
     }
@@ -81,6 +83,8 @@ export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false, auto
         return "📌";
       case "image":
         return "🖼️";
+      case "drawing":
+        return "🖊️";
       default:
         return "✏️";
     }

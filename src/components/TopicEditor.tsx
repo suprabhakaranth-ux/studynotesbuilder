@@ -734,6 +734,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                         <FileText className="w-4 h-4 mr-2" />
                         Image
                       </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => addBlock("drawing")}>
+                        <PenLine className="w-4 h-4 mr-2" />
+                        Scribble / Drawing
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
 
