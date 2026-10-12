@@ -2,9 +2,10 @@ import { X, Heading } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/RichTextEditor";
+import { DrawingBlock } from "@/components/DrawingBlock";
 import { useState } from "react";
 
-export type BlockType = "title" | "text" | "summary" | "mnemonic" | "image";
+export type BlockType = "title" | "text" | "summary" | "mnemonic" | "image" | "drawing";
 
 interface ContentBlockProps {
   block: {
@@ -116,6 +117,12 @@ export const ContentBlock = ({ block, onUpdate, onDelete, readOnly = false, auto
             className="text-3xl font-bold border-0 p-0 focus-visible:ring-0 bg-transparent"
           />
         )
+      ) : block.type === "drawing" ? (
+        <DrawingBlock
+          content={block.content}
+          onChange={(value) => onUpdate(block.id, value)}
+          readOnly={readOnly}
+        />
       ) : block.type === "image" ? (
         <div className="space-y-3">
           {!readOnly && (
