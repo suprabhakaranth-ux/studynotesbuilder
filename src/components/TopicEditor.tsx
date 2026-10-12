@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2 } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
