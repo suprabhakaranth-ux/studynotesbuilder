@@ -42,7 +42,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate }: Props & { not
   };
   return (
     <div ref={card} data-margin-note={note.id} className={collapsed ? "margin-note-marker" : "margin-note-card"}
-      style={{ left: `${(position?.x ?? note.x) * 100}%`, top: position?.y ?? note.y }}>
+      style={{ left: `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${collapsed ? 48 : 406}px)))`, top: position?.y ?? note.y }}>
       {collapsed ? (
         <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md" aria-label="Open margin note" title={note.anchor_text || "Open margin note"} onClick={() => onOpen(note.id)}><PenLine className="h-4 w-4" /></Button>
       ) : (
