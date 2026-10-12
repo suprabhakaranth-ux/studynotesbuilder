@@ -313,4 +313,33 @@ All colors MUST be HSL.
 }
 .ProseMirror .tableWrapper { overflow-x: auto; }
 
+/* Reading width is independent of export paper size and revision marks. */
+.study-notes-page { max-width: 210mm; }
+@media (min-width: 1280px) {
+  .study-notes-page { max-width: 1000px; }
+}
+@media (min-width: 1680px) {
+  .study-notes-page { max-width: 1120px; }
+}
+.margin-note-card,
+.margin-note-marker {
+  position: absolute;
+  z-index: 20;
+  max-width: calc(100% - 16px);
+}
+.margin-note-card {
+  width: 390px;
+  border: 1px solid hsl(var(--border));
+  border-top: 3px solid hsl(var(--primary));
+  border-radius: 8px;
+  background: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  box-shadow: 0 8px 32px hsl(var(--foreground) / 0.18);
+  overflow: hidden;
+}
+.margin-note-card .tiptap-wrapper { min-width: 0; }
+@media print {
+  .margin-note-card, .margin-note-marker { display: none; }
+}
+
 
