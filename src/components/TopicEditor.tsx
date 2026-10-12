@@ -123,6 +123,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   // Centralized save scheduler/lock to prevent concurrent saves
   const saveTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
+  const loadFailedRef = useRef(false);
+  const skipNextAutosaveRef = useRef(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -304,7 +306,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   };
 
   const saveAll = async () => {
-    if (!user || readOnly) return;
+    if (!user || readOnly || loadFailedRef.current) return;
     // Prevent concurrent saves
     if (savingRef.current) return;
     savingRef.current = true;
