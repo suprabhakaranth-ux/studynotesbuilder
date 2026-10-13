@@ -703,6 +703,11 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                     <PopoverContent align="end"><p className="font-medium mb-2">Deleted margin notes</p><DeletedMarginNotes notes={deletedMarginNotes} onRestore={id => margin.update(id, { deleted_at: null })} /></PopoverContent>
                   </Popover>}
                   {margin.status !== "saved" && <Button variant="ghost" size="sm" className="text-xs px-1" disabled={margin.status === "saving"} onClick={() => void margin.flush()}>{margin.status === "error" ? "Retry note save" : "Saving note…"}</Button>}
+                  {!readOnly && (
+                    <span role="status" className={`text-xs whitespace-nowrap px-1 ${saveState === "error" ? "text-destructive font-medium" : "text-muted-foreground"}`}>
+                      {saveState === "saved" ? "Saved" : saveState === "error" ? "Not saved – retrying" : "Saving…"}
+                    </span>
+                  )}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <span className="inline-flex">
