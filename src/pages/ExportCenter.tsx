@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { ExportTree } from "@/components/export/ExportTree";
 import { ExportProgressDialog } from "@/components/export/ExportProgressDialog";
+import { BackupCard } from "@/components/export/BackupCard";
 import { fetchHierarchy } from "@/lib/export/fetchStudyData";
 import { buildStudyPack, type StudyPackArtifacts } from "@/lib/export/zipStudyPack";
 import type {
@@ -208,6 +209,8 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
           Designed as a long-term offline backup that stays usable even without
           this application.
         </p>
+
+        {user && <BackupCard userId={user.id} />}
 
         <div className="grid md:grid-cols-3 gap-6">
           <Card className="md:col-span-2 p-0 overflow-hidden">
