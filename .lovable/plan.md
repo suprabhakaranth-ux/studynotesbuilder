@@ -16,35 +16,38 @@ Goal: your notes can never silently disappear, and there is always an earlier ve
 - Save the notes page in one step on the server: either everything saves, or nothing changes.
 - Refuse to save a blank page over a topic that had text, unless you cleared it yourself.
 
-### B. Automatic version history for every topic
+### B. Previous versions as a safety net
 - Before each save, the server keeps a copy of the previous notes, summary and mnemonic.
-- Keep the last 50 versions per topic, plus one copy per day for 30 days.
-- Add a **History** button in the topic header. It lists versions by date and word count, with Preview and Restore. Restoring also saves the current text as a version first, so a restore can be undone.
-
-### C. Recycle Bin covers everything
-- Deleting a subject, chapter or topic stores all its notes, summaries, mnemonics, outlines and margin notes first. If that copy fails, the delete stops.
-- Each delete runs in one step, so nothing is left half-deleted.
+- Only the **last 2 versions** per topic are kept. Older copies are removed automatically.
+- To keep it out of the way, there is no button in the topic header. Instead:
+  - Open the **Recycle Bin** and go to a new **"Restore previous version"** section. Pick a topic there.
+  - You see the 2 saved versions with date, time and word count, plus a read-only preview.
+  - Restoring asks you to confirm by typing the word **RESTORE**. Only signed-in owners and admins can do this, never public visitors.
+  - Before restoring, the current text is saved as a version, so a restore can be undone.
 
 ### D. Off-app backup you control
-- A **Backup now** button that downloads everything as one file, which can be restored later.
-- A gentle reminder when your last backup is more than 7 days old.
+- **Where the button is:** a **"Backup all notes"** button at the top of the Export page, next to the Study Pack export.
+- **Where it is saved:** your browser downloads it to your Mac's **Downloads** folder as one file named like `study-notes-backup-2026-10-12.json`. It contains every year, subject, chapter, topic, summary, mnemonic, outline, margin note and presentation link. For extra safety, copy it to iCloud Drive or Google Drive.
+- **Restore from backup:** on the same page. It only adds back topics that are missing and never overwrites existing notes.
+- A small reminder appears on the home screen when your last backup is more than 7 days old.
 
 ### E. Visible save status
 - Header shows "Saved", "Saving…" or "Not saved – retrying" for the notes text, as margin notes already do.
 - Warn before closing the tab if changes are not saved yet.
 
-## Verification
-- Simulate a connection drop during saving and confirm the old text stays.
-- Delete and restore a test subject, then check all its text comes back.
-- Restore an old version from History, then undo the restore.
-- Remove the test data afterwards.
+## Verification (test data only)
+- Create a new test subject, "ZZ Test – delete me", with one test chapter and one test topic. No existing subject, chapter or topic is opened, edited or deleted during testing.
+- On the test topic: simulate a connection drop during saving and confirm the old text stays. Save twice, then restore the previous version and undo the restore.
+- Delete and restore the test subject, then check all its text comes back.
+- Download a backup and confirm the file includes the test topic.
+- Permanently remove the test subject and its contents at the end.
 
 ## About backups of the whole database
 Lovable Cloud keeps its own backups of the whole database, but you can't restore a single topic from them yourself. Version history (B) and Backup now (D) give you that control directly.
 
 ## Technical details
 - New `topic_versions` table (topic_id, user_id, blocks jsonb, summary, mnemonic, heading_nodes jsonb, word_count, created_at). Workspace-scoped RLS like `blocks`, with grants, and no public access.
-- `save_topic(topic_id, blocks jsonb, summary, mnemonic, heading_nodes jsonb)` SECURITY DEFINER RPC: checks owner/admin, snapshots the current rows into `topic_versions`, then deletes and re-inserts in one transaction. It rejects an empty payload when the stored content is non-empty unless `allow_empty=true`. A trimming step enforces retention.
+- `save_topic(topic_id, blocks jsonb, summary, mnemonic, heading_nodes jsonb)` SECURITY DEFINER RPC: checks owner/admin, snapshots the current rows into `topic_versions`, then deletes and re-inserts in one transaction. It rejects an empty payload when the stored content is non-empty unless `allow_empty=true`. It keeps only the newest 2 versions per topic. Versions are written only when the content has changed, so autosaves don't push useful versions out.
 - `restore_topic_version(version_id)` and `soft_delete_subject|chapter|topic` RPCs: transactional, capture the full payload into `deleted_items`, and include `topic_margin_notes`.
 - TopicEditor `saveAll` calls the RPC. Add a `beforeunload` guard and save-state badge. Writes keep using the workspace owner id.
 - Backup: the client exports all workspace tables to JSON, with a matching import that only adds data and never overwrites.
