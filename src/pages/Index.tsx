@@ -15,6 +15,7 @@ import { MoveTopicDialog } from "@/components/MoveTopicDialog";
 import { MoveChapterDialog } from "@/components/MoveChapterDialog";
 import { MoveSubjectDialog } from "@/components/MoveSubjectDialog";
 import ExportCenter from "@/pages/ExportCenter";
+import { LAST_BACKUP_KEY } from "@/lib/backup";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -1266,6 +1267,16 @@ const Index = () => {
       />
 
       <div className="flex-1 overflow-auto">
+        {!showExportCenter && (() => {
+          const last = localStorage.getItem(LAST_BACKUP_KEY);
+          if (last && Date.now() - Date.parse(last) < 7 * 864e5) return null;
+          return (
+            <div className="mx-8 mt-4 rounded-md border border-border bg-muted px-4 py-2 text-sm flex items-center justify-between gap-3">
+              <span>{last ? "Your last backup is more than 7 days old." : "You haven't downloaded a backup of your notes yet."}</span>
+              <Button size="sm" variant="outline" onClick={() => setShowExportCenter(true)}>Backup now</Button>
+            </div>
+          );
+        })()}
         {showExportCenter ? (
           <ExportCenter embedded onBack={() => setShowExportCenter(false)} />
         ) : activeSubject ? (
