@@ -120,6 +120,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   // cursor is live the instant the page mounts.
   const [loading, setLoading] = useState(!autoFocus);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveState, setSaveState] = useState<"saved" | "unsaved" | "saving" | "error">("saved");
+  const pendingSaveRef = useRef(false);
   // Centralized save scheduler/lock to prevent concurrent saves
   const saveTimeoutRef = useRef<number | null>(null);
   const savingRef = useRef(false);
@@ -257,15 +259,17 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     if (!user || loading || readOnly || loadFailedRef.current) return;
     // The first run after loading is just the loaded data — not an edit.
     if (skipNextAutosaveRef.current) { skipNextAutosaveRef.current = false; return; }
+    setSaveState("unsaved");
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = window.setTimeout(() => {
-      // Skip if a manual or auto save is already running
-      if (savingRef.current) return;
-      // Silent autosave (no toasts)
+      // Silent autosave (no toasts); retries itself if it fails.
       saveAll().catch((e) => {
         console.error("Autosave failed:", e);
+        if (!String(e?.message).includes("BLANK_OVERWRITE_BLOCKED")) {
+          saveTimeoutRef.current = window.setTimeout(() => { saveAll().catch(() => {}); }, 4000);
+        }
       });
     }, 1000);
     return () => {
@@ -275,6 +279,14 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
       }
     };
   }, [blocks, summaryContent, mnemonicContent, headingNodes, topicId, user, loading, readOnly]);
+
+  // Warn before closing the tab while changes are not yet saved.
+  useEffect(() => {
+    if (readOnly || saveState === "saved") return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); e.returnValue = ""; };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [saveState, readOnly]);
 
 
   const addBlock = (type: BlockType) => {
@@ -361,7 +373,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         clearTimeout(saveTimeoutRef.current);
         saveTimeoutRef.current = null;
       }
-      await saveAll();
+      try {
+        await saveAll();
+      } catch (error: any) {
+        if (!String(error?.message).includes("BLANK_OVERWRITE_BLOCKED")) throw error;
+        if (!window.confirm("This will replace your existing notes with an empty page. A copy of the current notes will be kept in Recycle Bin → Restore previous version. Continue?")) return;
+        await saveAll(true);
+      }
       toast({
         title: "Saved successfully! ✨",
         description: "Your notes have been saved.",
@@ -370,7 +388,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
       console.error("Save failed:", error);
       toast({
         title: "Save failed",
-        description: error?.message || "An unexpected error occurred while saving.",
+        description: "Your notes were not changed on the server. Please try again.",
         variant: "destructive",
       });
     }
