@@ -305,131 +305,51 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     }
   };
 
-  const saveAll = async () => {
+  const saveAll = async (allowEmpty = false) => {
     if (!user || readOnly || loadFailedRef.current) return;
-    // Prevent concurrent saves
-    if (savingRef.current) return;
+    // Prevent concurrent saves; remember to save again afterwards.
+    if (savingRef.current) { pendingSaveRef.current = true; return; }
     savingRef.current = true;
+    pendingSaveRef.current = false;
     setIsSaving(true);
-    // Cancel any pending autosave timers
+    setSaveState("saving");
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current);
       saveTimeoutRef.current = null;
     }
     try {
-      // Save blocks (delete then insert to preserve order)
-      const { error: deleteBlocksError } = await supabase
-        .from("blocks")
-        .delete()
-        .eq("topic_id", topicId)
-        .eq("user_id", user.id);
-      if (deleteBlocksError) throw deleteBlocksError;
+      const sanitizedBlocks = blocks.map(b => ({ ...b, id: b.id.length < 20 ? crypto.randomUUID() : b.id }));
+      if (blocks.some((b, i) => b.id !== sanitizedBlocks[i].id)) setBlocks(sanitizedBlocks);
 
-      if (blocks.length > 0) {
-        // Sanitize block IDs - regenerate any short/invalid IDs
-        const sanitizedBlocks = blocks.map(b => ({
-          ...b,
-          id: b.id.length < 20 ? crypto.randomUUID() : b.id,
-        }));
-        
-        // Update state if any IDs were regenerated
-        const hadInvalidIds = blocks.some((b, i) => b.id !== sanitizedBlocks[i].id);
-        if (hadInvalidIds) {
-          setBlocks(sanitizedBlocks);
-        }
-
-        const { error: insertBlocksError } = await supabase.from("blocks").insert(
-          sanitizedBlocks.map((b, idx) => ({
-            id: b.id,
-            topic_id: topicId,
-            user_id: user.id,
-            type: b.type,
-            content: b.content,
-            headings: b.headings || [],
-            block_order: idx,
-          }))
-        );
-        if (insertBlocksError) throw insertBlocksError;
-      }
-
-      // Save summary and mnemonic with explicit conflict targets
-      const [summaryRes, mnemonicRes] = await Promise.all([
-        supabase.from("summaries").upsert(
-          {
-            topic_id: topicId,
-            user_id: user.id,
-            content: summaryContent,
-          },
-          { onConflict: "topic_id" }
-        ),
-        supabase.from("mnemonics").upsert(
-          {
-            topic_id: topicId,
-            user_id: user.id,
-            content: mnemonicContent,
-          },
-          { onConflict: "topic_id" }
-        ),
-      ]);
-      if (summaryRes.error) throw summaryRes.error;
-      if (mnemonicRes.error) throw mnemonicRes.error;
-
-  // Save heading nodes (flatten tree structure)
-  const { error: deleteHNError } = await supabase
-    .from("heading_nodes")
-    .delete()
-    .eq("topic_id", topicId)
-    .eq("user_id", user.id);
-  if (deleteHNError) throw deleteHNError;
-
-  if (headingNodes.length > 0) {
-    // Flatten the tree structure for database storage
-    const flattenNodes = (nodes: HeadingNode[], parentId: string | null = null): Array<{
-      id: string;
-      topic_id: string;
-      user_id: string;
-      title: string;
-      notes: string;
-      parent_id: string | null;
-      node_order: number;
-    }> => {
-      const result: Array<{
-        id: string;
-        topic_id: string;
-        user_id: string;
-        title: string;
-        notes: string;
-        parent_id: string | null;
-        node_order: number;
-      }> = [];
-      
-      nodes.forEach((node, idx) => {
-        result.push({
-          id: node.id,
-          topic_id: topicId,
-          user_id: user.id,
-          title: node.title,
-          notes: node.notes,
-          parent_id: parentId,
-          node_order: idx,
-        });
-        
-        // Recursively flatten children
-        if (node.children && node.children.length > 0) {
-          result.push(...flattenNodes(node.children, node.id));
-        }
+      const flat: Array<{ id: string; title: string; notes: string; parent_id: string | null; node_order: number }> = [];
+      const walk = (nodes: HeadingNode[], parentId: string | null) => nodes.forEach((node, idx) => {
+        flat.push({ id: node.id, title: node.title, notes: node.notes, parent_id: parentId, node_order: idx });
+        if (node.children?.length) walk(node.children, node.id);
       });
-      
-      return result;
-    };
+      walk(headingNodes, null);
 
-    const flatNodes = flattenNodes(headingNodes);
-    const { error: insertHNError } = await supabase.from("heading_nodes").insert(flatNodes);
-    if (insertHNError) throw insertHNError;
-  }
+      // One server-side transaction: keeps a previous version, refuses blank
+      // overwrites, and either saves everything or changes nothing.
+      const { error } = await supabase.rpc("save_topic", {
+        _topic_id: topicId,
+        _blocks: sanitizedBlocks.map(b => ({ id: b.id, type: b.type, content: b.content, headings: b.headings || [] })) as any,
+        _summary: summaryContent,
+        _mnemonic: mnemonicContent,
+        _heading_nodes: flat as any,
+        _allow_empty: allowEmpty,
+      });
+      if (error) throw error;
+      setSaveState("saved");
+    } catch (e) {
+      setSaveState("error");
+      throw e;
     } finally {
       setIsSaving(false);
       savingRef.current = false;
+      if (pendingSaveRef.current) {
+        pendingSaveRef.current = false;
+        saveTimeoutRef.current = window.setTimeout(() => { saveAll().catch(() => {}); }, 500);
+      }
     }
   };
 
