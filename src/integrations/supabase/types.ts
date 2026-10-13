@@ -450,6 +450,42 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_versions: {
+        Row: {
+          blocks: Json
+          created_at: string
+          heading_nodes: Json
+          id: string
+          mnemonic: string | null
+          summary: string | null
+          topic_id: string
+          user_id: string
+          word_count: number
+        }
+        Insert: {
+          blocks?: Json
+          created_at?: string
+          heading_nodes?: Json
+          id?: string
+          mnemonic?: string | null
+          summary?: string | null
+          topic_id: string
+          user_id: string
+          word_count?: number
+        }
+        Update: {
+          blocks?: Json
+          created_at?: string
+          heading_nodes?: Json
+          id?: string
+          mnemonic?: string | null
+          summary?: string | null
+          topic_id?: string
+          user_id?: string
+          word_count?: number
+        }
+        Relationships: []
+      }
       topics: {
         Row: {
           chapter_id: string | null
@@ -527,6 +563,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_workspace: { Args: { _owner: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -534,7 +571,29 @@ export type Database = {
         }
         Returns: boolean
       }
+      html_word_count: { Args: { _html: string }; Returns: number }
+      restore_deleted_item: {
+        Args: { _deleted_id: string }
+        Returns: undefined
+      }
+      restore_topic_version: {
+        Args: { _version_id: string }
+        Returns: undefined
+      }
+      save_topic: {
+        Args: {
+          _allow_empty?: boolean
+          _blocks: Json
+          _heading_nodes: Json
+          _mnemonic: string
+          _summary: string
+          _topic_id: string
+        }
+        Returns: undefined
+      }
       slugify: { Args: { input: string }; Returns: string }
+      soft_delete_subject: { Args: { _subject_id: string }; Returns: undefined }
+      soft_delete_topic: { Args: { _topic_id: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
