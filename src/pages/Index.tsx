@@ -1035,72 +1035,10 @@ const Index = () => {
 
     try {
       if (itemToDelete.type === "subject") {
-        // Fetch subject data
-        const { data: subjectData, error: subjectError } = await supabase
-          .from("subjects")
-          .select("*")
-          .eq("id", itemToDelete.id)
-          .single();
-
-        if (subjectError) throw subjectError;
-
-        // Fetch all chapters for this subject
-        const { data: chaptersData, error: chaptersError } = await supabase
-          .from("chapters")
-          .select("*")
-          .eq("subject_id", itemToDelete.id);
-
-        if (chaptersError) throw chaptersError;
-
-        // Fetch all topics for this subject
-        const { data: topicsData, error: topicsError } = await supabase
-          .from("topics")
-          .select("*")
-          .eq("subject_id", itemToDelete.id);
-
-        if (topicsError) throw topicsError;
-
-        // Store in deleted_items
-        const { error: insertError } = await supabase
-          .from("deleted_items")
-          .insert({
-            user_id: user.id,
-            item_type: "subject",
-            item_id: itemToDelete.id,
-            item_name: itemToDelete.name,
-            subject_data: subjectData,
-            chapters_data: chaptersData || [],
-            topic_data: topicsData || [],
-          });
-
-        if (insertError) throw insertError;
-
-        // Delete all topics for this subject
-        if (topicsData && topicsData.length > 0) {
-          const topicIds = topicsData.map((t) => t.id);
-
-          // Delete related data for all topics
-          await supabase.from("blocks").delete().in("topic_id", topicIds);
-          await supabase.from("heading_nodes").delete().in("topic_id", topicIds);
-          await supabase.from("summaries").delete().in("topic_id", topicIds);
-          await supabase.from("mnemonics").delete().in("topic_id", topicIds);
-
-          // Delete topics
-          await supabase.from("topics").delete().in("id", topicIds);
-        }
-
-        // Delete all chapters for this subject
-        if (chaptersData && chaptersData.length > 0) {
-          await supabase.from("chapters").delete().eq("subject_id", itemToDelete.id);
-        }
-
-        // Delete subject
-        const { error: deleteError } = await supabase
-          .from("subjects")
-          .delete()
-          .eq("id", itemToDelete.id);
-
+        // One server-side step: copies the subject with all notes to the Recycle Bin, then deletes.
+        const { error: deleteError } = await supabase.rpc("soft_delete_subject", { _subject_id: itemToDelete.id });
         if (deleteError) throw deleteError;
+
 
         // Update local state
         setSubjects(subjects.filter((s) => s.id !== itemToDelete.id));
@@ -1115,66 +1053,10 @@ const Index = () => {
           description: `${itemToDelete.name} and its content can be restored from the Recycle Bin.`,
         });
       } else if (itemToDelete.type === "topic") {
-        // Fetch topic data
-        const { data: topicData, error: topicError } = await supabase
-          .from("topics")
-          .select("*")
-          .eq("id", itemToDelete.id)
-          .single();
-
-        if (topicError) throw topicError;
-
-        // Fetch all related data
-        const { data: blocksData } = await supabase
-          .from("blocks")
-          .select("*")
-          .eq("topic_id", itemToDelete.id);
-
-        const { data: headingsData } = await supabase
-          .from("heading_nodes")
-          .select("*")
-          .eq("topic_id", itemToDelete.id);
-
-        const { data: summariesData } = await supabase
-          .from("summaries")
-          .select("*")
-          .eq("topic_id", itemToDelete.id);
-
-        const { data: mnemonicsData } = await supabase
-          .from("mnemonics")
-          .select("*")
-          .eq("topic_id", itemToDelete.id);
-
-        // Store in deleted_items
-        const { error: insertError } = await supabase
-          .from("deleted_items")
-          .insert({
-            user_id: user.id,
-            item_type: "topic",
-            item_id: itemToDelete.id,
-            item_name: itemToDelete.name,
-            topic_data: topicData,
-            blocks_data: blocksData || [],
-            heading_nodes_data: headingsData || [],
-            summaries_data: summariesData || [],
-            mnemonics_data: mnemonicsData || [],
-          });
-
-        if (insertError) throw insertError;
-
-        // Delete all related data
-        await supabase.from("blocks").delete().eq("topic_id", itemToDelete.id);
-        await supabase.from("heading_nodes").delete().eq("topic_id", itemToDelete.id);
-        await supabase.from("summaries").delete().eq("topic_id", itemToDelete.id);
-        await supabase.from("mnemonics").delete().eq("topic_id", itemToDelete.id);
-
-        // Delete topic
-        const { error: deleteError } = await supabase
-          .from("topics")
-          .delete()
-          .eq("id", itemToDelete.id);
-
+        // One server-side step: copies everything to the Recycle Bin, then deletes.
+        const { error: deleteError } = await supabase.rpc("soft_delete_topic", { _topic_id: itemToDelete.id });
         if (deleteError) throw deleteError;
+
 
         // Update local state
         setTopics(topics.filter((t) => t.id !== itemToDelete.id));
