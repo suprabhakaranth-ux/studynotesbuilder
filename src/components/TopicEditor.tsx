@@ -147,7 +147,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         .from("blocks")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", effectiveUserId)
         .order("block_order", { ascending: true });
       if (blocksError) {
         // Never let a failed load fall through to autosave: the empty
@@ -173,7 +172,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         .from("summaries")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", effectiveUserId)
         .maybeSingle();
       
       if (summaryData) {
@@ -185,7 +183,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         .from("mnemonics")
         .select("*")
         .eq("topic_id", topicId)
-        .eq("user_id", effectiveUserId)
         .maybeSingle();
       
       if (mnemonicData) {
@@ -197,7 +194,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     .from("heading_nodes")
     .select("*")
     .eq("topic_id", topicId)
-    .eq("user_id", effectiveUserId)
     .order("node_order", { ascending: true });
   
   if (headingNodesData && headingNodesData.length > 0) {

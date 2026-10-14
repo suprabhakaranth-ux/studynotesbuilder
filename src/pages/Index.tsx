@@ -1234,17 +1234,19 @@ const Index = () => {
         expandedSubjects={expandedSubjects}
         expandedChapters={expandedChapters}
         onSubjectSelect={(id) => {
+          setShowExportCenter(false);
           setActiveSubject(id);
           setActiveChapter(null); // Clear chapter when selecting subject
         }}
         onChapterSelect={(id) => {
           const chapter = chapters.find(ch => ch.id === id);
           if (chapter) {
+            setShowExportCenter(false);
             setActiveSubject(chapter.subject_id);
             setActiveChapter(id);
           }
         }}
-        onTopicSelect={(id) => setEditingTopic(id)}
+        onTopicSelect={(id) => { setShowExportCenter(false); setEditingTopic(id); }}
         onNewSubject={() => {
           setEditingSubject(null);
           setDialogOpen(true);
