@@ -14,7 +14,7 @@ import studyIllustration from "@/assets/study-illustration.png";
 const Auth = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState("suprabha.karanth@gmail.com");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
