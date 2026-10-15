@@ -4,5 +4,5 @@
 - [x] Verify creation, drawing, movement, hiding, reload, and deletion in the signed-in editor.
 
 # LLM note formatting
-- [ ] Add an undoable formatting icon for selected points or the active note, with blank lines before and after each body paragraph.
-- [ ] Verify formatting, numbering, selection scope, repeat clicks, and undo using disposable notes only.
+- [x] Add an undoable formatting icon for selected points or the active note, with blank lines before and after each body paragraph.
+- [x] Verify formatting, numbering, selection scope, repeat clicks, and undo using disposable notes only.
