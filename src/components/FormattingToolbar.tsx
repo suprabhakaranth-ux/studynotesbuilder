@@ -11,6 +11,7 @@ import {
   Highlighter,
   List,
   ListOrdered,
+  ListCollapse,
   Indent,
   Outdent,
   Heading,
@@ -49,6 +50,7 @@ import {
   normalizeHtmlForTiptap,
 } from "./editor/extensions/mathTokenizer";
 import { cleanPastedHtml } from "./editor/extensions/wordPasteCleaner";
+import { formatLlmNotes } from "./editor/formatLlmNotes";
 
 interface FormattingToolbarProps {
   onMarkHeading?: (text: string) => void;
@@ -203,6 +205,18 @@ export const FormattingToolbar = ({
   const handleUndo = () => {
     if (onUndo) return onUndo();
     withEditor((e) => e.chain().focus().undo().run());
+  };
+
+  const handleFormatLlmNotes = () => {
+    const editor = getActiveEditor();
+    if (!editor || !editor.isEditable) {
+      toast({ title: "Click in your notes first", variant: "destructive" });
+      return;
+    }
+    const count = formatLlmNotes(editor);
+    toast({
+      title: count ? `Formatted ${count} ${count === 1 ? "point" : "points"}` : "No heading-and-text points found",
+    });
   };
 
   const handleRedo = () => {
@@ -509,6 +523,9 @@ export const FormattingToolbar = ({
         </Button>
         <Button size="sm" variant="ghost" onClick={tOrdered} className="h-8 w-8 p-0 hover:bg-primary/10" title="Numbered List">
           <ListOrdered className="w-3.5 h-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleFormatLlmNotes} className="h-8 w-8 p-0 hover:bg-primary/10" title="Format LLM Notes (split heading & body)" aria-label="Format LLM Notes">
+          <ListCollapse className="w-3.5 h-3.5" />
         </Button>
         <Button size="sm" variant="ghost" onClick={tIndent} className="h-8 w-8 p-0 hover:bg-primary/10" title="Indent">
           <Indent className="w-3.5 h-3.5" />
