@@ -25,7 +25,7 @@ const DROP_CLASS_PATTERNS = [
 
 const INLINE_STYLE_KEEP_INLINE = new Set([
   "color", "background-color", "text-align",
-  "font-weight", "font-style", "text-decoration",
+  "font-weight", "font-style", "text-decoration", "font-family", "font-size",
 ]);
 const INLINE_STYLE_KEEP_BLOCK = new Set(["text-align"]);
 

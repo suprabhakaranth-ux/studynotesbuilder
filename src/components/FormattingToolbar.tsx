@@ -58,6 +58,15 @@ interface FormattingToolbarProps {
   onRedo?: () => void;
 }
 
+const DEFAULT = "__default";
+const FONT_OPTIONS = [
+  { value: "Arial", label: "Arial" },
+  { value: "Georgia", label: "Georgia" },
+  { value: "Times New Roman", label: "Times" },
+  { value: "Courier New", label: "Courier" },
+  { value: "Verdana", label: "Verdana" },
+];
+
 const colorOptions = [
   { name: "Black", value: "#000000" },
   { name: "Red", value: "#EF4444" },
@@ -101,6 +110,38 @@ export const FormattingToolbar = ({
   const [mathDialogOpen, setMathDialogOpen] = useState(false);
   const copiedFormatRef = useRef<CapturedFormat | null>(null);
   const { toast } = useToast();
+  const [curFont, setCurFont] = useState<string | null>(null);
+  const [curSize, setCurSize] = useState<string | null>(null);
+  const syncStyle = () => {
+    const e = getActiveEditor();
+    if (!e || e.isDestroyed) return;
+    const a = e.getAttributes("textStyle");
+    setCurFont(a.fontFamily || null);
+    setCurSize(a.fontSize || null);
+  };
+  useEffect(() => {
+    let bound: Editor | null = null;
+    const bind = () => {
+      const e = getActiveEditor();
+      if (e === bound) return;
+      bound?.off("selectionUpdate", syncStyle);
+      bound?.off("transaction", syncStyle);
+      bound = e;
+      e?.on("selectionUpdate", syncStyle);
+      e?.on("transaction", syncStyle);
+      syncStyle();
+    };
+    bind();
+    document.addEventListener("focusin", bind);
+    const t = window.setInterval(bind, 1000);
+    return () => {
+      document.removeEventListener("focusin", bind);
+      window.clearInterval(t);
+      bound?.off("selectionUpdate", syncStyle);
+      bound?.off("transaction", syncStyle);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleInsertMath = (snippet: string) => {
     // Snippet from MathInsertDialog is "$..$" or "$$..$$" (or HTML for image).
@@ -365,9 +406,23 @@ export const FormattingToolbar = ({
   const tColor = (c: string) =>
     withEditor((e) => e.chain().focus().setColor(c).run());
   const tFontFamily = (f: string) =>
-    withEditor((e) => e.chain().focus().setFontFamily(f).run());
+    withEditor((e) => {
+      if (f === DEFAULT) e.chain().focus().unsetFontFamily().run();
+      else e.chain().focus().setFontFamily(f).run();
+      syncStyle();
+    });
   const tFontSize = (s: string) =>
-    withEditor((e) => e.chain().focus().setFontSize(s).run());
+    withEditor((e) => {
+      if (s === DEFAULT) e.chain().focus().unsetFontSize().run();
+      else e.chain().focus().setFontSize(s).run();
+      syncStyle();
+    });
+  const returnFocus = (ev: Event) => {
+    ev.preventDefault();
+    getActiveEditor()?.commands.focus();
+  };
+  const fontLabel = FONT_OPTIONS.find((o) => o.value === curFont)?.label ?? (curFont ? curFont.split(",")[0].replace(/['"]/g, "") : "Font");
+  const sizeLabel = curSize ? curSize.replace("px", "") : "Size";
 
   return (
     <>
@@ -375,24 +430,24 @@ export const FormattingToolbar = ({
         className="flex flex-nowrap items-center gap-0.5 px-2 py-1 overflow-x-auto border-b border-border bg-card [&>*]:shrink-0 [&>button:not([role=combobox])]:h-7 [&>button:not([role=combobox])]:w-6 [&>button:not([role=combobox])]:p-0"
         onMouseDown={(e) => e.preventDefault()}
       >
-        <Select onValueChange={tFontFamily}>
-          <SelectTrigger className="w-[80px] h-7 bg-card text-xs px-2">
-            <SelectValue placeholder="Font" />
+        <Select value="" onValueChange={tFontFamily}>
+          <SelectTrigger className="w-[80px] h-7 bg-card text-xs px-2" title="Font">
+            <SelectValue placeholder={fontLabel} />
           </SelectTrigger>
-          <SelectContent className="bg-card">
-            <SelectItem value="Arial">Arial</SelectItem>
-            <SelectItem value="Georgia">Georgia</SelectItem>
-            <SelectItem value="Times New Roman">Times</SelectItem>
-            <SelectItem value="Courier New">Courier</SelectItem>
-            <SelectItem value="Verdana">Verdana</SelectItem>
+          <SelectContent className="bg-card" onCloseAutoFocus={returnFocus}>
+            <SelectItem value={DEFAULT}>Default</SelectItem>
+            {FONT_OPTIONS.map((o) => (
+              <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+            ))}
           </SelectContent>
         </Select>
 
-        <Select onValueChange={tFontSize}>
-          <SelectTrigger className="w-[52px] h-7 bg-card text-xs px-2">
-            <SelectValue placeholder="Size" />
+        <Select value="" onValueChange={tFontSize}>
+          <SelectTrigger className="w-[52px] h-7 bg-card text-xs px-2" title="Size">
+            <SelectValue placeholder={sizeLabel} />
           </SelectTrigger>
-          <SelectContent className="bg-card">
+          <SelectContent className="bg-card" onCloseAutoFocus={returnFocus}>
+            <SelectItem value={DEFAULT}>Default</SelectItem>
             {["12px", "14px", "16px", "18px", "20px", "22px", "24px"].map((s) => (
               <SelectItem key={s} value={s}>
                 {s.replace("px", "")}
