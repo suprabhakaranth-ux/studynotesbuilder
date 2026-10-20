@@ -457,6 +457,7 @@ const AIChat = () => {
       </div>
 
       <DeleteConfirmDialog
+        requirePin={false}
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={() => conversationToDelete && handleDeleteConversation(conversationToDelete)}
