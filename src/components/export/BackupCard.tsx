@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { buildBackup, restoreMissing, LAST_BACKUP_KEY } from "@/lib/backup";
+import { DeleteConfirmDialog } from "@/components/DeleteConfirmDialog";
 
 export function BackupCard({ userId }: { userId: string }) {
   const { toast } = useToast();
   const [busy, setBusy] = useState<"backup" | "restore" | null>(null);
   const [last, setLast] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   const input = useRef<HTMLInputElement>(null);
+  const [pinOpen, setPinOpen] = useState(false);
 
   const backup = async () => {
     setBusy("backup");
@@ -46,10 +48,19 @@ export function BackupCard({ userId }: { userId: string }) {
         </p>
       </div>
       <Button onClick={backup} disabled={!!busy}>{busy === "backup" ? "Preparing…" : "Backup all notes"}</Button>
-      <Button variant="outline" onClick={() => input.current?.click()} disabled={!!busy}>
+      <Button variant="outline" onClick={() => setPinOpen(true)} disabled={!!busy}>
         <Upload className="w-4 h-4 mr-2" />{busy === "restore" ? "Restoring…" : "Restore from backup"}
       </Button>
       <input ref={input} type="file" accept="application/json,.json" className="hidden" onChange={e => e.target.files?.[0] && restore(e.target.files[0])} />
+      <DeleteConfirmDialog
+        open={pinOpen}
+        onOpenChange={setPinOpen}
+        itemName="backup"
+        title="Restore from backup?"
+        description="Missing topics from the backup file will be added back. Existing notes are not changed."
+        confirmLabel="Choose backup file"
+        onConfirm={() => { setPinOpen(false); input.current?.click(); }}
+      />
     </Card>
   );
 }
