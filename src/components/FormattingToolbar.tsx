@@ -397,6 +397,21 @@ export const FormattingToolbar = ({
     });
   const tOutdent = () =>
     withEditor((e) => {
+      // If the list item carries a margin indent, reduce that first so the
+      // bullet steps back with the text; only un-list when no indent remains.
+      const { $from } = e.state.selection;
+      let liIndent = 0;
+      for (let d = $from.depth; d > 0; d--) {
+        const n = $from.node(d);
+        if (n.type.name === "listItem") {
+          liIndent = (n.attrs.indent as number) || 0;
+          break;
+        }
+      }
+      if (liIndent > 0) {
+        e.chain().focus().outdentBlock().run();
+        return;
+      }
       if (!e.chain().focus().liftListItem("listItem").run()) {
         e.chain().focus().outdentBlock().run();
       }
