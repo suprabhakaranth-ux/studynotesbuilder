@@ -189,7 +189,7 @@ export async function fetchHierarchy(userId: string) {
   const [subjects, chapters, topics] = await Promise.all([
     supabase
       .from("subjects")
-      .select("id, name, color")
+      .select("id, name, color, year")
       .eq("user_id", userId)
       .order("name", { ascending: true }),
     supabase
