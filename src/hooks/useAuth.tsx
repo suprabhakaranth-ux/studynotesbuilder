@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -57,12 +57,12 @@ export const useAuth = () => {
     navigate("/");
   };
 
-  // Admins operate inside the owner's workspace, so every query/insert that
-  // uses `user.id` is transparently scoped to the shared content.
-  const user: User | null =
-    authUser && isAdmin && authUser.id !== WORKSPACE_OWNER_ID
-      ? ({ ...authUser, id: WORKSPACE_OWNER_ID } as User)
-      : authUser;
+  // Single-login app: the signed-in owner's user object is used directly.
+  // Memoized on the id so token refreshes don't trigger data re-fetches.
+  const userId = authUser?.id ?? null;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const user: User | null = useMemo(() => authUser, [userId]);
+  void WORKSPACE_OWNER_ID;
 
   return { user, authUser, isAdmin, session, loading, signOut };
 };
