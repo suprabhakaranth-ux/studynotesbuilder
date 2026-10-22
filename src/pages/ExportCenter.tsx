@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ExportTree } from "@/components/export/ExportTree";
 import { ExportProgressDialog } from "@/components/export/ExportProgressDialog";
 import { BackupCard } from "@/components/export/BackupCard";
+import { YearSubjectFilter } from "@/components/export/YearSubjectFilter";
 import { fetchHierarchy } from "@/lib/export/fetchStudyData";
 import { buildStudyPack, type StudyPackArtifacts } from "@/lib/export/zipStudyPack";
 import type {
@@ -76,8 +77,18 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     })();
   }, [user, authLoading, navigate, toast]);
 
-  const allTopicIds = useMemo(() => topics.map((t) => t.id), [topics]);
-  const selectAll = () => setSelected(new Set(allTopicIds));
+  const [shownSubjects, setShownSubjects] = useState<Set<string>>(new Set());
+  const visibleSubjects = useMemo(() => {
+    const list = shownSubjects.size === 0 ? subjects : subjects.filter((s) => shownSubjects.has(s.id));
+    // 1st Year first, then 2nd Year, keeping name order within each year.
+    return [...list].sort((a, b) => (a.year ?? 1) - (b.year ?? 1));
+  }, [subjects, shownSubjects]);
+  const allTopicIds = useMemo(() => {
+    const ids = new Set(visibleSubjects.map((s) => s.id));
+    return topics.filter((t) => t.subject_id && ids.has(t.subject_id)).map((t) => t.id);
+  }, [topics, visibleSubjects]);
+  // "Select all" adds every topic in the subjects currently shown.
+  const selectAll = () => setSelected((prev) => new Set([...prev, ...allTopicIds]));
   const deselectAll = () => setSelected(new Set());
 
   const selectedCount = selected.size;
@@ -243,15 +254,25 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
               {loading ? (
                 <div className="text-sm text-muted-foreground p-4">Loading hierarchy…</div>
               ) : (
-                <div className="max-h-[60vh] overflow-y-auto">
-                  <ExportTree
-                    subjects={subjects}
-                    chapters={chapters}
-                    topics={topics}
-                    selectedTopicIds={selected}
-                    onChange={setSelected}
-                  />
-                </div>
+                <>
+                  <div className="mb-4">
+                    <YearSubjectFilter
+                      subjects={subjects}
+                      shown={shownSubjects}
+                      onChange={setShownSubjects}
+                    />
+                  </div>
+                  <div className="max-h-[60vh] overflow-y-auto">
+                    <ExportTree
+                      key={visibleSubjects.map((s) => s.id).join(",")}
+                      subjects={visibleSubjects}
+                      chapters={chapters}
+                      topics={topics}
+                      selectedTopicIds={selected}
+                      onChange={setSelected}
+                    />
+                  </div>
+                </>
               )}
             </div>
           </Card>
