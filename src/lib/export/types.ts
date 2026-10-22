@@ -2,6 +2,7 @@ export interface ExportSubject {
   id: string;
   name: string;
   color: string;
+  year?: number | null;
 }
 
 export interface ExportChapter {
