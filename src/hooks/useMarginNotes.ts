@@ -86,6 +86,7 @@ export function useMarginNotes(topicId: string, userId: string | undefined, enab
       id: crypto.randomUUID(), topic_id: topicId, user_id: userId,
       text_content: "", drawing_content: "", anchor_text: anchor,
       x, y, page_tab: tab, deleted_at: null,
+      width: null, height: null, pin_x: null, pin_y: null,
       created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
     };
     setNotes(previous => [...previous, note]);
