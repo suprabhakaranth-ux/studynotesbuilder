@@ -411,12 +411,16 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           drawing_content: string
+          height: number | null
           id: string
           page_tab: string
+          pin_x: number | null
+          pin_y: number | null
           text_content: string
           topic_id: string
           updated_at: string
           user_id: string
+          width: number | null
           x: number
           y: number
         }
@@ -425,12 +429,16 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           drawing_content?: string
+          height?: number | null
           id?: string
           page_tab?: string
+          pin_x?: number | null
+          pin_y?: number | null
           text_content?: string
           topic_id: string
           updated_at?: string
           user_id: string
+          width?: number | null
           x?: number
           y?: number
         }
@@ -439,12 +447,16 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           drawing_content?: string
+          height?: number | null
           id?: string
           page_tab?: string
+          pin_x?: number | null
+          pin_y?: number | null
           text_content?: string
           topic_id?: string
           updated_at?: string
           user_id?: string
+          width?: number | null
           x?: number
           y?: number
         }
