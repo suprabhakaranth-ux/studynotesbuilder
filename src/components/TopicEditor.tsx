@@ -104,6 +104,30 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     }
   };
 
+  // Collect every highlighted (<mark>) fragment from the note content, in
+  // document order, and append them as lines to the margin note's text.
+  const collateHighlights = (id: string) => {
+    const note = margin.notes.find(n => n.id === id);
+    if (!note) return;
+    const fragments: string[] = [];
+    for (const block of blocks) {
+      if (block.type === "drawing" || !block.content) continue;
+      const doc = new DOMParser().parseFromString(block.content, "text/html");
+      doc.querySelectorAll("mark").forEach(el => {
+        const text = el.textContent?.trim();
+        if (text) fragments.push(text);
+      });
+    }
+    if (!fragments.length) {
+      toast({ title: "No highlighted text found", description: "Highlight text in the note first, then collate it here." });
+      return;
+    }
+    const addition = fragments.join("\n");
+    const existing = note.text_content.trimEnd();
+    margin.update(id, { text_content: existing ? `${existing}\n\n${addition}` : addition });
+    toast({ title: `Added ${fragments.length} highlight${fragments.length === 1 ? "" : "s"} to the margin note` });
+  };
+
   // Live word count of the notes content (plain-text words across all blocks).
   const wordCount = useMemo(() => {
     const text = blocks.filter((b) => b.type !== "drawing").map((b) => b.content).join(" ");
@@ -954,7 +978,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         {!readOnly && showMarginNotes && <MarginNotesLayer notes={visibleMarginNotes} closed={closedMarginNotes}
           onClose={id => setClosedMarginNotes(previous => new Set([...previous, id]))}
           onOpen={id => setClosedMarginNotes(previous => { const next = new Set(previous); next.delete(id); return next; })}
-          onUpdate={margin.update} />}
+          onUpdate={margin.update} onCollate={collateHighlights} />}
         </div>
         </div>
       </Tabs>
