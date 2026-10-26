@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { GripHorizontal, PenLine, Type, X, Trash2, RotateCcw } from "lucide-react";
+import { GripHorizontal, Highlighter, MoveDiagonal2, PenLine, Type, X, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { DrawingBlock } from "./DrawingBlock";
@@ -11,14 +11,27 @@ interface Props {
   onClose: (id: string) => void;
   onOpen: (id: string) => void;
   onUpdate: (id: string, patch: Partial<MarginNote>) => void;
+  onCollate: (id: string) => void;
 }
 
-function FloatingNote({ note, closed, onClose, onOpen, onUpdate }: Props & { note: MarginNote }) {
+const MIN_WIDTH = 220;
+const MIN_HEIGHT = 160;
+const PIN_SIZE = 40;
+
+function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Props & { note: MarginNote }) {
   const [mode, setMode] = useState<"draw" | "type">(note.text_content ? "type" : "draw");
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const drag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; cardWidth: number }>();
+  const pinDrag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; moved: boolean }>();
+  const resize = useRef<{ clientX: number; clientY: number; w: number; h: number }>();
   const card = useRef<HTMLDivElement>(null);
   const collapsed = closed.has(note.id);
+
+  const cardWidth = size?.w ?? note.width ?? 390;
+  const bodyHeight = size?.h ?? note.height ?? null;
+
+  // Dragging the open card by its header.
   const startDrag = (event: React.PointerEvent) => {
     if ((event.target as HTMLElement).closest("button")) return;
     const parent = card.current?.parentElement;
@@ -40,11 +53,69 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate }: Props & { not
     drag.current = undefined;
     setPosition(null);
   };
+
+  // Dragging the closed pin badge; a quick click (no movement) opens the note.
+  const startPinDrag = (event: React.PointerEvent) => {
+    const parent = card.current?.parentElement;
+    if (!parent) return;
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    pinDrag.current = { clientX: event.clientX, clientY: event.clientY, x: note.pin_x ?? 1, y: note.pin_y ?? note.y, width: parent.clientWidth, moved: false };
+  };
+  const movePin = (event: React.PointerEvent) => {
+    const d = pinDrag.current;
+    if (!d) return;
+    if (Math.abs(event.clientX - d.clientX) + Math.abs(event.clientY - d.clientY) > 5) d.moved = true;
+    if (!d.moved) return;
+    setPosition({
+      x: Math.max(0, Math.min(Math.max(0, 1 - PIN_SIZE / d.width), d.x + (event.clientX - d.clientX) / d.width)),
+      y: Math.max(0, d.y + event.clientY - d.clientY),
+    });
+  };
+  const endPinDrag = () => {
+    const d = pinDrag.current;
+    pinDrag.current = undefined;
+    if (!d) return;
+    if (d.moved && position) onUpdate(note.id, { pin_x: position.x, pin_y: position.y });
+    else if (!d.moved) onOpen(note.id);
+    setPosition(null);
+  };
+
+  // Resizing the open card from its bottom-right corner.
+  const startResize = (event: React.PointerEvent) => {
+    if (!card.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    resize.current = { clientX: event.clientX, clientY: event.clientY, w: cardWidth, h: bodyHeight ?? card.current.clientHeight - 44 };
+  };
+  const moveResize = (event: React.PointerEvent) => {
+    const r = resize.current;
+    if (!r) return;
+    setSize({
+      w: Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, r.w + event.clientX - r.clientX)),
+      h: Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 120, r.h + event.clientY - r.clientY)),
+    });
+  };
+  const endResize = () => {
+    if (size) onUpdate(note.id, { width: Math.round(size.w), height: Math.round(size.h) });
+    resize.current = undefined;
+    setSize(null);
+  };
+
+  const pinX = position?.x ?? note.pin_x;
+  const pinY = position?.y ?? note.pin_y ?? note.y;
+
   return (
     <div ref={card} data-margin-note={note.id} className={collapsed ? "margin-note-marker" : "margin-note-card"}
-      style={{ left: `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${collapsed ? 48 : 406}px)))`, top: position?.y ?? note.y }}>
+      style={collapsed
+        ? pinX != null
+          ? { left: `min(${pinX * 100}%, max(0px, calc(100% - ${PIN_SIZE}px)))`, top: pinY }
+          : { right: 8, top: pinY }
+        : { left: `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${cardWidth + 16}px)))`, top: position?.y ?? note.y, width: cardWidth }}>
       {collapsed ? (
-        <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md" aria-label="Open margin note" title={note.anchor_text || "Open margin note"} onClick={() => onOpen(note.id)}><PenLine className="h-4 w-4" /></Button>
+        <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md cursor-grab touch-none" aria-label="Open margin note" title={`${note.anchor_text || "Open margin note"} — drag to move, click to open`}
+          onPointerDown={startPinDrag} onPointerMove={movePin} onPointerUp={endPinDrag} onPointerCancel={endPinDrag}><PenLine className="h-4 w-4" /></Button>
       ) : (
         <>
           <div className="flex items-center gap-1 border-b border-border p-1 cursor-grab touch-none" onPointerDown={startDrag} onPointerMove={move} onPointerUp={endDrag} onPointerCancel={endDrag} aria-label="Move margin note" title="Drag to move">
@@ -52,15 +123,18 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate }: Props & { not
             <span className="text-xs font-medium flex-1">Margin note</span>
             <Button variant={mode === "draw" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" title="Draw" aria-label="Draw" onClick={() => setMode("draw")}><PenLine className="h-4 w-4" /></Button>
             <Button variant={mode === "type" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" title="Type" aria-label="Type" onClick={() => setMode("type")}><Type className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Collate highlights from note" aria-label="Collate highlights from note" onClick={() => onCollate(note.id)}><Highlighter className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="Delete margin note" aria-label="Delete margin note" onClick={() => onUpdate(note.id, { deleted_at: new Date().toISOString() })}><Trash2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Close margin note" aria-label="Close margin note" onClick={() => onClose(note.id)}><X className="h-4 w-4" /></Button>
           </div>
-          <div className="p-2 space-y-2">
+          <div className="p-2 space-y-2 overflow-auto" style={bodyHeight ? { height: bodyHeight } : undefined}>
             {note.anchor_text && <p className="text-xs text-muted-foreground border-l-2 border-primary pl-2 line-clamp-2">{note.anchor_text}</p>}
             {mode === "draw" ? <DrawingBlock content={note.drawing_content} onChange={drawing_content => onUpdate(note.id, { drawing_content })} /> : <Textarea aria-label="Margin note text" placeholder="Your key points…" value={note.text_content} onChange={event => onUpdate(note.id, { text_content: event.target.value })} className="min-h-36 resize-y bg-background text-base" />}
             {mode === "draw" && note.text_content && <p className="text-sm whitespace-pre-wrap break-words">{note.text_content}</p>}
             {mode === "type" && note.drawing_content && <DrawingBlock readOnly content={note.drawing_content} onChange={() => {}} />}
           </div>
+          <div className="absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize touch-none flex items-center justify-center text-muted-foreground" aria-label="Resize margin note" title="Drag to resize"
+            onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><MoveDiagonal2 className="h-3 w-3" /></div>
         </>
       )}
     </div>
