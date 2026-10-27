@@ -1,7 +1,6 @@
 import { memo, useEffect, useRef } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import Underline from "@tiptap/extension-underline";
 import { Bold, List, Underline as UnderlineIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -29,7 +28,7 @@ function MarginNoteEditorInner({ value, onChange }: Props) {
   };
 
   const editor = useEditor({
-    extensions: [StarterKit, Underline],
+    extensions: [StarterKit],
     content: value,
     onUpdate: ({ editor }) => {
       const html = editor.getHTML();

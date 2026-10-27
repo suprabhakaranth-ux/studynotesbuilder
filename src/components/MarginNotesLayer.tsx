@@ -30,6 +30,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
   const drag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; cardWidth: number }>();
   const pinDrag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; moved: boolean }>();
   const resize = useRef<{ clientX: number; clientY: number; w: number; h: number; dir: ResizeDir }>();
+  const [frozenLeft, setFrozenLeft] = useState<number | null>(null);
   const card = useRef<HTMLDivElement>(null);
   const collapsed = closed.has(note.id);
 
@@ -93,6 +94,8 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
     resize.current = { clientX: event.clientX, clientY: event.clientY, w: cardWidth, h: bodyHeight ?? card.current.clientHeight - 44, dir };
+    // Keep the left edge still while resizing so the card does not shift.
+    setFrozenLeft(card.current.offsetLeft);
   };
   const moveResize = (event: React.PointerEvent) => {
     const r = resize.current;
@@ -103,9 +106,18 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
     });
   };
   const endResize = () => {
-    if (size) onUpdate(note.id, { width: Math.round(size.w), height: Math.round(size.h) });
+    const r = resize.current;
     resize.current = undefined;
+    if (!r) return;
+    if (size) {
+      const parentWidth = card.current?.parentElement?.clientWidth || 1;
+      const patch: Partial<MarginNote> = { width: Math.round(size.w), height: Math.round(size.h) };
+      // Store the frozen left so the card stays exactly where it was released.
+      if (frozenLeft != null) patch.x = Math.max(0, Math.min(1, frozenLeft / parentWidth));
+      onUpdate(note.id, patch);
+    }
     setSize(null);
+    setFrozenLeft(null);
   };
 
   const pinX = position?.x ?? note.pin_x;
@@ -117,7 +129,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
         ? pinX != null
           ? { left: `min(${pinX * 100}%, max(0px, calc(100% - ${PIN_SIZE}px)))`, top: pinY }
           : { right: 8, top: pinY }
-        : { left: `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${cardWidth + 16}px)))`, top: position?.y ?? note.y, width: cardWidth }}>
+        : { left: frozenLeft != null ? frozenLeft : `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${cardWidth + 16}px)))`, top: position?.y ?? note.y, width: cardWidth }}>
       {collapsed ? (
         <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md cursor-grab touch-none" aria-label="Open margin note" title={`${stripHtml(note.anchor_text) || "Open margin note"} — drag to move, click to open`}
           onPointerDown={startPinDrag} onPointerMove={movePin} onPointerUp={endPinDrag} onPointerCancel={endPinDrag}><PenLine className="h-4 w-4" /></Button>
@@ -132,7 +144,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
             <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="Delete margin note" aria-label="Delete margin note" onClick={() => onUpdate(note.id, { deleted_at: new Date().toISOString() })}><Trash2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Close margin note" aria-label="Close margin note" onClick={() => onClose(note.id)}><X className="h-4 w-4" /></Button>
           </div>
-          <div className="p-2 space-y-2 overflow-auto" style={bodyHeight ? { height: bodyHeight } : undefined}>
+          <div data-margin-scroll className="p-2 space-y-2 overflow-auto" style={{ overflowAnchor: "none", ...(bodyHeight ? { height: bodyHeight } : { maxHeight: "70vh" }) }}>
             {note.anchor_text && <p className="text-xs text-muted-foreground border-l-2 border-primary pl-2 line-clamp-2">{stripHtml(note.anchor_text)}</p>}
             {mode === "draw" ? <DrawingBlock content={note.drawing_content} onChange={drawing_content => onUpdate(note.id, { drawing_content })} /> : <MarginNoteEditor value={note.text_content} onChange={text_content => onUpdate(note.id, { text_content })} />}
             {mode === "draw" && note.text_content && <div className="text-sm break-words [&_ul]:list-disc [&_ul]:pl-5 [&_p]:my-1" dangerouslySetInnerHTML={{ __html: note.text_content }} />}
