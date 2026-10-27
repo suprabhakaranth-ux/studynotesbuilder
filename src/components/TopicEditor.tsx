@@ -109,9 +109,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const captureSelectionMarks = () => {
     const layer = pageLayerRef.current;
     const selection = window.getSelection();
-    if (!layer || !selection || selection.isCollapsed || !selection.rangeCount) return;
+    if (!layer || !selection || !selection.rangeCount) return;
     const anchorEl = selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement;
     if (!anchorEl || !layer.contains(anchorEl) || anchorEl.closest("[data-margin-note]")) return;
+    if (selection.isCollapsed) { selectedMarksRef.current = null; return; }
     const range = selection.getRangeAt(0);
     const marks: string[] = [];
     layer.querySelectorAll("mark").forEach(el => {
