@@ -105,7 +105,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   };
 
   // Collect every highlighted (<mark>) fragment from the note content, in
-  // document order, and append them as lines to the margin note's text.
+  // document order, and append them as an editable bullet list to the margin
+  // note's rich-text notepad.
   const collateHighlights = (id: string) => {
     const note = margin.notes.find(n => n.id === id);
     if (!note) return;
@@ -122,9 +123,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
       toast({ title: "No highlighted text found", description: "Highlight text in the note first, then collate it here." });
       return;
     }
-    const addition = fragments.join("\n");
+    const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    const addition = `<ul>${fragments.map(text => `<li>${escapeHtml(text)}</li>`).join("")}</ul>`;
     const existing = note.text_content.trimEnd();
-    margin.update(id, { text_content: existing ? `${existing}\n\n${addition}` : addition });
+    margin.update(id, { text_content: existing ? `${existing}${addition}` : addition });
     toast({ title: `Added ${fragments.length} highlight${fragments.length === 1 ? "" : "s"} to the margin note` });
   };
 

@@ -1,8 +1,8 @@
 import { useRef, useState } from "react";
 import { GripHorizontal, Highlighter, MoveDiagonal2, PenLine, Type, X, Trash2, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { DrawingBlock } from "./DrawingBlock";
+import { MarginNoteEditor } from "./MarginNoteEditor";
 import type { MarginNote } from "@/hooks/useMarginNotes";
 
 interface Props {
@@ -17,6 +17,11 @@ interface Props {
 const MIN_WIDTH = 220;
 const MIN_HEIGHT = 160;
 const PIN_SIZE = 40;
+const EDGE = 6;
+
+type ResizeDir = "e" | "s" | "se";
+
+const stripHtml = (html: string) => html.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
 
 function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Props & { note: MarginNote }) {
   const [mode, setMode] = useState<"draw" | "type">(note.text_content ? "type" : "draw");
@@ -24,7 +29,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   const drag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; cardWidth: number }>();
   const pinDrag = useRef<{ clientX: number; clientY: number; x: number; y: number; width: number; moved: boolean }>();
-  const resize = useRef<{ clientX: number; clientY: number; w: number; h: number }>();
+  const resize = useRef<{ clientX: number; clientY: number; w: number; h: number; dir: ResizeDir }>();
   const card = useRef<HTMLDivElement>(null);
   const collapsed = closed.has(note.id);
 
@@ -81,20 +86,20 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
     setPosition(null);
   };
 
-  // Resizing the open card from its bottom-right corner.
-  const startResize = (event: React.PointerEvent) => {
+  // Resizing the open card from its right edge, bottom edge, or corner.
+  const startResize = (dir: ResizeDir) => (event: React.PointerEvent) => {
     if (!card.current) return;
     event.preventDefault();
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    resize.current = { clientX: event.clientX, clientY: event.clientY, w: cardWidth, h: bodyHeight ?? card.current.clientHeight - 44 };
+    resize.current = { clientX: event.clientX, clientY: event.clientY, w: cardWidth, h: bodyHeight ?? card.current.clientHeight - 44, dir };
   };
   const moveResize = (event: React.PointerEvent) => {
     const r = resize.current;
     if (!r) return;
     setSize({
-      w: Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, r.w + event.clientX - r.clientX)),
-      h: Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 120, r.h + event.clientY - r.clientY)),
+      w: r.dir === "s" ? r.w : Math.max(MIN_WIDTH, Math.min(window.innerWidth - 24, r.w + event.clientX - r.clientX)),
+      h: r.dir === "e" ? r.h : Math.max(MIN_HEIGHT, Math.min(window.innerHeight - 120, r.h + event.clientY - r.clientY)),
     });
   };
   const endResize = () => {
@@ -114,7 +119,7 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
           : { right: 8, top: pinY }
         : { left: `min(${(position?.x ?? note.x) * 100}%, max(0px, calc(100% - ${cardWidth + 16}px)))`, top: position?.y ?? note.y, width: cardWidth }}>
       {collapsed ? (
-        <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md cursor-grab touch-none" aria-label="Open margin note" title={`${note.anchor_text || "Open margin note"} — drag to move, click to open`}
+        <Button variant="secondary" size="icon" className="h-9 w-9 shadow-md cursor-grab touch-none" aria-label="Open margin note" title={`${stripHtml(note.anchor_text) || "Open margin note"} — drag to move, click to open`}
           onPointerDown={startPinDrag} onPointerMove={movePin} onPointerUp={endPinDrag} onPointerCancel={endPinDrag}><PenLine className="h-4 w-4" /></Button>
       ) : (
         <>
@@ -123,18 +128,22 @@ function FloatingNote({ note, closed, onClose, onOpen, onUpdate, onCollate }: Pr
             <span className="text-xs font-medium flex-1">Margin note</span>
             <Button variant={mode === "draw" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" title="Draw" aria-label="Draw" onClick={() => setMode("draw")}><PenLine className="h-4 w-4" /></Button>
             <Button variant={mode === "type" ? "secondary" : "ghost"} size="icon" className="h-7 w-7" title="Type" aria-label="Type" onClick={() => setMode("type")}><Type className="h-4 w-4" /></Button>
-            <Button variant="ghost" size="icon" className="h-7 w-7" title="Collate highlights from note" aria-label="Collate highlights from note" onClick={() => onCollate(note.id)}><Highlighter className="h-4 w-4" /></Button>
+            <Button variant="ghost" size="icon" className="h-7 w-7" title="Collate highlights from note" aria-label="Collate highlights from note" onClick={() => { setMode("type"); onCollate(note.id); }}><Highlighter className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7 hover:text-destructive" title="Delete margin note" aria-label="Delete margin note" onClick={() => onUpdate(note.id, { deleted_at: new Date().toISOString() })}><Trash2 className="h-4 w-4" /></Button>
             <Button variant="ghost" size="icon" className="h-7 w-7" title="Close margin note" aria-label="Close margin note" onClick={() => onClose(note.id)}><X className="h-4 w-4" /></Button>
           </div>
           <div className="p-2 space-y-2 overflow-auto" style={bodyHeight ? { height: bodyHeight } : undefined}>
-            {note.anchor_text && <p className="text-xs text-muted-foreground border-l-2 border-primary pl-2 line-clamp-2">{note.anchor_text}</p>}
-            {mode === "draw" ? <DrawingBlock content={note.drawing_content} onChange={drawing_content => onUpdate(note.id, { drawing_content })} /> : <Textarea aria-label="Margin note text" placeholder="Your key points…" value={note.text_content} onChange={event => onUpdate(note.id, { text_content: event.target.value })} className="min-h-36 resize-y bg-background text-base" />}
-            {mode === "draw" && note.text_content && <p className="text-sm whitespace-pre-wrap break-words">{note.text_content}</p>}
+            {note.anchor_text && <p className="text-xs text-muted-foreground border-l-2 border-primary pl-2 line-clamp-2">{stripHtml(note.anchor_text)}</p>}
+            {mode === "draw" ? <DrawingBlock content={note.drawing_content} onChange={drawing_content => onUpdate(note.id, { drawing_content })} /> : <MarginNoteEditor value={note.text_content} onChange={text_content => onUpdate(note.id, { text_content })} />}
+            {mode === "draw" && note.text_content && <div className="text-sm break-words [&_ul]:list-disc [&_ul]:pl-5 [&_p]:my-1" dangerouslySetInnerHTML={{ __html: note.text_content }} />}
             {mode === "type" && note.drawing_content && <DrawingBlock readOnly content={note.drawing_content} onChange={() => {}} />}
           </div>
+          <div className="absolute top-2 bottom-2 right-0 cursor-ew-resize touch-none" style={{ width: EDGE }} aria-label="Resize margin note width" title="Drag to resize width"
+            onPointerDown={startResize("e")} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} />
+          <div className="absolute left-2 right-2 bottom-0 cursor-ns-resize touch-none" style={{ height: EDGE }} aria-label="Resize margin note height" title="Drag to resize height"
+            onPointerDown={startResize("s")} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize} />
           <div className="absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize touch-none flex items-center justify-center text-muted-foreground" aria-label="Resize margin note" title="Drag to resize"
-            onPointerDown={startResize} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><MoveDiagonal2 className="h-3 w-3" /></div>
+            onPointerDown={startResize("se")} onPointerMove={moveResize} onPointerUp={endResize} onPointerCancel={endResize}><MoveDiagonal2 className="h-3 w-3" /></div>
         </>
       )}
     </div>
@@ -146,5 +155,5 @@ export function MarginNotesLayer(props: Props) {
 }
 
 export function DeletedMarginNotes({ notes, onRestore }: { notes: MarginNote[]; onRestore: (id: string) => void }) {
-  return <div className="space-y-2">{notes.map(note => <div key={note.id} className="flex items-center justify-between gap-2"><span className="text-sm line-clamp-1">{note.text_content || note.anchor_text || "Drawing"}</span><Button variant="ghost" size="icon" title="Restore margin note" aria-label="Restore margin note" onClick={() => onRestore(note.id)}><RotateCcw className="h-4 w-4" /></Button></div>)}</div>;
+  return <div className="space-y-2">{notes.map(note => <div key={note.id} className="flex items-center justify-between gap-2"><span className="text-sm line-clamp-1">{stripHtml(note.text_content) || stripHtml(note.anchor_text) || "Drawing"}</span><Button variant="ghost" size="icon" title="Restore margin note" aria-label="Restore margin note" onClick={() => onRestore(note.id)}><RotateCcw className="h-4 w-4" /></Button></div>)}</div>;
 }
