@@ -104,30 +104,75 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     }
   };
 
-  // Collect every highlighted (<mark>) fragment from the note content, in
-  // document order, and append them as an editable bullet list to the margin
-  // note's rich-text notepad.
+  // Yellow highlights (<mark>) inside the passage the user last selected on the page.
+  const selectedMarksRef = useRef<{ text: string; marks: string[] } | null>(null);
+  const captureSelectionMarks = () => {
+    const layer = pageLayerRef.current;
+    const selection = window.getSelection();
+    if (!layer || !selection || selection.isCollapsed || !selection.rangeCount) return;
+    const anchorEl = selection.anchorNode instanceof Element ? selection.anchorNode : selection.anchorNode?.parentElement;
+    if (!anchorEl || !layer.contains(anchorEl) || anchorEl.closest("[data-margin-note]")) return;
+    const range = selection.getRangeAt(0);
+    const marks: string[] = [];
+    layer.querySelectorAll("mark").forEach(el => {
+      if (el.closest("[data-margin-note]") || !range.intersectsNode(el)) return;
+      const text = el.textContent?.trim();
+      if (text) marks.push(text);
+    });
+    selectedMarksRef.current = { text: selection.toString().trim(), marks };
+  };
+
+  // Highlights belonging to the point a note is anchored to (its paragraph or list item).
+  const marksForAnchor = (anchor: string): string[] | null => {
+    const layer = pageLayerRef.current;
+    const key = anchor.replace(/\s+/g, " ").trim().slice(0, 80);
+    if (!layer || !key) return null;
+    const candidates = Array.from(layer.querySelectorAll(".ProseMirror li, .ProseMirror p, .ProseMirror h1, .ProseMirror h2, .ProseMirror h3"))
+      .filter(el => !el.closest("[data-margin-note]") && (el.textContent || "").replace(/\s+/g, " ").includes(key));
+    if (!candidates.length) return null;
+    // Prefer the outermost list item so a heading point plus its body paragraph count together.
+    const target = candidates.map(el => (el.closest("li") as Element | null) || el)
+      .sort((a, b) => (b.textContent?.length || 0) - (a.textContent?.length || 0))[0];
+    const marks: string[] = [];
+    target.querySelectorAll("mark").forEach(el => { const t = el.textContent?.trim(); if (t) marks.push(t); });
+    return marks;
+  };
+
+  // Collate into the margin note: a "Highlights" bullet list at the top that is
+  // refreshed (not duplicated) on each click; anything typed below is kept.
   const collateHighlights = (id: string) => {
     const note = margin.notes.find(n => n.id === id);
     if (!note) return;
-    const fragments: string[] = [];
-    for (const block of blocks) {
-      if (block.type === "drawing" || !block.content) continue;
-      const doc = new DOMParser().parseFromString(block.content, "text/html");
-      doc.querySelectorAll("mark").forEach(el => {
-        const text = el.textContent?.trim();
-        if (text) fragments.push(text);
-      });
+    const selected = selectedMarksRef.current;
+    selectedMarksRef.current = null;
+    let fragments: string[] | null = null;
+    let anchor = note.anchor_text;
+    if (selected && selected.marks.length) {
+      fragments = selected.marks;
+      anchor = selected.text.slice(0, 240);
+    } else if (note.anchor_text) {
+      fragments = marksForAnchor(note.anchor_text);
     }
-    if (!fragments.length) {
-      toast({ title: "No highlighted text found", description: "Highlight text in the note first, then collate it here." });
+    if (fragments === null) {
+      toast({ title: "Select the passage first", description: "Select the paragraph or point on the page, then click collate." });
       return;
     }
     const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-    const addition = `<ul>${fragments.map(text => `<li>${escapeHtml(text)}</li>`).join("")}</ul>`;
-    const existing = note.text_content.trimEnd();
-    margin.update(id, { text_content: existing ? `${existing}${addition}` : addition });
-    toast({ title: `Added ${fragments.length} highlight${fragments.length === 1 ? "" : "s"} to the margin note` });
+    const doc = new DOMParser().parseFromString(`<div>${note.text_content || ""}</div>`, "text/html");
+    const root = doc.body.firstElementChild!;
+    const first = root.firstElementChild;
+    const hasBlock = first?.tagName === "P" && first.textContent?.trim() === "Highlights" && first.nextElementSibling?.tagName === "UL";
+    if (hasBlock) { first!.nextElementSibling!.remove(); first!.remove(); }
+    const rest = root.innerHTML.trim();
+    const block = fragments.length
+      ? `<p><strong>Highlights</strong></p><ul>${fragments.map(t => `<li><p>${escapeHtml(t)}</p></li>`).join("")}</ul>`
+      : "";
+    const patch: Partial<typeof note> = { text_content: block + rest };
+    if (anchor !== note.anchor_text) patch.anchor_text = anchor;
+    margin.update(id, patch);
+    toast({ title: fragments.length
+      ? `${hasBlock ? "Updated" : "Added"} ${fragments.length} highlight${fragments.length === 1 ? "" : "s"}`
+      : "No yellow highlights in this passage" });
   };
 
   // Live word count of the notes content (plain-text words across all blocks).
@@ -805,7 +850,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         {/* Single scroll region below sticky chrome */}
         <div ref={scrollRegionRef} className="flex-1 overflow-y-auto overflow-x-hidden min-h-0" onMouseUp={() => {
           const selection = window.getSelection();
-          if (selection && pageLayerRef.current?.contains(selection.anchorNode)) selectedAnchorRef.current = selection.toString().trim();
+          if (selection && pageLayerRef.current?.contains(selection.anchorNode) && !(selection.anchorNode?.parentElement?.closest("[data-margin-note]"))) selectedAnchorRef.current = selection.toString().trim();
+          captureSelectionMarks();
         }}>
         <div ref={pageLayerRef} className="relative min-h-full">
 
