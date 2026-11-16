@@ -1,4 +1,6 @@
 # Floating study notes
+- [x] Restore the current tab's year/subject/chapter/topic after reload, waiting for navigation data before resolving topic links.
+- [x] Verify signed-in reload, delayed loading, fresh-tab behavior and absence of passive note saves.
 - [x] Add separately saved, draggable drawing and typed margin notes with close/show controls.
 - [x] Widen the notes page on larger screens without changing exports or note content.
 - [x] Verify creation, drawing, movement, hiding, reload, and deletion in the signed-in editor.

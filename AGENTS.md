@@ -1,5 +1,7 @@
  # Architecture rules
 
+- Persist only navigation IDs in account-scoped sessionStorage; restore them after a successful hierarchy load and prioritize direct topic URLs, so reloads cannot restore stale note content or redirect while data is pending.
+
 - Keep topic navigation inside the existing Tabs root in the sticky header; use a nonwrapping, horizontally scrollable formatting ribbon so narrow screens never obscure controls or add ribbon rows.
 - LLM point formatting uses a single undoable ProseMirror transaction on matching paragraphs, keeping body and blank paragraphs inside their original list items; this preserves inline marks, list numbering and unrelated content without rebuilding stored HTML.
 - Store floating annotations independently in topic_margin_notes with workspace-authenticated access and reversible soft deletion; this isolates revision marks from note HTML, word counts, exports and public demos.

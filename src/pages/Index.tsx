@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Plus, LogOut, Trash2 } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
 import { TopicCard } from "@/components/TopicCard";
@@ -16,6 +16,7 @@ import { MoveChapterDialog } from "@/components/MoveChapterDialog";
 import { MoveSubjectDialog } from "@/components/MoveSubjectDialog";
 import ExportCenter from "@/pages/ExportCenter";
 import { LAST_BACKUP_KEY } from "@/lib/backup";
+import { readStudyPosition, resolveStudyPosition, studyPositionKey } from "@/lib/studyPosition";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -85,6 +86,10 @@ const Index = () => {
   const [expandedSubjects, setExpandedSubjects] = useState<Set<string>>(new Set());
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(new Set());
   const [activeYear, setActiveYear] = useState<number | null>(null);
+  const [hierarchyStatus, setHierarchyStatus] = useState<"loading" | "ready" | "error">("loading");
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const [navigationReady, setNavigationReady] = useState(false);
+  const restoredUser = useRef<string | null>(null);
   const [newSubjectName, setNewSubjectName] = useState("");
   const [newTopicTitle, setNewTopicTitle] = useState("");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -129,16 +134,24 @@ const Index = () => {
   useEffect(() => {
     if (!user) return;
 
+    let cancelled = false;
+    const controller = new AbortController();
+    setHierarchyStatus("loading");
+
     const loadData = async () => {
+      try {
       // Load subjects from database
       const { data: subjectsData, error: subjectsError } = await supabase
         .from("subjects")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .abortSignal(controller.signal);
+
+      if (cancelled) return;
 
       if (subjectsError) {
-        console.error("Error loading subjects:", subjectsError);
+        throw subjectsError;
       } else if (subjectsData) {
         const mappedSubjects = subjectsData.map(s => ({
           id: s.id,
@@ -155,10 +168,13 @@ const Index = () => {
         .from("chapters")
         .select("*")
         .eq("user_id", user.id)
-        .order("chapter_order", { ascending: true });
+        .order("chapter_order", { ascending: true })
+        .abortSignal(controller.signal);
+
+      if (cancelled) return;
 
       if (chaptersError) {
-        console.error("Error loading chapters:", chaptersError);
+        throw chaptersError;
       } else if (chaptersData) {
         setChapters(chaptersData.map(c => ({
           ...c,
@@ -171,10 +187,13 @@ const Index = () => {
         .from("topics")
         .select("*")
         .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .abortSignal(controller.signal);
+
+      if (cancelled) return;
 
       if (error) {
-        console.error("Error loading topics:", error);
+        throw error;
       } else if (topicsData) {
         const mappedTopics = topicsData.map(t => ({
           id: t.id,
@@ -186,34 +205,66 @@ const Index = () => {
         }));
         setTopics(mappedTopics);
       }
+      setHierarchyStatus("ready");
+      } catch (error) {
+        if (cancelled) return;
+        console.error("Error loading study navigation:", error);
+        setHierarchyStatus("error");
+      }
     };
 
     loadData();
-  }, [user]);
+    return () => { cancelled = true; controller.abort(); };
+  }, [user?.id, loadAttempt]);
+
+  // Wait for all navigation data before restoring; never restore editor content.
+  useEffect(() => {
+    if (!user || hierarchyStatus !== "ready" || restoredUser.current === user.id) return;
+    let saved = null;
+    try { saved = readStudyPosition(sessionStorage, user.id); } catch { /* Storage may be disabled. */ }
+    const position = resolveStudyPosition(saved, subjects, chapters, topics, routeTopicSlug);
+    setActiveYear(position.year);
+    setActiveSubject(position.subjectId);
+    setActiveChapter(position.chapterId);
+    setEditingTopic(position.topicId);
+    restoredUser.current = user.id;
+    setNavigationReady(true);
+    if (routeTopicSlug && !position.topicId) navigate("/app", { replace: true });
+  }, [user?.id, hierarchyStatus, subjects, chapters, topics, routeTopicSlug, navigate]);
+
+  useEffect(() => {
+    if (!user || !navigationReady || hierarchyStatus !== "ready" || restoredUser.current !== user.id) return;
+    const position = resolveStudyPosition({ year: activeYear, subjectId: activeSubject, chapterId: activeChapter, topicId: editingTopic }, subjects, chapters, topics);
+    try { sessionStorage.setItem(studyPositionKey(user.id), JSON.stringify(position)); } catch { /* Navigation still works without storage. */ }
+  }, [user?.id, navigationReady, hierarchyStatus, activeYear, activeSubject, activeChapter, editingTopic, subjects, chapters, topics]);
 
   // Open topic from URL slug (/app/t/:topicSlug)
   useEffect(() => {
-    if (!routeTopicSlug || topics.length === 0) return;
+    if (!navigationReady || hierarchyStatus !== "ready" || !routeTopicSlug) return;
     if (editingTopic) {
       const t = topics.find(x => x.id === editingTopic);
       if (t?.slug === routeTopicSlug) return;
     }
     const match = topics.find(t => t.slug === routeTopicSlug);
-    if (match) setEditingTopic(match.id);
-  }, [routeTopicSlug, topics]);
+    if (match) {
+      const position = resolveStudyPosition(null, subjects, chapters, topics, routeTopicSlug);
+      setEditingTopic(match.id);
+      setActiveSubject(position.subjectId);
+      setActiveChapter(position.chapterId);
+      setActiveYear(position.year);
+    }
+  }, [routeTopicSlug, navigationReady, hierarchyStatus]);
 
   // Sync URL with active topic
   useEffect(() => {
-    if (!user) return;
+    if (!user || !navigationReady || hierarchyStatus !== "ready") return;
     if (editingTopic) {
       const t = topics.find(x => x.id === editingTopic);
       if (t?.slug && routeTopicSlug !== t.slug) {
         navigate(`/app/t/${t.slug}`, { replace: true });
       }
-    } else if (routeTopicSlug) {
-      navigate(`/app`, { replace: true });
     }
-  }, [editingTopic, topics, user]);
+  }, [editingTopic, topics, user?.id, navigationReady, hierarchyStatus, navigate]);
 
 
   const handleNewSubject = async () => {
@@ -1193,10 +1244,19 @@ const Index = () => {
   const activeChapterData = chapters.find((ch) => ch.id === activeChapter);
   const editingTopicData = topics.find((t) => t.id === editingTopic);
 
-  if (loading) {
+  if (loading || (user && (hierarchyStatus === "loading" || (hierarchyStatus === "ready" && !navigationReady)))) {
     return (
       <div className="flex items-center justify-center h-screen">
         <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (user && hierarchyStatus === "error") {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center gap-4">
+        <p className="text-destructive">Could not load your study pages. Your notes have not been changed.</p>
+        <Button variant="outline" onClick={() => setLoadAttempt(n => n + 1)}>Retry</Button>
       </div>
     );
   }
@@ -1216,7 +1276,7 @@ const Index = () => {
       <TopicEditor
         topicId={editingTopic}
         topicTitle={editingTopicData.title}
-        onBack={() => { setEditingTopic(null); setAutoFocusTopicId(null); }}
+        onBack={() => { setEditingTopic(null); setAutoFocusTopicId(null); navigate("/app", { replace: true }); }}
         autoFocus={autoFocusTopicId === editingTopic}
       />
     );
