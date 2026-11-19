@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +17,7 @@ import { BackupCard } from "@/components/export/BackupCard";
 import { YearSubjectFilter } from "@/components/export/YearSubjectFilter";
 import { fetchHierarchy } from "@/lib/export/fetchStudyData";
 import { buildStudyPack, type StudyPackArtifacts } from "@/lib/export/zipStudyPack";
+import { buildSeparateFiles, planFileGroups, type SeparateResult } from "@/lib/export/buildSeparateFiles";
 import type {
   ExportSubject,
   ExportChapter,
@@ -115,6 +117,8 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   const [artifacts, setArtifacts] = useState<StudyPackArtifacts | null>(null);
   const [format, setFormat] = useState<"zip" | "pdf" | "docx" | "html">("pdf");
 
+  const [separate, setSeparate] = useState(false);
+  const [separateResult, setSeparateResult] = useState<SeparateResult | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
   const [viewerTitle, setViewerTitle] = useState("Study Pack preview");
@@ -128,7 +132,8 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   // Invalidate a previously built pack when selection or options change.
   useEffect(() => {
     setArtifacts(null);
-  }, [selected, opts]);
+    setSeparateResult(null);
+  }, [selected, opts, separate, separate ? format : null]);
 
   // Revoke any active blob URL on unmount.
   useEffect(() => {
@@ -145,8 +150,20 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
     setDone(false);
     setError(null);
     setArtifacts(null);
+    setSeparateResult(null);
     setDialogOpen(true);
     try {
+      if (separate) {
+        const groups = planFileGroups(selected, topics, chapters);
+        const res = await buildSeparateFiles({
+          groups, userId: user.id, opts, format,
+          onProgress: (e) => setProgress((p) => [...p, e]),
+        });
+        setSeparateResult(res);
+        setDone(true);
+        toast({ title: "Files ready", description: `${res.count} file${res.count === 1 ? "" : "s"} ready to download.` });
+        return;
+      }
       const built = await buildStudyPack({
         topicIds: Array.from(selected),
         userId: user.id,
@@ -177,6 +194,10 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
   };
 
   const onDownload = () => {
+    if (separate) {
+      if (separateResult) saveAs(separateResult.blob, separateResult.filename);
+      return;
+    }
     if (!artifacts) return;
     const { blob, filename } = getBlobForFormat(artifacts, format);
     saveAs(blob, filename);
@@ -358,6 +379,21 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
                     : "Generate Study Pack"}
               </Button>
 
+              <div className="flex items-start gap-2 rounded-md border p-2">
+                <Checkbox
+                  id="separate-files"
+                  checked={separate}
+                  onCheckedChange={(c) => setSeparate(c === true)}
+                  className="mt-0.5"
+                />
+                <Label htmlFor="separate-files" className="text-sm font-normal leading-snug cursor-pointer">
+                  Download as separate files
+                  <span className="block text-[11px] text-muted-foreground">
+                    One file per fully selected chapter, otherwise one per topic. Named after the chapter/topic; several files arrive in one ZIP.
+                  </span>
+                </Label>
+              </div>
+
               <div className="space-y-2">
                 <Label className="text-sm">Format</Label>
                 <Select value={format} onValueChange={(v) => setFormat(v as typeof format)}>
@@ -376,7 +412,7 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant="outline"
-                  disabled={!artifacts || format === "docx" || format === "zip"}
+                  disabled={separate || !artifacts || format === "docx" || format === "zip"}
                   onClick={onView}
                   title={
                     !artifacts
@@ -390,7 +426,7 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
                   View online
                 </Button>
                 <Button
-                  disabled={!artifacts}
+                  disabled={separate ? !separateResult : !artifacts}
                   onClick={onDownload}
                   title={!artifacts ? "Generate the pack first" : "Download this format"}
                 >
