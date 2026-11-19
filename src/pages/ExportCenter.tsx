@@ -435,7 +435,7 @@ export default function ExportCenter({ embedded = false, onBack }: ExportCenterP
                 </Button>
               </div>
 
-              {!artifacts && !running && (
+              {!artifacts && !separateResult && !running && (
                 <p className="text-[11px] text-muted-foreground">
                   Generate the pack once, then download or view any format.
                 </p>
