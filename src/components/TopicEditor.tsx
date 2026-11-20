@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { generateOutlineFromBlocks } from "@/lib/outline/extractHeadings";
+import { indentNode, outdentNode, canIndent, reorderSiblings } from "@/lib/outline/treeOps";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
@@ -682,12 +683,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
     const { active, over } = event;
 
     if (over && active.id !== over.id) {
-      setHeadingNodes((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id);
-        const newIndex = items.findIndex((item) => item.id === over.id);
-
-        return arrayMove(items, oldIndex, newIndex);
-      });
+      setHeadingNodes((items) => reorderSiblings(items, String(active.id), String(over.id)));
     }
   };
 
@@ -936,34 +932,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                           onDelete={() => {
                             setHeadingNodes(headingNodes.filter((_, i) => i !== idx));
                           }}
-                          onPromote={() => {
-                            if (idx > 0) {
-                              const newNodes = [...headingNodes];
-                              const node = newNodes.splice(idx, 1)[0];
-                              newNodes.splice(idx - 1, 0, node);
-                              setHeadingNodes(newNodes);
-                            }
-                          }}
-                          onDemote={() => {
-                            if (idx > 0) {
-                              const newNodes = [...headingNodes];
-                              const node = newNodes.splice(idx, 1)[0];
-                              newNodes[idx - 1].children.push(node);
-                              setHeadingNodes(newNodes);
-                            }
-                          }}
-                          onPromoteChild={(childToPromote) => {
-                            // Atomically lift a direct child out and place it right after its parent
-                            const newNodes = [...headingNodes];
-                            newNodes[idx] = {
-                              ...node,
-                              children: node.children.filter(c => c.id !== childToPromote.id),
-                            };
-                            newNodes.splice(idx + 1, 0, childToPromote);
-                            setHeadingNodes(newNodes);
-                          }}
-                          canDemote={idx > 0}
-                          canPromote={false}
+                          onIndentId={(id) => setHeadingNodes((prev) => indentNode(prev, id))}
+                          onOutdentId={(id) => setHeadingNodes((prev) => outdentNode(prev, id))}
+                          canIndentId={(id) => canIndent(headingNodes, id)}
                         />
                       ))}
                     </SortableContext>

@@ -3,7 +3,8 @@ import { Pencil, Trash2, Plus, ChevronDown, ChevronRight, ArrowUp, ArrowDown, Gr
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "./RichTextEditor";
 import { Input } from "@/components/ui/input";
-import { useSortable } from '@dnd-kit/sortable';
+import { useSortable, SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { MAX_DEPTH } from "@/lib/outline/treeOps";
 import { CSS } from '@dnd-kit/utilities';
 
 interface HeadingNode {
@@ -25,6 +26,10 @@ interface HeadingNodeComponentProps {
   level?: number;
   index?: number;
   forceCollapsed?: boolean;
+  numberLabel?: string;
+  onIndentId?: (id: string) => void;
+  onOutdentId?: (id: string) => void;
+  canIndentId?: (id: string) => boolean;
 }
 
 export const HeadingNodeComponent = ({ 
@@ -38,7 +43,11 @@ export const HeadingNodeComponent = ({
   canDemote = false,
   level = 0,
   index = 0,
-  forceCollapsed = false
+  forceCollapsed = false,
+  numberLabel,
+  onIndentId,
+  onOutdentId,
+  canIndentId,
 }: HeadingNodeComponentProps) => {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editedTitle, setEditedTitle] = useState(node.title);
@@ -53,7 +62,7 @@ export const HeadingNodeComponent = ({
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: node.id, disabled: level > 0 });
+  } = useSortable({ id: node.id });
 
   const style = {
     transform: CSS.Transform.toString(transform),
@@ -96,7 +105,7 @@ export const HeadingNodeComponent = ({
 
   const indentClass = level === 0 ? "" : "ml-6";
   const isMainHeading = level === 0;
-  const displayNumber = index;
+  const displayNumber = numberLabel ?? String(index);
   const numberColor = isMainHeading ? "text-primary" : "text-foreground/80";
   const titleColor = isMainHeading ? "text-primary" : "text-foreground/90";
   const bgColor = isMainHeading ? "bg-card/50" : "bg-muted/30";
@@ -105,7 +114,7 @@ export const HeadingNodeComponent = ({
     <div ref={setNodeRef} style={style} className={`${indentClass} mb-2`}>
       <div className={`border border-border rounded-lg ${bgColor} overflow-hidden`}>
         <div className="flex items-center gap-1 p-2 hover:bg-muted/50 group">
-          {level === 0 && (
+          {(
             <div
               {...attributes}
               {...listeners}
@@ -131,7 +140,7 @@ export const HeadingNodeComponent = ({
             {isEditingTitle ? (
               <div className="flex items-center gap-2 flex-1">
                 <span className={`font-semibold text-sm whitespace-nowrap ${numberColor}`}>
-                  {displayNumber}.
+                  {displayNumber}{level === 0 ? "." : ""}
                 </span>
                 <Input
                   value={editedTitle}
@@ -152,36 +161,36 @@ export const HeadingNodeComponent = ({
             ) : (
               <>
                 <span className={`font-semibold text-sm ${numberColor}`}>
-                  {displayNumber}.
+                  {displayNumber}{level === 0 ? "." : ""}
                 </span>
                 <span className={`text-sm truncate font-semibold ${titleColor}`}>
                   {node.title}
                 </span>
-                <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 flex-shrink-0">
-                  {canPromote && onPromote && (
+                <div className="ml-auto flex items-center gap-1 opacity-60 group-hover:opacity-100 flex-shrink-0">
+                  {level > 0 && onOutdentId && (
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-6 w-6 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onPromote();
+                        onOutdentId(node.id);
                       }}
-                      title="Convert to main heading"
+                      title={level === 1 ? "Move up to main heading (stays in place)" : "Move up one level (stays in place)"}
                     >
                       <ArrowUp className="w-3 h-3" />
                     </Button>
                   )}
-                  {canDemote && onDemote && (
+                  {onIndentId && canIndentId?.(node.id) && (
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-6 w-6 p-0"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onDemote();
+                        onIndentId(node.id);
                       }}
-                      title="Convert to subheading"
+                      title="Make it a sub-heading of the item above"
                     >
                       <ArrowDown className="w-3 h-3" />
                     </Button>
@@ -224,7 +233,7 @@ export const HeadingNodeComponent = ({
               className="p-2 border border-border rounded-md bg-background/50 text-sm"
             />
             
-            <Button
+            {level < MAX_DEPTH && <Button
               size="sm"
               variant="outline"
               onClick={handleAddSubheading}
@@ -232,39 +241,29 @@ export const HeadingNodeComponent = ({
             >
               <Plus className="w-3 h-3 mr-1" />
               Add Subheading
-            </Button>
+            </Button>}
           </div>
         )}
 
         {node.children.length > 0 && (
           <div className="space-y-1 mt-2 ml-6">
+            <SortableContext items={node.children.map(c => c.id)} strategy={verticalListSortingStrategy}>
             {node.children.map((child, idx) => (
               <HeadingNodeComponent
                 key={child.id}
                 node={child}
                 index={idx + 1}
+                numberLabel={`${displayNumber}.${idx + 1}`}
                 forceCollapsed={forceCollapsed}
                 onUpdate={(updatedChild) => updateChild(idx, updatedChild)}
                 onDelete={() => deleteChild(idx)}
-                onPromote={() => {
-                  // Ask our parent to lift this child out of us, placing it right after us
-                  onPromoteChild?.(child);
-                }}
-                onPromoteChild={(grandchild) => {
-                  // Atomically move grandchild from child[idx] to just after child[idx]
-                  const newChildren = [...node.children];
-                  newChildren[idx] = {
-                    ...child,
-                    children: child.children.filter((g) => g.id !== grandchild.id),
-                  };
-                  newChildren.splice(idx + 1, 0, grandchild);
-                  onUpdate({ ...node, children: newChildren });
-                }}
-                canPromote={!!onPromoteChild}
-                canDemote={false}
+                onIndentId={onIndentId}
+                onOutdentId={onOutdentId}
+                canIndentId={canIndentId}
                 level={level + 1}
               />
             ))}
+            </SortableContext>
           </div>
         )}
       </div>
