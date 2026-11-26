@@ -749,12 +749,6 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                 <>
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <Button size="sm" variant="outline" className="h-8 w-8 p-0" aria-label="Add margin note" disabled={!margin.ready} onMouseDown={event => event.preventDefault()} onClick={addMarginNote}><StickyNote className="w-4 h-4" /></Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Add margin note</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
                       <Button size="sm" variant="ghost" className="h-8 w-8 p-0" aria-label={showMarginNotes ? "Hide margin notes" : "Show margin notes"} disabled={!margin.notes.some(note => !note.deleted_at)} onClick={() => {
                         if (!showMarginNotes) setClosedMarginNotes(new Set());
                         setShowMarginNotes(!showMarginNotes);
@@ -777,15 +771,19 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                       <span className="inline-flex">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="sm" className="h-8 w-8 p-0" aria-label="Add block" title="Add block">
+                            <Button size="sm" className="h-8 w-8 p-0" aria-label="Add block" title="Add block or margin note" onPointerDown={captureSelectionMarks}>
                               <Plus className="w-4 h-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent>Add block</TooltipContent>
+                          <TooltipContent>Add block or margin note</TooltipContent>
                         </Tooltip>
                       </span>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="bg-card">
+                      <DropdownMenuItem disabled={!margin.ready} onSelect={addMarginNote}>
+                        <StickyNote className="w-4 h-4 mr-2" />
+                        Margin note
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => addBlock("title")}>
                         <FileText className="w-4 h-4 mr-2" />
                         Title
