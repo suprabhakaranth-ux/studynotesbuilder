@@ -29,5 +29,7 @@ export async function uploadNoteImage(file: File, userId: string) {
   const path = `${userId}/${crypto.randomUUID()}.${extension}`;
   const result = await supabase.storage.from("note-images").upload(path, blob, { contentType: blob.type, upsert: false });
   if (result.error) throw new Error(`Image upload failed: ${result.error.message}. Your study text has not changed.`);
-  return { path, src: supabase.storage.from("note-images").getPublicUrl(path).data.publicUrl };
+  const signed = await supabase.storage.from("note-images").createSignedUrl(path, 60 * 60 * 24 * 365 * 20);
+  if (signed.error || !signed.data?.signedUrl) throw signed.error ?? new Error("Could not create image link");
+  return { path, src: signed.data.signedUrl };
 }

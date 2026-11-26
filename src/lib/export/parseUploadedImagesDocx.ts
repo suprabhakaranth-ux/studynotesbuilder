@@ -4,13 +4,13 @@ import { parseHtmlToParagraphs } from "@/utils/wordExport";
 
 /** Only handle uploaded block images; keep the proven text parser unchanged. */
 export async function parseUploadedImagesDocx(html: string): Promise<Array<Paragraph | Table>> {
-  if (!html.includes("/object/public/note-images/")) return parseHtmlToParagraphs(html);
+  if (!html.includes("/note-images/")) return parseHtmlToParagraphs(html);
   const root = new DOMParser().parseFromString(html, "text/html").body;
   const result: Array<Paragraph | Table> = [];
   let pending = "";
   for (const node of Array.from(root.childNodes)) {
     const image = node instanceof HTMLImageElement ? node : null;
-    if (!image || !image.src.includes("/object/public/note-images/")) {
+    if (!image || !image.src.includes("/note-images/")) {
       pending += node instanceof Element ? node.outerHTML : node.textContent || "";
       continue;
     }
