@@ -1,0 +1,1 @@
+CREATE POLICY "Workspace members read presentation files" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'presentations' AND public.can_edit_workspace(((storage.foldername(name))[1])::uuid));

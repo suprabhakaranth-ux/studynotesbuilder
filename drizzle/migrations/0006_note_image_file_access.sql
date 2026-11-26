@@ -1,0 +1,4 @@
+CREATE POLICY "Users upload own note images" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id='note-images' AND (storage.foldername(name))[1]=auth.uid()::text);
+CREATE POLICY "Workspace read note images" ON storage.objects FOR SELECT TO authenticated USING (bucket_id='note-images' AND public.can_edit_workspace(((storage.foldername(name))[1])::uuid));
+CREATE POLICY "Workspace update note images" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id='note-images' AND public.can_edit_workspace(((storage.foldername(name))[1])::uuid)) WITH CHECK (bucket_id='note-images' AND public.can_edit_workspace(((storage.foldername(name))[1])::uuid));
+CREATE POLICY "Workspace delete note images" ON storage.objects FOR DELETE TO authenticated USING (bucket_id='note-images' AND public.can_edit_workspace(((storage.foldername(name))[1])::uuid));

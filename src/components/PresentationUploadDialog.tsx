@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Upload, FileText } from "lucide-react";
-import { uploadPresentation } from "@/hooks/usePresentations";
+import { uploadPresentation, type Presentation } from "@/hooks/usePresentations";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -12,7 +12,7 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   userId: string;
   subjectId: string;
-  onUploaded: () => void;
+  onUploaded: (presentation: Presentation) => void;
 }
 
 const MAX = 100 * 1024 * 1024;
@@ -49,9 +49,9 @@ export const PresentationUploadDialog = ({ open, onOpenChange, userId, subjectId
     if (!file) return;
     setBusy(true);
     try {
-      await uploadPresentation({ userId, subjectId, title: title.trim(), file });
+      const presentation = await uploadPresentation({ userId, subjectId, title: title.trim(), file });
       toast({ title: "Presentation uploaded" });
-      onUploaded();
+      onUploaded(presentation);
       onOpenChange(false);
       reset();
     } catch (e: any) {

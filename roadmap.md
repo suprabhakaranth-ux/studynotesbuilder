@@ -1,7 +1,8 @@
 # Floating study notes
-- [ ] Add on-demand topic-linked PDF slides in a movable, resizable, maximizable window under +.
-- [ ] Replace + Image URL entry with uploaded images at the captured text cursor.
-- [ ] Verify uploads, linking, persistence and isolation from primary note loading/saving using disposable data.
+- [x] Add on-demand topic-linked PDF slides in a movable, resizable, maximizable window under +.
+- [x] Replace + Image URL entry with a file picker and captured-cursor insertion.
+- [x] Verify PDF upload, linking, persistence, drag, resizing, maximize, unlinking and no closed-viewer requests using disposable data; image insertion/reload verified with simulated storage, blocked upload preserves text.
+- [ ] Enable actual image uploads and verify end-to-end: blocked by workspace public-bucket privacy setting; awaiting user's choice.
 - [x] Restore the current tab's year/subject/chapter/topic after reload, waiting for navigation data before resolving topic links.
 - [x] Verify signed-in reload, delayed loading, fresh-tab behavior and absence of passive note saves.
 - [x] Add separately saved, draggable drawing and typed margin notes with close/show controls.

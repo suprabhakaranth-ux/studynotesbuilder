@@ -22,6 +22,7 @@ import {
 import type { Table } from "docx";
 import type { TopicBundle, ExportOptions, ProgressCallback } from "./types";
 import { parseHtmlToParagraphs, createPageBreak } from "@/utils/wordExport";
+import { parseUploadedImagesDocx } from "./parseUploadedImagesDocx";
 
 
 const PAGE_SIZES = {
@@ -279,7 +280,7 @@ export async function buildArchiveDocx(
         );
       }
 
-      children.push(...parseHtmlToParagraphs(block.content));
+      children.push(...await parseUploadedImagesDocx(block.content));
     }
 
     // Outline (heading tree)
@@ -305,7 +306,7 @@ export async function buildArchiveDocx(
           children: [new TextRun({ text: "Summary" })],
         })
       );
-      children.push(...parseHtmlToParagraphs(b.summary));
+      children.push(...await parseUploadedImagesDocx(b.summary));
     }
 
     // Mnemonic tab content
@@ -317,7 +318,7 @@ export async function buildArchiveDocx(
           children: [new TextRun({ text: "Mnemonic" })],
         })
       );
-      children.push(...parseHtmlToParagraphs(b.mnemonic));
+      children.push(...await parseUploadedImagesDocx(b.mnemonic));
     }
   }
 

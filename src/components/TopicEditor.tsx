@@ -1,5 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine, StickyNote, Eye, EyeOff, RotateCcw } from "lucide-react";
+import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine, StickyNote, Eye, EyeOff, RotateCcw, ImagePlus, Presentation } from "lucide-react";
+import type { Editor } from "@tiptap/react";
+import type { SelectionBookmark, Transaction } from "@tiptap/pm/state";
+import { uploadNoteImage } from "@/lib/noteImageUpload";
 import { useMarginNotes } from "@/hooks/useMarginNotes";
 import { MarginNotesLayer, DeletedMarginNotes } from "./MarginNotesLayer";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -54,6 +57,8 @@ interface Block {
   headings?: string[];
 }
 
+const TopicSlidesWindow = lazy(() => import("./TopicSlidesWindow"));
+
 interface HeadingNode {
   id: string;
   title: string;
@@ -83,6 +88,41 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   const [closedMarginNotes, setClosedMarginNotes] = useState<Set<string>>(new Set());
   const scrollRegionRef = useRef<HTMLDivElement>(null);
   const pageLayerRef = useRef<HTMLDivElement>(null);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [slidesOpen, setSlidesOpen] = useState(false);
+  const imageTarget = useRef<{ editor: Editor; bookmark: SelectionBookmark; unbind: () => void } | null>(null);
+  const captureImageCursor = () => {
+    const editor = window.__activeTiptapEditor;
+    if (!editor || editor.isDestroyed || !pageLayerRef.current?.contains(editor.view.dom) || editor.view.dom.closest("[data-margin-note]")) return;
+    imageTarget.current?.unbind();
+    const target = { editor, bookmark: editor.state.selection.getBookmark(), unbind: () => {} };
+    const map = ({ transaction }: { transaction: Transaction }) => { target.bookmark = target.bookmark.map(transaction.mapping); };
+    editor.on("transaction", map);
+    target.unbind = () => editor.off("transaction", map);
+    imageTarget.current = target;
+  };
+  useEffect(() => () => { imageTarget.current?.unbind(); imageTarget.current = null; }, [topicId]);
+  const chooseImage = () => {
+    if (!imageTarget.current || imageTarget.current.editor.isDestroyed) {
+      toast({ title: "Place your cursor in the note first", description: "Then choose + → Image.", variant: "destructive" });
+      return;
+    }
+    imageInputRef.current?.click();
+  };
+  const insertUploadedImage = async (file: File) => {
+    const target = imageTarget.current;
+    if (!target || !effectiveUserId) return;
+    setImageUploading(true);
+    try {
+      const uploaded = await uploadNoteImage(file, effectiveUserId);
+      if (imageTarget.current !== target || target.editor.isDestroyed || !pageLayerRef.current?.contains(target.editor.view.dom)) return;
+      const selection = target.bookmark.resolve(target.editor.state.doc);
+      target.editor.chain().focus().setTextSelection(selection.from).setImage({ src: uploaded.src, alt: file.name }).run();
+      toast({ title: "Image inserted" });
+    } catch (e) { toast({ title: "Could not insert image", description: e instanceof Error ? e.message : "Please try again. Your study text has not changed.", variant: "destructive" }); }
+    finally { target.unbind(); if (imageTarget.current === target) imageTarget.current = null; setImageUploading(false); }
+  };
   const selectedAnchorRef = useRef("");
   const margin = useMarginNotes(topicId, effectiveUserId, !readOnly);
   const visibleMarginNotes = margin.notes.filter(note => !note.deleted_at && note.page_tab === activeTab);
@@ -771,7 +811,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                       <span className="inline-flex">
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button size="sm" className="h-8 w-8 p-0" aria-label="Add block" title="Add block or margin note" onPointerDown={captureSelectionMarks}>
+                            <Button size="sm" className="h-8 w-8 p-0" aria-label="Add block" title="Add block or margin note" onPointerDown={() => { captureSelectionMarks(); captureImageCursor(); }}>
                               <Plus className="w-4 h-4" />
                             </Button>
                           </TooltipTrigger>
@@ -800,9 +840,13 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
                         <Lightbulb className="w-4 h-4 mr-2" />
                         Mnemonic
                       </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => addBlock("image")}>
-                        <FileText className="w-4 h-4 mr-2" />
-                        Image
+                      <DropdownMenuItem disabled={imageUploading} onSelect={chooseImage}>
+                        <ImagePlus className="w-4 h-4 mr-2" />
+                        {imageUploading ? "Uploading image…" : "Image"}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onSelect={() => setSlidesOpen(true)}>
+                        <Presentation className="w-4 h-4 mr-2" />
+                        Slides / PDF
                       </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => addBlock("drawing")}>
                         <PenLine className="w-4 h-4 mr-2" />
@@ -1000,6 +1044,9 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         </div>
         </div>
       </Tabs>
+
+      {!readOnly && <input ref={imageInputRef} type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml" className="hidden" aria-label="Upload note image" onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; if (file) void insertUploadedImage(file); }} />}
+      {!readOnly && slidesOpen && <Suspense fallback={<div role="status" className="fixed bottom-4 right-4 z-50 bg-card border p-3 rounded-lg">Opening slides…</div>}><TopicSlidesWindow key={topicId} topicId={topicId} onClose={() => setSlidesOpen(false)} /></Suspense>}
 
 
       <AlertDialog open={outlineConfirmOpen} onOpenChange={setOutlineConfirmOpen}>

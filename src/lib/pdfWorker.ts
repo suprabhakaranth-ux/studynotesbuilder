@@ -1,11 +1,8 @@
 import { pdfjs } from "react-pdf";
+import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
-// Pin worker to the exact installed pdfjs-dist version using Vite's
-// new URL(..., import.meta.url) pattern. This avoids `?url` plugin quirks
-// and guarantees the API and Worker versions match.
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  "pdfjs-dist/build/pdf.worker.min.mjs",
-  import.meta.url,
-).toString();
+// Resolve the package asset through Vite rather than a source-relative URL.
+// Both the lazy floating viewer and public viewer use the installed version.
+pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
 export { pdfjs };

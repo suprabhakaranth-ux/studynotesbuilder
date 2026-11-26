@@ -89,12 +89,13 @@ export const uploadPresentation = async (params: {
   }
 
   // 4. Update row with file_path
-  const { data: updated } = await supabase
+  const { data: updated, error: updateError } = await supabase
     .from("presentations")
     .update({ file_path: path })
     .eq("id", row.id)
     .select()
     .single();
+  if (updateError || !updated) throw updateError || new Error("Could not finish saving the presentation. Please retry.");
   return updated as Presentation;
 };
 

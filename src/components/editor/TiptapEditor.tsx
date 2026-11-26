@@ -68,7 +68,7 @@ const buildExtensions = (placeholder: string) => [
         },
       };
     },
-  }),
+  }).configure({ resize: { enabled: true, directions: ["bottom-left", "bottom-right", "top-left", "top-right"], minWidth: 80, minHeight: 40, alwaysPreserveAspectRatio: true } }),
   FontSize,
   IndentParagraph,
   MathInline,

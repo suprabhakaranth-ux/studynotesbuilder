@@ -4,7 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { HelmetProvider } from "react-helmet-async";
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import Landing from "./pages/Landing";
 import Index from "./pages/Index";
@@ -14,11 +14,11 @@ import AssistantWorkspace from "./pages/AssistantWorkspace";
 import Showcase from "./pages/Showcase";
 import PublicLibrary from "./pages/PublicLibrary";
 import PublicTopic from "./pages/PublicTopic";
-import PublicPresentation from "./pages/PublicPresentation";
 import NotFound from "./pages/NotFound";
 import ExportCenter from "./pages/ExportCenter";
 
 const queryClient = new QueryClient();
+const PublicPresentation = lazy(() => import("./pages/PublicPresentation"));
 
 // Legacy /library/topic/:topicId → /library/:subjectSlug/:chapterSlug/:topicSlug
 const LegacyTopicRedirect = () => {
@@ -85,7 +85,7 @@ const App = () => (
             <Route path="/library/:subjectSlug" element={<PublicLibrary />} />
             <Route path="/library/:subjectSlug/:chapterSlug" element={<PublicLibrary />} />
             <Route path="/library/:subjectSlug/:chapterSlug/:topicSlug" element={<PublicTopic />} />
-            <Route path="/library/:subjectSlug/presentations/:presentationSlug" element={<PublicPresentation />} />
+            <Route path="/library/:subjectSlug/presentations/:presentationSlug" element={<Suspense fallback={<div role="status" className="p-6 text-muted-foreground">Opening presentation…</div>}><PublicPresentation /></Suspense>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

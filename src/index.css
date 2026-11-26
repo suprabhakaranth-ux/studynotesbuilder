@@ -338,6 +338,23 @@ All colors MUST be HSL.
   overflow: hidden;
 }
 .margin-note-card .tiptap-wrapper { min-width: 0; }
+.ProseMirror [data-resize-container] { max-width: 100%; margin-block: 1rem; }
+.ProseMirror [data-resize-wrapper] { max-width: 100%; }
+.ProseMirror [data-node="image"] img { max-width: 100%; height: auto; }
+.ProseMirror [data-resize-handle] {
+  width: 12px;
+  height: 12px;
+  border: 2px solid hsl(var(--card));
+  background: hsl(var(--primary));
+  border-radius: 2px;
+  opacity: 0;
+}
+.ProseMirror [data-resize-wrapper]:hover [data-resize-handle],
+.ProseMirror [data-resize-container][data-selected] [data-resize-handle] { opacity: 1; }
+.ProseMirror [data-resize-handle="bottom-right"],
+.ProseMirror [data-resize-handle="top-left"] { cursor: nwse-resize; }
+.ProseMirror [data-resize-handle="bottom-left"],
+.ProseMirror [data-resize-handle="top-right"] { cursor: nesw-resize; }
 @media print {
   .margin-note-card, .margin-note-marker { display: none; }
 }

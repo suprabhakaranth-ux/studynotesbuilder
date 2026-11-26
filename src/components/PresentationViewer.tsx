@@ -8,6 +8,7 @@ import "react-pdf/dist/Page/TextLayer.css";
 interface PresentationViewerProps {
   fileUrl: string;
   onLoadSuccess?: (pageCount: number) => void;
+  embedded?: boolean;
 }
 
 const MAX_PAGE_WIDTH = 1100;
@@ -45,7 +46,7 @@ const LazyPage = ({ pageNumber, width, onVisible }: { pageNumber: number; width:
   );
 };
 
-export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewerProps) => {
+export const PresentationViewer = ({ fileUrl, onLoadSuccess, embedded = false }: PresentationViewerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState(MAX_PAGE_WIDTH);
   const [numPages, setNumPages] = useState(0);
@@ -67,19 +68,21 @@ export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewe
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (!containerRef.current) return;
+      if (embedded && !containerRef.current.contains(e.target as Node)) return;
+      if ((e.target as HTMLElement)?.closest("input,textarea,[contenteditable=true]")) return;
       if (e.key === "ArrowDown" || e.key === "PageDown" || e.key === " ") {
         e.preventDefault();
-        const next = document.querySelector<HTMLElement>(`[data-page-number="${Math.min(numPages, currentPage + 1)}"]`);
+        const next = containerRef.current.querySelector<HTMLElement>(`[data-page-number="${Math.min(numPages, currentPage + 1)}"]`);
         next?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else if (e.key === "ArrowUp" || e.key === "PageUp") {
         e.preventDefault();
-        const prev = document.querySelector<HTMLElement>(`[data-page-number="${Math.max(1, currentPage - 1)}"]`);
+        const prev = containerRef.current.querySelector<HTMLElement>(`[data-page-number="${Math.max(1, currentPage - 1)}"]`);
         prev?.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [currentPage, numPages]);
+  }, [currentPage, numPages, embedded]);
 
   // Stable file + options refs so react-pdf doesn't re-fetch on every render
   const fileProp = useMemo(
@@ -92,7 +95,7 @@ export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewe
   );
 
   return (
-    <div ref={containerRef} className="w-full">
+    <div ref={containerRef} className="w-full" tabIndex={embedded ? 0 : undefined}>
       <Document
         file={fileProp}
         options={docOptions}
@@ -125,7 +128,7 @@ export const PresentationViewer = ({ fileUrl, onLoadSuccess }: PresentationViewe
       </Document>
 
       {numPages > 0 && (
-        <div className="fixed bottom-4 right-4 bg-foreground/90 text-background text-xs font-medium px-3 py-1.5 rounded-full shadow-lg z-40 backdrop-blur">
+        <div className={`${embedded ? "sticky bottom-2 mx-auto w-fit" : "fixed bottom-4 right-4"} bg-foreground/90 text-background text-xs font-medium px-3 py-1.5 rounded-full shadow-lg z-40 backdrop-blur`}>
           {currentPage} / {numPages}
         </div>
       )}

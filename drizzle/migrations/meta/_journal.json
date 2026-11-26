@@ -36,6 +36,20 @@
       "when": 1795661988918,
       "tag": "0004_topic_presentation_links",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795662621751,
+      "tag": "0005_presentation_authenticated_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795662868494,
+      "tag": "0006_note_image_file_access",
+      "breakpoints": true
     }
   ]
 }
