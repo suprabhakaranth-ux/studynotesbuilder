@@ -462,6 +462,27 @@ export type Database = {
         }
         Relationships: []
       }
+      topic_presentation_links: {
+        Row: {
+          created_at: string
+          presentation_id: string
+          topic_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          presentation_id: string
+          topic_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          presentation_id?: string
+          topic_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       topic_versions: {
         Row: {
           blocks: Json
