@@ -12,6 +12,7 @@ import {
   List,
   ListOrdered,
   ListCollapse,
+  Workflow,
   Indent,
   Outdent,
   Heading,
@@ -51,6 +52,7 @@ import {
 } from "./editor/extensions/mathTokenizer";
 import { cleanPastedHtml } from "./editor/extensions/wordPasteCleaner";
 import { formatLlmNotes } from "./editor/formatLlmNotes";
+import { formatDiagrams } from "./editor/formatDiagrams";
 
 interface FormattingToolbarProps {
   onMarkHeading?: (text: string) => void;
@@ -205,7 +207,9 @@ export const FormattingToolbar = ({
           break;
       }
       const normalized = normalizeHtmlForTiptap(toInsert);
+      const startPos = e.state.selection.from;
       e.chain().focus().insertContent(normalized).run();
+      if (mode === "source") formatDiagrams(e, { from: startPos, to: e.state.selection.to });
       toast({
         title: "Pasted",
         description:
@@ -258,6 +262,16 @@ export const FormattingToolbar = ({
     toast({
       title: count ? `Formatted ${count} ${count === 1 ? "point" : "points"}` : "No heading-and-text points found",
     });
+  };
+
+  const handleFormatDiagrams = () => {
+    const editor = getActiveEditor();
+    if (!editor || !editor.isEditable) {
+      toast({ title: "Click in your notes first", variant: "destructive" });
+      return;
+    }
+    const count = formatDiagrams(editor);
+    toast({ title: count ? `Fitted ${count} ${count === 1 ? "diagram" : "diagrams"} to the page` : "No text diagrams found" });
   };
 
   const handleRedo = () => {
@@ -596,6 +610,9 @@ export const FormattingToolbar = ({
         </Button>
         <Button size="sm" variant="ghost" onClick={handleFormatLlmNotes} className="h-8 w-8 p-0 hover:bg-primary/10" title="Format LLM Notes (split heading & body)" aria-label="Format LLM Notes">
           <ListCollapse className="w-3.5 h-3.5" />
+        </Button>
+        <Button size="sm" variant="ghost" onClick={handleFormatDiagrams} className="h-8 w-8 p-0 hover:bg-primary/10" title="Format diagrams (fit text charts to the page)" aria-label="Format diagrams">
+          <Workflow className="w-3.5 h-3.5" />
         </Button>
         <Button size="sm" variant="ghost" onClick={tIndent} className="h-8 w-8 p-0 hover:bg-primary/10" title="Indent">
           <Indent className="w-3.5 h-3.5" />

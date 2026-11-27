@@ -315,6 +315,22 @@ All colors MUST be HSL.
 
 /* Reading width is independent of export paper size and revision marks. */
 .study-notes-page { max-width: 210mm; }
+.study-notes-page.web-layout { max-width: none; }
+/* Text diagrams shrink with the page so the whole chart fits without wrapping. */
+.ProseMirror { container-type: inline-size; }
+.ProseMirror pre {
+  white-space: pre;
+  overflow-x: auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, "Courier New", monospace;
+  font-size: clamp(7px, calc(100cqi / 66), 15px);
+  line-height: 1.35;
+  background: hsl(var(--muted) / 0.5);
+  border: 1px solid hsl(var(--border));
+  border-radius: 6px;
+  padding: 0.75rem;
+  margin: 1rem 0;
+}
+.ProseMirror pre code { font: inherit; background: none; padding: 0; white-space: inherit; }
 @media (min-width: 1280px) {
   .study-notes-page { max-width: 1000px; }
 }

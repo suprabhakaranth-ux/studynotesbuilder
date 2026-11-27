@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, lazy, Suspense } from "react";
-import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine, StickyNote, Eye, EyeOff, RotateCcw, ImagePlus, Presentation } from "lucide-react";
+import { ArrowLeft, Plus, FileText, Lightbulb, Save, BookOpen, Download, Wand2, PenLine, StickyNote, Eye, EyeOff, RotateCcw, ImagePlus, Presentation, Monitor } from "lucide-react";
 import type { Editor } from "@tiptap/react";
 import type { SelectionBookmark, Transaction } from "@tiptap/pm/state";
 import { uploadNoteImage } from "@/lib/noteImageUpload";
@@ -218,6 +218,8 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
   };
 
   // Live word count of the notes content (plain-text words across all blocks).
+  const [pageLayout, setPageLayoutState] = useState<"web" | "print">(() => (localStorage.getItem("notes-page-layout") === "print" ? "print" : "web"));
+  const setPageLayout = (v: "web" | "print") => { setPageLayoutState(v); localStorage.setItem("notes-page-layout", v); };
   const wordCount = useMemo(() => {
     const text = blocks.filter((b) => b.type !== "drawing").map((b) => b.content).join(" ");
     const plain = text.replace(/<[^>]*>/g, " ");
@@ -781,6 +783,10 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
               >
                 {wordCount.toLocaleString()} words
               </span>
+              <Button size="sm" variant="ghost" className="h-8 px-2 text-xs gap-1" title={pageLayout === "web" ? "Switch to print layout (A4 page)" : "Switch to web layout (full width)"} onClick={() => setPageLayout(pageLayout === "web" ? "print" : "web")}>
+                {pageLayout === "web" ? <Monitor className="w-4 h-4" /> : <FileText className="w-4 h-4" />}
+                <span className="hidden md:inline">{pageLayout === "web" ? "Web" : "Print"}</span>
+              </Button>
               <TabsList className="h-8 p-0.5 mr-1 rounded-full">
                 <TabsTrigger value="full" className="rounded-full px-3 py-1 text-xs">Notes</TabsTrigger>
                 <TabsTrigger value="summary" className="rounded-full px-3 py-1 text-xs">Summary</TabsTrigger>
@@ -895,7 +901,7 @@ export const TopicEditor = ({ topicId, topicTitle, onBack, readOnly = false, use
         <div ref={pageLayerRef} className="relative min-h-full">
 
         <TabsContent value="full" className="m-0 px-4">
-          <div className="study-notes-page w-full mx-auto shadow-2xl bg-card mb-8">
+          <div className={`study-notes-page w-full mx-auto shadow-2xl bg-card mb-8${pageLayout === "web" ? " web-layout" : ""}`}>
             <div id="pdf-export-content" className="p-4 sm:p-8 lg:p-10 min-h-[297mm] space-y-4 bg-card">
               {blocks.map((block, index) => (
                 <ContentBlock

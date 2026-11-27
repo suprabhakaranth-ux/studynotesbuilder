@@ -300,6 +300,18 @@ export const parseHtmlToParagraphs = (html: string): Array<Paragraph | Table> =>
       return;
     }
 
+    // PRE (text diagrams): one monospace paragraph per line so alignment survives
+    if (tag === "pre") {
+      (el.textContent || "").split("\n").forEach((line) => {
+        paragraphs.push(new Paragraph({
+          spacing: { before: 0, after: 0 },
+          children: [new TextRun({ text: line.replace(/ /g, "\u00a0") || " ", font: "Courier New", size: 16 })],
+        }));
+      });
+      paragraphs.push(new Paragraph({ children: [] }));
+      return;
+    }
+
     // TABLE
     if (tag === "table") {
       paragraphs.push(buildTable(el as HTMLTableElement));
